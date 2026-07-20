@@ -91,6 +91,10 @@ export async function getStackDrift(name: string): Promise<StackDriftResult> {
     all: true,
     filters: { label: [`com.docker.compose.project=${name}`] },
   });
+
+  if (containers.length === 0) {
+    return { inSync: true, missingServices: [], orphanedContainers: [], imageMismatches: [] };
+  }
   return computeStackDrift(await readStack(name), containers);
 }
 

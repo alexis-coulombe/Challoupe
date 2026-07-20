@@ -217,5 +217,14 @@ describe('GET /api/stacks/:name/drift', () => {
       status: 'inactive',
       drifted: false,
     });
+
+    const drift = await agent.get('/api/stacks/never-deployed/drift');
+    expect(drift.status).toBe(200);
+    expect(drift.body).toEqual({
+      inSync: true,
+      missingServices: [],
+      orphanedContainers: [],
+      imageMismatches: [],
+    });
   });
 });
