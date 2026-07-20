@@ -1,0 +1,34 @@
+services:
+  challoupe:
+    build: .
+    container_name: challoupe
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+      # If TLS_CERT_FILE/TLS_KEY_FILE below are set, this is an HTTPS port — map it to the
+      # standard 443 instead if you want a URL with no port suffix:
+      # - "443:3001"
+    environment:
+      # Uncomment these two to have Challoupe terminate HTTPS itself (point them at a
+      # mounted cert/key pair — self-signed or real, e.g. certbot's fullchain.pem/privkey.pem).
+      # Leave both unset for plain HTTP, the right choice if a reverse proxy (Traefik/Caddy/
+      # nginx) in front of this container already terminates TLS instead.
+      # - TLS_CERT_FILE=/certs/fullchain.pem
+      # - TLS_KEY_FILE=/certs/privkey.pem
+      # Only if a reverse proxy sits in front AND forwards X-Forwarded-Proto/X-Forwarded-For
+      # — never enable this for a directly-exposed container, it lets a client spoof its own IP/protocol.
+      # - TRUST_PROXY=true
+      # Needed for OIDC SSO's callback URL if you're not on the default host/port; harmless otherwise.
+      # - PUBLIC_URL=https://challoupe.example.com
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - challoupe_data:/app/data
+      # - ./certs:/certs:ro   # your cert/key pair, only needed alongside TLS_CERT_FILE/TLS_KEY_FILE
+      # Optional: without this, the Dashboard/Settings "Storage" stat can't be read (it
+      # reports 0 instead of failing) since it needs the *host's* Docker root dir visible
+      # at the same path inside the container. Mount it read-only, matching whatever
+      # `docker info --format '{{.DockerRootDir}}'` prints on the host (usually this):
+      # - /var/lib/docker:/var/lib/docker:ro
+
+volumes:
+  challoupe_data:

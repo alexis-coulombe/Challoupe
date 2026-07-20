@@ -1,0 +1,85 @@
+html,
+body,
+#root {
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  background: #0b0e14;
+  color-scheme: dark;
+  overflow-x: hidden;
+}
+
+/* Every modal/drawer stays reachable on narrow screens regardless of the fixed pixel
+   `width` a page passes it. */
+.ant-modal {
+  max-width: calc(100vw - 24px);
+}
+
+.ant-drawer-content-wrapper {
+  max-width: 100vw;
+}
+
+/* Form fields across the app are given a fixed pixel `width` for their comfortable
+   desktop size (e.g. 260-400px); this lets them shrink instead of overflowing their
+   container once that container (a modal, a narrow phone screen) is smaller. */
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select,
+.ant-input-number,
+.ant-picker {
+  max-width: 100%;
+}
+
+/* Hamburger trigger for the mobile nav drawer: hidden on desktop, shown once the
+   persistent sidebar itself hides (see .app-sider below). */
+.mobile-nav-trigger {
+  display: none;
+}
+
+.header-username {
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  .header-stats {
+    display: none;
+  }
+}
+
+@media (max-width: 576px) {
+  .app-sider {
+    display: none !important;
+  }
+  .mobile-nav-trigger {
+    display: inline-flex !important;
+  }
+  .header-username {
+    display: none;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3441 transparent;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.35);
+}
+
+/* The floating AI Assistant launcher: a violet gradient instead of the default
+   elevated-surface circle, so it reads as a distinct "AI" affordance, not just
+   another chrome button. */
+.ai-float-btn .ant-float-btn-body {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.5);
+  transition: box-shadow 0.2s ease;
+}
+.ai-float-btn:hover .ant-float-btn-body {
+  box-shadow: 0 4px 28px rgba(139, 92, 246, 0.75);
+}
+.ai-float-btn .ant-float-btn-body .ant-float-btn-icon {
+  color: #fff;
+}

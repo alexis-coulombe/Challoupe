@@ -1,0 +1,38 @@
+{
+  "name": "@challoupe/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.2.0",
+    "better-sqlite3-session-store": "^0.1.0",
+    "dockerode": "^4.0.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.6.0",
+    "express-session": "^1.18.1",
+    "openid-client": "^6.8.4",
+    "otplib": "^13.4.1",
+    "ws": "^8.21.1",
+    "yaml": "^2.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/dockerode": "^3.3.31",
+    "@types/express": "^5.0.0",
+    "@types/express-session": "^1.18.0",
+    "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.18.1",
+    "supertest": "^7.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

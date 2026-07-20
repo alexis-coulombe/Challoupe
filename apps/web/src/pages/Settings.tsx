@@ -1,0 +1,724 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Alert,
+  App as AntApp,
+  AutoComplete,
+  Button,
+  Card,
+  Descriptions,
+  Divider,
+  Form,
+  Input,
+  InputNumber,
+  List,
+  Popconfirm,
+  Select,
+  Space,
+  Switch,
+  Tabs,
+  Typography,
+  Upload,
+} from 'antd';
+import {
+  ClockCircleOutlined,
+  CloudDownloadOutlined,
+  DeleteOutlined,
+  DesktopOutlined,
+  DownloadOutlined,
+  GithubOutlined,
+  GitlabOutlined,
+  GoogleOutlined,
+  RobotOutlined,
+  SafetyCertificateOutlined,
+  SecurityScanOutlined,
+  SettingOutlined,
+  UploadOutlined,
+  WindowsOutlined,
+} from '@ant-design/icons';
+import {
+  api,
+  ApiError,
+  type AppSettings,
+  type BackupFile,
+  type ScheduledBackupFile,
+  type SystemInfo,
+} from '../api';
+import { AI_COLOR, AI_COLOR_BORDER, fromISO, SECURITY_COLOR, SECURITY_COLOR_BORDER, formatBytes } from '../utils';
+import { findSsoProvider, guessSsoProvider, parseKnownSsoProvider, SSO_PROVIDERS } from '../data/ssoProviders';
+import AiButton from '../components/AiButton';
+import SecurityButton from '../components/SecurityButton';
+import { useAppSettings } from '../hooks/useAppSettings';
+import { useAuth } from '../auth';
+
+const REFRESH_INTERVAL_OPTIONS = [
+  { value: 3000, label: '3 seconds' },
+  { value: 5000, label: '5 seconds' },
+  { value: 10000, label: '10 seconds' },
+  { value: 30000, label: '30 seconds' },
+];
+
+const LOG_TAIL_OPTIONS = [100, 200, 500, 1000, 5000].map((v) => ({ value: v, label: `${v} lines` }));
+
+const SHELL_OPTIONS = [
+  { value: '/bin/sh', label: '/bin/sh' },
+  { value: '/bin/bash', label: '/bin/bash' },
+  { value: '/bin/ash', label: '/bin/ash' },
+];
+
+// Only providers with a real ant-design brand icon get one; the rest (Okta, Auth0,
+// Keycloak, Authentik, Authelia) are plain text rather than an invented/approximate logo.
+const SSO_PROVIDER_ICONS: Record<string, ReactNode> = {
+  google: <GoogleOutlined />,
+  microsoft: <WindowsOutlined />,
+  gitlab: <GitlabOutlined />,
+  github: <GithubOutlined />,
+};
+
+const SSO_PROVIDER_OPTIONS = SSO_PROVIDERS.map((p) => ({
+  value: p.id,
+  disabled: p.disabled,
+  label: (
+    <Space size={6}>
+      {SSO_PROVIDER_ICONS[p.id]}
+      {p.name}
+      {p.disabled && <Typography.Text type="secondary">— not supported</Typography.Text>}
+    </Space>
+  ),
+}));
+
+export default function Settings() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { message, modal } = AntApp.useApp();
+  const queryClient = useQueryClient();
+  const [form] = Form.useForm<AppSettings>();
+  const isAdmin = user?.role === 'admin';
+
+  const { data: info } = useQuery({
+    queryKey: ['system-info'],
+    queryFn: () => api.get<SystemInfo>('/system/info'),
+  });
+
+  const { data: settings } = useAppSettings();
+
+  const [models, setModels] = useState<string[]>([]);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
+  const [testError, setTestError] = useState('');
+  const [ssoProvider, setSsoProvider] = useState('custom');
+  const [ssoProviderValues, setSsoProviderValues] = useState<Record<string, string>>({});
+
+  const pullTrivyMutation = useMutation({
+    mutationFn: (reference: string) => api.post('/images/pull', { reference }),
+    onSuccess: () => message.success('Trivy image pulled and ready to scan'),
+    onError: (err) => message.error(err.message),
+  });
+
+  useEffect(() => {
+    if (settings) form.setFieldsValue(settings);
+  }, [settings, form]);
+
+  // Restore which SSO provider template (if any) is behind the stored issuer URL, so
+  // reopening Settings shows the right picker selection instead of always falling back to
+  // "Custom". The stored `providerId` names the template directly once one has been saved;
+  // for settings saved before that field existed, fall back to a best-effort URL guess.
+  useEffect(() => {
+    if (!settings) return;
+    const { providerId, issuerUrl } = settings.oidc;
+    if (providerId) {
+      setSsoProvider(providerId);
+      setSsoProviderValues(parseKnownSsoProvider(providerId, issuerUrl));
+    } else {
+      const guess = guessSsoProvider(issuerUrl);
+      setSsoProvider(guess?.id ?? 'custom');
+      setSsoProviderValues(guess?.values ?? {});
+    }
+  }, [settings]);
+
+  const handleSsoProviderChange = (id: string) => {
+    setSsoProvider(id);
+    const template = findSsoProvider(id);
+    const defaults: Record<string, string> = {};
+    for (const field of template.fields) if (field.defaultValue) defaults[field.key] = field.defaultValue;
+    setSsoProviderValues(defaults);
+    form.setFieldValue(['oidc', 'providerId'], id === 'custom' ? '' : id);
+    if (id !== 'custom') {
+      form.setFieldValue(['oidc', 'buttonLabel'], template.buttonLabel);
+      form.setFieldValue(['oidc', 'issuerUrl'], template.buildIssuerUrl(defaults));
+    }
+  };
+
+  const handleSsoProviderFieldChange = (key: string, value: string) => {
+    const next = { ...ssoProviderValues, [key]: value };
+    setSsoProviderValues(next);
+    form.setFieldValue(['oidc', 'issuerUrl'], findSsoProvider(ssoProvider).buildIssuerUrl(next));
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: (values: AppSettings) => api.put('/settings', values),
+    onSuccess: () => {
+      message.success('Settings saved');
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (data: BackupFile) => api.post('/backup/restore', data),
+    onSuccess: async () => {
+      message.success('Restore complete — please sign in again.');
+      await logout().catch(() => {}); // the server session is already destroyed; this just clears local state
+      navigate('/login', { replace: true });
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const handleRestoreFile = (file: File): boolean => {
+    file.text().then((text) => {
+      let parsed: BackupFile;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        message.error('Could not read that file as JSON');
+        return;
+      }
+      if (parsed.version !== 1) {
+        message.error('Unsupported backup file version');
+        return;
+      }
+      modal.confirm({
+        title: 'Restore this backup?',
+        content: `This replaces all ${parsed.users.length} user(s), every setting, and ${parsed.stacks.length} stack(s) with the ones in this file — it cannot be undone, and everyone (including you) will need to sign in again afterward.`,
+        okText: 'Restore',
+        okButtonProps: { danger: true },
+        onOk: () => restoreMutation.mutate(parsed),
+      });
+    });
+    return false; // prevent antd's Upload from trying to actually upload the file anywhere
+  };
+
+  const { data: scheduledBackups } = useQuery({
+    queryKey: ['scheduled-backups'],
+    queryFn: () => api.get<ScheduledBackupFile[]>('/backup/scheduled'),
+  });
+
+  const invalidateScheduledBackups = () =>
+    queryClient.invalidateQueries({ queryKey: ['scheduled-backups'] });
+
+  const runBackupMutation = useMutation({
+    mutationFn: () => api.post<{ filename: string }>('/backup/scheduled/run'),
+    onSuccess: (res) => {
+      message.success(`Wrote ${res.filename}`);
+      invalidateScheduledBackups();
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const deleteBackupMutation = useMutation({
+    mutationFn: (filename: string) => api.delete(`/backup/scheduled/${filename}`),
+    onSuccess: () => {
+      message.success('Backup deleted');
+      invalidateScheduledBackups();
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const testOllama = async () => {
+    setTestStatus('testing');
+    setTestError('');
+    try {
+      // Tests the URL currently typed in the field, not whatever was last saved — otherwise
+      // editing the Base URL and testing before hitting Save would silently test the old value.
+      const baseUrl = form.getFieldValue('ollamaBaseUrl') as string;
+      const res = await api.get<{ models: string[] }>(`/ai/models?baseUrl=${encodeURIComponent(baseUrl)}`);
+      setModels(res.models);
+      setTestStatus('ok');
+      if (res.models.length === 0) {
+        message.warning('Connected, but no models are pulled yet — run "ollama pull <model>".');
+      } else {
+        message.success(`Connected — found ${res.models.length} model${res.models.length === 1 ? '' : 's'}.`);
+      }
+    } catch (err) {
+      setTestStatus('error');
+      setTestError(err instanceof ApiError ? err.message : 'Could not reach Ollama');
+    }
+  };
+
+  const currentModel = Form.useWatch('ollamaModel', form);
+  const modelOptions = Array.from(new Set([...models, ...(currentModel ? [currentModel] : [])])).map((m) => ({
+    value: m,
+    label: m,
+  }));
+  const aiEnabled = Form.useWatch(['featureFlags', 'aiAssistant'], form) ?? true;
+  const securityEnabled = Form.useWatch(['featureFlags', 'vulnerabilityScanner'], form) ?? true;
+  const ssoEnabled = Form.useWatch(['oidc', 'enabled'], form) ?? false;
+  const imageUpdateCheckEnabled = Form.useWatch(['imageUpdateCheck', 'enabled'], form) ?? false;
+  const scheduledBackupEnabled = Form.useWatch(['scheduledBackup', 'enabled'], form) ?? false;
+  const trivyImage = Form.useWatch('trivyImage', form);
+
+  const aiTabLabel = (
+    <Space size={6}>
+      <RobotOutlined style={{ color: AI_COLOR }} />
+      AI Assistant
+    </Space>
+  );
+
+  const ssoTabLabel = (
+    <Space size={6}>
+      <SafetyCertificateOutlined />
+      Single Sign-On
+    </Space>
+  );
+
+  const backupTabLabel = (
+    <Space size={6}>
+      <CloudDownloadOutlined />
+      Backup
+    </Space>
+  );
+
+  const securityTabLabel = (
+    <Space size={6}>
+      <SecurityScanOutlined style={{ color: SECURITY_COLOR }} />
+      Security
+    </Space>
+  );
+
+  return (
+    <div>
+      <Typography.Title level={3}>Settings</Typography.Title>
+
+      <Form
+        form={form}
+        layout="vertical"
+        disabled={!isAdmin}
+        onFinish={(values) => saveMutation.mutate(values)}
+      >
+        <Tabs
+          defaultActiveKey="environment"
+          items={[
+            {
+              key: 'environment',
+              label: (
+                <Space size={6}>
+                  <DesktopOutlined />
+                  Environment
+                </Space>
+              ),
+              children: (
+                <Card>
+                  <Descriptions column={{ xs: 1, md: 2 }} bordered size="small">
+                    <Descriptions.Item label="Host">{info?.name}</Descriptions.Item>
+                    <Descriptions.Item label="Docker version">{info?.serverVersion}</Descriptions.Item>
+                    <Descriptions.Item label="API version">{info?.apiVersion}</Descriptions.Item>
+                    <Descriptions.Item label="Operating system">{info?.os}</Descriptions.Item>
+                    <Descriptions.Item label="Kernel">{info?.kernel}</Descriptions.Item>
+                    <Descriptions.Item label="Architecture">{info?.arch}</Descriptions.Item>
+                    <Descriptions.Item label="CPU / Memory">
+                      {info ? `${info.cpus} CPU · ${formatBytes(info.memory)}` : ''}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Docker socket">{info?.dockerSock}</Descriptions.Item>
+                    <Descriptions.Item label="Data directory">{info?.dataDir}</Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              ),
+            },
+            {
+              key: 'general',
+              label: (
+                <Space size={6}>
+                  <SettingOutlined />
+                  General
+                </Space>
+              ),
+              forceRender: true,
+              children: (
+                <Card>
+                  <Space size="large" wrap align="start">
+                    <Form.Item
+                      name="refreshIntervalMs"
+                      label="Refresh interval"
+                      tooltip="How often container lists, stacks, and the header stats poll for updates"
+                    >
+                      <Select style={{ width: 200 }} options={REFRESH_INTERVAL_OPTIONS} />
+                    </Form.Item>
+                    <Form.Item
+                      name="defaultLogTail"
+                      label="Default log backlog"
+                      tooltip="How many lines a container's Logs tab requests when first opened"
+                    >
+                      <Select style={{ width: 200 }} options={LOG_TAIL_OPTIONS} />
+                    </Form.Item>
+                  </Space>
+                  <Space size="large" wrap align="start">
+                    <Form.Item name="defaultRestartPolicy" label="Default restart policy for new containers">
+                      <Select
+                        style={{ width: 200 }}
+                        options={[
+                          { value: 'no', label: 'Never' },
+                          { value: 'always', label: 'Always' },
+                          { value: 'unless-stopped', label: 'Unless stopped' },
+                          { value: 'on-failure', label: 'On failure' },
+                        ]}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      name="defaultTerminalShell"
+                      label="Default terminal shell"
+                      tooltip="Shell used when opening a container's Terminal tab"
+                    >
+                      <Select style={{ width: 200 }} options={SHELL_OPTIONS} />
+                    </Form.Item>
+                  </Space>
+                  <Typography.Title level={5} style={{ marginTop: 8 }}>
+                    Resource quotas
+                  </Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Caps applied when a non-admin user creates a container. Administrators are
+                    never limited. Leave blank for unlimited.
+                  </Typography.Paragraph>
+                  <Space size="large" wrap align="start">
+                    <Form.Item name="maxContainerMemoryMb" label="Max memory for non-admins (MB)">
+                      <InputNumber min={1} placeholder="Unlimited" style={{ width: 200 }} />
+                    </Form.Item>
+                    <Form.Item name="maxContainerCpus" label="Max CPU cores for non-admins">
+                      <InputNumber min={0.1} step={0.1} placeholder="Unlimited" style={{ width: 200 }} />
+                    </Form.Item>
+                  </Space>
+                  <Typography.Title level={5} style={{ marginTop: 8 }}>
+                    Image update checks
+                  </Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    A manual "Check for updates" is always available on the Images page. Turning
+                    this on also checks every pulled image against its registry on a timer — a
+                    check counts toward that registry's pull rate limit (notably Docker Hub's
+                    anonymous quota), so keep the interval wide on a host with many images.
+                  </Typography.Paragraph>
+                  <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
+                    <Form.Item name={['imageUpdateCheck', 'enabled']} valuePropName="checked" noStyle>
+                      <Switch />
+                    </Form.Item>
+                    <Typography.Text strong>Check for image updates automatically</Typography.Text>
+                  </Space>
+                  <Space size="large" wrap align="start">
+                    <Form.Item name={['imageUpdateCheck', 'intervalHours']} label="Check interval (hours)">
+                      <InputNumber min={1} max={24 * 30} disabled={!imageUpdateCheckEnabled} style={{ width: 200 }} />
+                    </Form.Item>
+                  </Space>
+                </Card>
+              ),
+            },
+            {
+              key: 'ai',
+              label: aiTabLabel,
+              forceRender: true,
+              children: (
+                <Card style={{ border: `1px solid ${AI_COLOR_BORDER}` }}>
+                  <Space align="center" style={{ marginBottom: 16 }}>
+                    <Form.Item
+                      name={['featureFlags', 'aiAssistant']}
+                      valuePropName="checked"
+                      noStyle
+                    >
+                      <Switch />
+                    </Form.Item>
+                    <Typography.Text strong>Enable AI features</Typography.Text>
+                  </Space>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Point this at a local or LAN{' '}
+                    <a href="https://ollama.com" target="_blank" rel="noreferrer">
+                      Ollama
+                    </a>{' '}
+                    server to unlock log diagnosis, AI stack generation, and the chat assistant.
+                    Nothing leaves this address. Turning this off hides every AI entry point in the
+                    app and disables it on the server too.
+                  </Typography.Paragraph>
+                  <Space size="large" wrap align="start">
+                    <Form.Item name="ollamaBaseUrl" label="Base URL">
+                      <Input style={{ width: 260 }} placeholder="http://localhost:11434" disabled={!aiEnabled} />
+                    </Form.Item>
+                    <Form.Item name="ollamaModel" label="Model">
+                      <AutoComplete
+                        style={{ width: 200 }}
+                        options={modelOptions}
+                        placeholder="e.g. llama3.1"
+                        disabled={!aiEnabled}
+                      />
+                    </Form.Item>
+                    {isAdmin && (
+                      <Form.Item label=" ">
+                        <AiButton loading={testStatus === 'testing'} onClick={testOllama} disabled={!aiEnabled}>
+                          Test connection
+                        </AiButton>
+                      </Form.Item>
+                    )}
+                  </Space>
+                  {testStatus === 'error' && (
+                    <Alert
+                      type="error"
+                      showIcon
+                      message="Could not reach Ollama"
+                      description={testError}
+                      style={{ marginBottom: 16, maxWidth: 600 }}
+                    />
+                  )}
+                </Card>
+              ),
+            },
+            {
+              key: 'security',
+              label: securityTabLabel,
+              forceRender: true,
+              children: (
+                <Card style={{ border: `1px solid ${SECURITY_COLOR_BORDER}` }}>
+                  <Space align="center" style={{ marginBottom: 16 }}>
+                    <Form.Item
+                      name={['featureFlags', 'vulnerabilityScanner']}
+                      valuePropName="checked"
+                      noStyle
+                    >
+                      <Switch />
+                    </Form.Item>
+                    <Typography.Text strong>Enable vulnerability scanning</Typography.Text>
+                  </Space>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Runs{' '}
+                    <a href="https://trivy.dev" target="_blank" rel="noreferrer">
+                      Trivy
+                    </a>{' '}
+                    as a one-off local container (mounted against the Docker socket) to unlock the
+                    "Scan" action on the Images page. The first scan downloads a vulnerability
+                    database, cached locally so later scans are fast. Turning this off hides the
+                    scan button and disables it on the server too.
+                  </Typography.Paragraph>
+                  <Space size="large" wrap align="start">
+                    <Form.Item
+                      name="trivyImage"
+                      label="Trivy image"
+                      tooltip="Which aquasec/trivy image tag to run for each scan"
+                    >
+                      <Input style={{ width: 260 }} placeholder="aquasec/trivy:latest" disabled={!securityEnabled} />
+                    </Form.Item>
+                    {isAdmin && (
+                      <Form.Item label=" ">
+                        <SecurityButton
+                          loading={pullTrivyMutation.isPending}
+                          disabled={!securityEnabled || !trivyImage}
+                          onClick={() => trivyImage && pullTrivyMutation.mutate(trivyImage)}
+                        >
+                          Pull image now
+                        </SecurityButton>
+                      </Form.Item>
+                    )}
+                  </Space>
+                </Card>
+              ),
+            },
+            {
+              key: 'sso',
+              label: ssoTabLabel,
+              forceRender: true,
+              children: (
+                <Card>
+                  <Space align="center" style={{ marginBottom: 16 }}>
+                    <Form.Item name={['oidc', 'enabled']} valuePropName="checked" noStyle>
+                      <Switch />
+                    </Form.Item>
+                    <Typography.Text strong>Enable single sign-on</Typography.Text>
+                  </Space>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Lets users sign in through an external OpenID Connect provider in addition
+                    to a local username/password. A first-time SSO sign-in auto-creates a local
+                    "user"-role account with the default permissions — an existing local account
+                    with the same username is never taken over. GitHub isn't listed below: its
+                    login flow is plain OAuth2 with no OpenID Connect discovery, so it can't be
+                    driven the same generic way.
+                  </Typography.Paragraph>
+                  <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
+                    <Form.Item name={['oidc', 'providerId']} hidden>
+                      <Input />
+                    </Form.Item>
+                    <Form.Item label="Provider" tooltip="Fills in the issuer URL for a known provider — Client ID/Secret still come from that provider's own admin console.">
+                      <Select
+                        value={ssoProvider}
+                        onChange={handleSsoProviderChange}
+                        disabled={!ssoEnabled}
+                        options={SSO_PROVIDER_OPTIONS}
+                      />
+                    </Form.Item>
+                    {findSsoProvider(ssoProvider).fields.map((field) => (
+                      <Form.Item key={field.key} label={field.label} tooltip={field.tooltip}>
+                        <Input
+                          placeholder={field.placeholder}
+                          value={ssoProviderValues[field.key] ?? ''}
+                          onChange={(e) => handleSsoProviderFieldChange(field.key, e.target.value)}
+                          disabled={!ssoEnabled}
+                        />
+                      </Form.Item>
+                    ))}
+                    <Form.Item
+                      name={['oidc', 'issuerUrl']}
+                      label="Issuer URL"
+                      tooltip={
+                        ssoProvider === 'custom'
+                          ? "The provider's OpenID Connect discovery issuer, e.g. https://accounts.google.com"
+                          : 'Computed automatically from the field(s) above'
+                      }
+                    >
+                      <Input
+                        placeholder="https://your-provider.example.com"
+                        disabled={!ssoEnabled}
+                        readOnly={ssoProvider !== 'custom'}
+                      />
+                    </Form.Item>
+                    <Form.Item name={['oidc', 'clientId']} label="Client ID">
+                      <Input disabled={!ssoEnabled} />
+                    </Form.Item>
+                    <Form.Item
+                      name={['oidc', 'clientSecret']}
+                      label="Client secret"
+                      tooltip="Never sent back to the browser — leave blank to keep the currently stored secret"
+                    >
+                      <Input.Password placeholder="Leave blank to keep current" disabled={!ssoEnabled} />
+                    </Form.Item>
+                    <Form.Item name={['oidc', 'buttonLabel']} label="Login button label">
+                      <Input placeholder="Single Sign-On" disabled={!ssoEnabled} />
+                    </Form.Item>
+                    <Form.Item
+                      label="Callback URL"
+                      tooltip="Register this exact URL as an allowed redirect URI at your identity provider"
+                    >
+                      <Input value={`${window.location.origin}/api/auth/oidc/callback`} readOnly />
+                    </Form.Item>
+                  </Space>
+                </Card>
+              ),
+            },
+            {
+              key: 'backup',
+              label: backupTabLabel,
+              forceRender: true,
+              children: (
+                <Card>
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    Download a backup
+                  </Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Exports every user (with their permissions), all settings, and every stack's
+                    compose file as one JSON file. Running containers, images, volumes, and
+                    networks are not included — only Challoupe's own configuration.
+                  </Typography.Paragraph>
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ maxWidth: 640, marginBottom: 16 }}
+                    message="Contains credentials — store it securely"
+                    description="The file includes password hashes and any configured secret (such as the SSO client secret) needed to make a restore fully functional. Treat it like you would a database backup."
+                  />
+                  {isAdmin && (
+                    <Button icon={<CloudDownloadOutlined />} href="/api/backup">
+                      Download backup
+                    </Button>
+                  )}
+
+                  <Divider />
+
+                  <Typography.Title level={5}>Restore from a backup</Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Replaces every current user, setting, and stack definition with the ones in
+                    the file. This cannot be undone, and everyone — including you — will need to
+                    sign in again afterward.
+                  </Typography.Paragraph>
+                  {isAdmin && (
+                    <Upload accept="application/json" showUploadList={false} beforeUpload={handleRestoreFile}>
+                      <Button icon={<UploadOutlined />} loading={restoreMutation.isPending}>
+                        Choose backup file…
+                      </Button>
+                    </Upload>
+                  )}
+
+                  <Divider />
+
+                  <Typography.Title level={5}>Scheduled backups</Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Writes the same export to <code>data/backups/</code> on a timer, keeping only
+                    the most recent files below — useful for an unattended install where nobody
+                    would remember to click "Download backup" regularly.
+                  </Typography.Paragraph>
+                  <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
+                    <Form.Item name={['scheduledBackup', 'enabled']} valuePropName="checked" noStyle>
+                      <Switch />
+                    </Form.Item>
+                    <Typography.Text strong>Back up automatically</Typography.Text>
+                  </Space>
+                  <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
+                    <Form.Item name={['scheduledBackup', 'intervalHours']} label="Interval (hours)">
+                      <InputNumber min={1} max={24 * 30} disabled={!scheduledBackupEnabled} style={{ width: 160 }} />
+                    </Form.Item>
+                    <Form.Item name={['scheduledBackup', 'keepCount']} label="Keep this many">
+                      <InputNumber min={1} max={100} disabled={!scheduledBackupEnabled} style={{ width: 160 }} />
+                    </Form.Item>
+                  </Space>
+                  {isAdmin && (
+                    <Button
+                      icon={<ClockCircleOutlined />}
+                      onClick={() => runBackupMutation.mutate()}
+                      loading={runBackupMutation.isPending}
+                      style={{ marginBottom: 16 }}
+                    >
+                      Back up now
+                    </Button>
+                  )}
+                  <List
+                    size="small"
+                    bordered
+                    locale={{ emptyText: 'No scheduled backups yet' }}
+                    dataSource={scheduledBackups ?? []}
+                    renderItem={(file) => (
+                      <List.Item
+                        actions={[
+                          <Button
+                            key="download"
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            href={`/api/backup/scheduled/${file.filename}`}
+                          />,
+                          <Popconfirm
+                            key="delete"
+                            title="Delete this backup file?"
+                            onConfirm={() => deleteBackupMutation.mutate(file.filename)}
+                          >
+                            <Button size="small" danger icon={<DeleteOutlined />} />
+                          </Popconfirm>,
+                        ]}
+                      >
+                        <Space direction="vertical" size={0}>
+                          <Typography.Text code>{file.filename}</Typography.Text>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {formatBytes(file.size)} · {fromISO(file.createdAt)}
+                          </Typography.Text>
+                        </Space>
+                      </List.Item>
+                    )}
+                  />
+                </Card>
+              ),
+            },
+          ]}
+        />
+
+        {isAdmin && (
+          <Button type="primary" htmlType="submit" loading={saveMutation.isPending} style={{ marginTop: 16 }}>
+            Save
+          </Button>
+        )}
+        {!isAdmin && (
+          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
+            Only administrators can change global settings.
+          </Typography.Text>
+        )}
+      </Form>
+    </div>
+  );
+}
