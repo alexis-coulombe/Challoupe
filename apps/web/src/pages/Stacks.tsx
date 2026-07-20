@@ -6,6 +6,7 @@ import type { ColumnsType } from 'antd/es/table';
 import {
   CaretRightOutlined,
   EditOutlined,
+  ImportOutlined,
   PlusOutlined,
   StopOutlined,
   WarningOutlined,
@@ -17,6 +18,7 @@ import { useAuth } from '../auth';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
+import ImportFromPortainerModal from '../components/ImportFromPortainerModal';
 import ListPageHeader from '../components/ListPageHeader';
 
 export default function Stacks() {
@@ -26,6 +28,7 @@ export default function Stacks() {
   const { user } = useAuth();
   const canManage = hasPermission(user, 'manageStacks');
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: settings } = useAppSettings();
 
@@ -176,11 +179,17 @@ export default function Stacks() {
     <div>
       <ListPageHeader title="Stacks">
         {canManage && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/stacks/new')}>
-            New stack
-          </Button>
+          <Space>
+            <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+              Import from Portainer
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/stacks/new')}>
+              New stack
+            </Button>
+          </Space>
         )}
       </ListPageHeader>
+      {canManage && <ImportFromPortainerModal open={importOpen} onClose={() => setImportOpen(false)} />}
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
         {canManage && (
           <Button

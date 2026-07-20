@@ -2,6 +2,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import { z } from 'zod';
 import { requirePermission } from '../auth.js';
 import { recordAudit } from '../audit.js';
+import { getPortainerStackFile, listPortainerStacks } from '../portainer.js';
 import {
   STACK_NAME_RE,
   deleteStack,
@@ -64,6 +65,52 @@ router.post('/', requirePermission('manageStacks'), async (req, res) => {
     ip: req.ip,
   });
   res.status(201).json({ name: body.name, deploy: result });
+});
+
+const portainerCredsSchema = z.object({
+  baseUrl: z.string().trim().url(),
+  username: z.string().trim().min(1),
+  password: z.string().min(1),
+});
+
+router.post('/portainer/list', requirePermission('manageStacks'), async (req, res) => {
+  const creds = portainerCredsSchema.parse(req.body);
+  try {
+    res.json(await listPortainerStacks(creds.baseUrl, creds.username, creds.password));
+  } catch (err) {
+    res.status(502).json({ error: (err as Error).message });
+  }
+});
+
+router.post('/portainer/import', requirePermission('manageStacks'), async (req, res) => {
+  const body = portainerCredsSchema
+    .extend({
+      id: z.number().int(),
+      name: z.string().regex(STACK_NAME_RE, 'Lowercase letters, digits, - and _ only'),
+    })
+    .parse(req.body);
+  if (await stackExists(body.name)) {
+    res.status(409).json({ error: 'A stack with this name already exists' });
+    return;
+  }
+  let compose: string;
+  try {
+    compose = await getPortainerStackFile(body.baseUrl, body.username, body.password, body.id);
+  } catch (err) {
+    res.status(502).json({ error: (err as Error).message });
+    return;
+  }
+  await writeStack(body.name, compose);
+  recordAudit({
+    userId: req.user!.id,
+    username: req.user!.username,
+    action: 'stack.import',
+    target: body.name,
+    detail: `from Portainer stack #${body.id}`,
+    status: 'success',
+    ip: req.ip,
+  });
+  res.status(201).json({ name: body.name });
 });
 
 router.get('/:name', requireStack, async (req, res) => {

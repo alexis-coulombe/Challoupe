@@ -231,6 +231,12 @@ export interface OidcSettings {
   providerId: string;
 }
 
+export interface PortainerStackRef {
+  id: number;
+  name: string;
+  endpointId: number;
+}
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
