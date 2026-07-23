@@ -52,20 +52,9 @@ describe('GET /api/ai/models', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  it('is usable by a non-admin by default (useAi defaults to on)', async () => {
+  it('rejects a non-admin even with useAi granted, since baseUrl is an SSRF primitive', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
-    const agent = await createUserAgent(app, adminAgent, 'viewer');
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ models: [] }), { status: 200 })
-    ) as unknown as typeof fetch;
-
-    const res = await agent.get('/api/ai/models');
-    expect(res.status).toBe(200);
-  });
-
-  it('returns a 403 for a non-admin whose useAi permission was revoked', async () => {
-    const { agent: adminAgent } = await createAdminAgent(app);
-    const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', { useAi: false });
+    const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', { useAi: true });
     globalThis.fetch = vi.fn() as unknown as typeof fetch;
 
     const res = await agent.get('/api/ai/models');
