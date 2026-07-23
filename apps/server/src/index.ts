@@ -21,19 +21,12 @@ import aiRoutes from './routes/ai.js';
 import trivyRoutes from './routes/trivy.js';
 import auditLogRoutes from './routes/auditLog.js';
 import backupRoutes from './routes/backup.js';
-import { restartImageUpdateScheduler } from './imageUpdates.js';
-import { restartScheduledBackupScheduler } from './scheduledBackups.js';
+import { imageUpdateService } from './imageUpdates.js';
+import { scheduledBackupService } from './scheduledBackups.js';
 
 const app = express();
 app.disable('x-powered-by');
-// Only when explicitly enabled — trusting X-Forwarded-* by default would let anyone spoof
-// their IP (audit log, any future rate limiting) and their protocol (session cookie's
-// `secure` flag) simply by setting the header themselves on a direct request.
-if (TRUST_PROXY) app.set('trust proxy', 1);
-// A backup file (every user + every stack's compose file) can legitimately exceed the 1mb
-// cap below on a large install — registered first so it "claims" the body before the
-// general parser would reject it (body-parser skips reparsing a request its body was
-// already read from).
+app.set('trust proxy', TRUST_PROXY);
 app.use('/api/backup', express.json({ limit: '20mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(sessionMiddleware);
@@ -59,7 +52,10 @@ app.use('/api', (_req, res) => {
 if (existsSync(WEB_DIST)) {
   app.use(express.static(WEB_DIST));
   app.use((req, res, next) => {
-    if (req.method !== 'GET') return next();
+    if (req.method !== 'GET') {
+      return next();
+    }
+
     res.sendFile(path.join(WEB_DIST, 'index.html'));
   });
 }
@@ -72,10 +68,14 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     });
     return;
   }
+  
   const e = err as { statusCode?: number; message?: string; json?: { message?: string } };
   const status = Number.isInteger(e.statusCode) ? (e.statusCode as number) : 500;
   const message = e.json?.message || e.message || 'Server error';
-  if (status >= 500) console.error(err);
+  if (status >= 500) {
+    console.error(err);
+  }
+
   res.status(status).json({ error: message });
 });
 
@@ -89,8 +89,8 @@ export { app, server };
 
 // Guard so importing this module in tests doesn't also start a real listener.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  restartImageUpdateScheduler();
-  restartScheduledBackupScheduler();
+  imageUpdateService.restartScheduler();
+  scheduledBackupService.restartScheduler();
   server.listen(PORT, HOST, () => {
     console.log(`Challoupe listening on ${tlsEnabled ? 'https' : 'http'}://${HOST}:${PORT}`);
   });

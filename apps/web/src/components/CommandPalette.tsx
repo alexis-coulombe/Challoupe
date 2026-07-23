@@ -15,9 +15,10 @@ import {
   StarFilled,
   TeamOutlined,
 } from '@ant-design/icons';
-import { api, type ContainerSummary, type StackSummary } from '../api';
 import { useAuth } from '../auth';
 import { useFavorites, type FavoriteType } from '../hooks/useFavorites';
+import { containersApi } from '../services/containersApi';
+import { stacksApi } from '../services/stacksApi';
 
 interface PaletteItem {
   key: string;
@@ -39,12 +40,12 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
 
   const { data: containers } = useQuery({
     queryKey: ['containers'],
-    queryFn: () => api.get<ContainerSummary[]>('/containers'),
+    queryFn: () => containersApi.list(),
     enabled: open,
   });
   const { data: stacks } = useQuery({
     queryKey: ['stacks'],
-    queryFn: () => api.get<StackSummary[]>('/stacks'),
+    queryFn: () => stacksApi.list(),
     enabled: open,
   });
 

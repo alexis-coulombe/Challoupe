@@ -5,9 +5,9 @@ import type Dockerode from 'dockerode';
 import { WebSocketServer, type WebSocket, type RawData } from 'ws';
 import { authenticateUpgrade } from './wsAuth.js';
 import { hasPermission } from './auth.js';
-import { createLogDemuxer, demuxLogs, docker, summarizeStats } from './docker.js';
-import { subscribeToDockerEvents } from './dockerEvents.js';
-import { getSettings, type TerminalShell } from './settings.js';
+import { LogDemuxer, demuxLogs, docker, summarizeStats } from './docker.js';
+import { dockerEventBroadcaster } from './dockerEvents.js';
+import { settingsService, type TerminalShell } from './settings.js';
 import { streamOllamaChat, type OllamaChatMessage } from './ollama.js';
 
 type Destroyable = { destroy?: () => void };
@@ -34,7 +34,7 @@ export function attachWebSocketServer(server: Server): void {
           socket.end();
           return;
         }
-        if (aiMatch && (!getSettings().featureFlags.aiAssistant || !hasPermission(user, 'useAi'))) {
+        if (aiMatch && (!settingsService.get().featureFlags.aiAssistant || !hasPermission(user, 'useAi'))) {
           socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
           socket.end();
           return;
@@ -61,7 +61,7 @@ export function attachWebSocketServer(server: Server): void {
             else if (aiMatch[1] === 'generate-stack') handleGenerateStack(ws);
             else handleChat(ws);
           } else if (eventsMatch) {
-            subscribeToDockerEvents(ws);
+            dockerEventBroadcaster.subscribe(ws);
           }
         });
       })
@@ -111,7 +111,7 @@ function handleStats(ws: WebSocket, containerId: string): void {
 
 function handleLogs(ws: WebSocket, containerId: string, tail: number): void {
   const container = docker.getContainer(containerId);
-  const demux = createLogDemuxer();
+  const demux = new LogDemuxer();
   let stream: (NodeJS.ReadableStream & Destroyable) | null = null;
   let closed = false;
 
@@ -142,7 +142,7 @@ function handleLogs(ws: WebSocket, containerId: string, tail: number): void {
 function handleExec(ws: WebSocket, containerId: string, requestedShell: string | null): void {
   const shell = ALLOWED_SHELLS.includes(requestedShell as TerminalShell)
     ? (requestedShell as TerminalShell)
-    : getSettings().defaultTerminalShell;
+    : settingsService.get().defaultTerminalShell;
   const container = docker.getContainer(containerId);
   let exec: Dockerode.Exec | null = null;
   let stream: (NodeJS.ReadWriteStream & Destroyable) | null = null;
@@ -212,7 +212,7 @@ async function runOllamaStream(
   opts: { closeOnDone?: boolean } = {}
 ): Promise<void> {
   const closeOnDone = opts.closeOnDone !== false;
-  const { ollamaBaseUrl, ollamaModel } = getSettings();
+  const { ollamaBaseUrl, ollamaModel } = settingsService.get();
   if (!ollamaModel) {
     ws.send(JSON.stringify({ type: 'error', message: 'No Ollama model configured, set one in Settings.' }));
     if (closeOnDone) ws.close();

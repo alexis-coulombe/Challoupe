@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Divider, Form, Input, Spin, Typography } from 'antd';
 import { LockOutlined, LoginOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons';
-import { api, type LoginResult, type OidcLoginConfig } from '../api';
+import { authApi } from '../services/authApi';
 import { useAuth } from '../auth';
 import PasswordInput from '../components/PasswordInput';
 
@@ -17,7 +17,7 @@ export default function Login() {
 
   const { data: oidc } = useQuery({
     queryKey: ['auth', 'oidc-config'],
-    queryFn: () => api.get<OidcLoginConfig>('/auth/oidc/config'),
+    queryFn: () => authApi.oidcConfig(),
   });
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function Login() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.post<LoginResult>(setupRequired ? '/auth/setup' : '/auth/login', values);
+      const res = setupRequired ? await authApi.setup(values) : await authApi.login(values);
       if (res.requiresTotp) {
         setAwaitingTotp(true);
         return;
@@ -49,7 +49,7 @@ export default function Login() {
     setLoading(true);
     setError(null);
     try {
-      await api.post('/auth/totp/verify', values);
+      await authApi.totpVerify(values);
       await refresh();
       navigate('/', { replace: true });
     } catch (err) {
@@ -60,7 +60,7 @@ export default function Login() {
   };
 
   const startOver = async () => {
-    await api.post('/auth/logout').catch(() => {});
+    await authApi.logout().catch(() => {});
     setAwaitingTotp(false);
     setError(null);
   };

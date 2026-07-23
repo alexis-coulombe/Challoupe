@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { sessionMiddleware, getUserById, type User } from './auth.js';
+import { sessionMiddleware, userRepository, type User } from './auth.js';
 
 // A WebSocket upgrade request has no real HTTP response to write to, but
 // express-session needs a (req, res, next)-shaped call to read the session.
@@ -19,7 +19,7 @@ export function authenticateUpgrade(req: IncomingMessage): Promise<User | null> 
   return new Promise((resolve) => {
     sessionMiddleware(req as never, fakeResponse() as never, () => {
       const userId = (req as unknown as { session?: { userId?: number } }).session?.userId;
-      resolve(userId ? (getUserById(userId) ?? null) : null);
+      resolve(userId ? (userRepository.getById(userId) ?? null) : null);
     });
   });
 }

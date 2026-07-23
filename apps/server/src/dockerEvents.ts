@@ -44,65 +44,69 @@ export function classifyEvent(event: RawDockerEvent): DockerNotification | null 
   return null;
 }
 
-const subscribers = new Set<WebSocket>();
-let streamStarted = false;
-
 /**
- * Broadcast notification
- * @param notification DockerNotification
+ * Fans a single upstream Docker event stream out to every subscribed WebSocket client,
+ * replacing what used to be a module-level subscribers Set + streamStarted flag.
  */
-function broadcast(notification: DockerNotification): void {
-  const payload = JSON.stringify(notification);
-  for (const ws of subscribers) {
-    if (ws.readyState === ws.OPEN) ws.send(payload);
+export class DockerEventBroadcaster {
+  private readonly subscribers = new Set<WebSocket>();
+  private streamStarted = false;
+
+  private broadcast(notification: DockerNotification): void {
+    const payload = JSON.stringify(notification);
+    for (const ws of this.subscribers) {
+      if (ws.readyState === ws.OPEN) ws.send(payload);
+    }
   }
-}
 
-async function startEventStream(): Promise<void> {
-  try {
-    const stream = await docker.getEvents({ filters: { type: ['container'] } });
-    let buffer = '';
-    stream.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString('utf8');
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-      for (const line of lines) {
-        if (!line.trim()) {
-          continue;
-        }
-
-        try {
-          const notification = classifyEvent(JSON.parse(line));
-          if (notification) {
-            broadcast(notification);
+  private async startEventStream(): Promise<void> {
+    try {
+      const stream = await docker.getEvents({ filters: { type: ['container'] } });
+      let buffer = '';
+      stream.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) {
+            continue;
           }
-        } catch {
-          // Ignore a line that didn't parse as a complete event object.
+
+          try {
+            const notification = classifyEvent(JSON.parse(line));
+            if (notification) {
+              this.broadcast(notification);
+            }
+          } catch {
+            // Ignore a line that didn't parse as a complete event object.
+          }
         }
-      }
-    });
-    stream.on('error', () => {
-      streamStarted = false;
-      console.error('Docker event stream error, will retry on next subscriber');
-    });
-    stream.on('end', () => {
-      streamStarted = false;
-    });
-  } catch (err) {
-    streamStarted = false;
-    console.error('Failed to attach to the Docker event stream:', err);
+      });
+      stream.on('error', () => {
+        this.streamStarted = false;
+        console.error('Docker event stream error, will retry on next subscriber');
+      });
+      stream.on('end', () => {
+        this.streamStarted = false;
+      });
+    } catch (err) {
+      this.streamStarted = false;
+      console.error('Failed to attach to the Docker event stream:', err);
+    }
+  }
+
+  /**
+   * Adds a WS client to the notification fan-out
+   * @param ws WebSocket
+   */
+  subscribe(ws: WebSocket): void {
+    this.subscribers.add(ws);
+    ws.on('close', () => this.subscribers.delete(ws));
+    if (!this.streamStarted) {
+      this.streamStarted = true;
+      void this.startEventStream();
+    }
   }
 }
 
-/**
- * dds a WS client to the notification fan-out
- * @param ws WebSocket
- */
-export function subscribeToDockerEvents(ws: WebSocket): void {
-  subscribers.add(ws);
-  ws.on('close', () => subscribers.delete(ws));
-  if (!streamStarted) {
-    streamStarted = true;
-    void startEventStream();
-  }
-}
+export const dockerEventBroadcaster = new DockerEventBroadcaster();

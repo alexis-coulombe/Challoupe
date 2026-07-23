@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App as AntApp, Button, Form, Input, Modal, Popconfirm, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ClearOutlined, PlusOutlined } from '@ant-design/icons';
-import { api, hasPermission, type VolumeSummary } from '../api';
+import { hasPermission, type VolumeSummary } from '../api';
 import { formatBytes, fromISO, TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
 import { useBulkAction } from '../hooks/useBulkAction';
+import { volumesApi } from '../services/volumesApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
@@ -22,13 +23,13 @@ export default function Volumes() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['volumes'],
-    queryFn: () => api.get<VolumeSummary[]>('/volumes'),
+    queryFn: () => volumesApi.list(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['volumes'] });
 
   const createMutation = useMutation({
-    mutationFn: (values: { name: string; driver: string }) => api.post('/volumes', values),
+    mutationFn: (values: { name: string; driver: string }) => volumesApi.create(values),
     onSuccess: () => {
       message.success('Volume created');
       setCreateOpen(false);
@@ -39,7 +40,7 @@ export default function Volumes() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (name: string) => api.delete(`/volumes/${encodeURIComponent(name)}`),
+    mutationFn: (name: string) => volumesApi.remove(name),
     onSuccess: () => {
       message.success('Volume deleted');
       invalidate();
@@ -48,7 +49,7 @@ export default function Volumes() {
   });
 
   const pruneMutation = useMutation({
-    mutationFn: () => api.post<{ spaceReclaimed: number }>('/volumes/prune'),
+    mutationFn: () => volumesApi.prune(),
     onSuccess: (result) => {
       message.success(`Prune complete: ${formatBytes(result.spaceReclaimed)} reclaimed`);
       invalidate();
@@ -58,7 +59,7 @@ export default function Volumes() {
 
   const bulkRemoveMutation = useBulkAction<string>({
     queryKey: ['volumes'],
-    run: (name) => api.delete(`/volumes/${encodeURIComponent(name)}`),
+    run: (name) => volumesApi.remove(name),
     successLabel: (count) => `${count} volume(s) deleted`,
     onSettled: () => setSelectedKeys([]),
   });

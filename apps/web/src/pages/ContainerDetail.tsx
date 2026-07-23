@@ -22,7 +22,8 @@ import {
   RobotOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import { api, hasPermission } from '../api';
+import { hasPermission } from '../api';
+import { containersApi } from '../services/containersApi';
 import {
   AI_COLOR,
   AI_COLOR_BORDER,
@@ -41,19 +42,6 @@ import ContainerStats from '../components/ContainerStats';
 import ContainerTerminal from '../components/ContainerTerminal';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
-
-interface ContainerInspect {
-  Id: string;
-  Name: string;
-  Created: string;
-  State: { Status: string; StartedAt: string; ExitCode: number };
-  Config: { Image: string; Env: string[]; Tty: boolean };
-  HostConfig: { RestartPolicy: { Name: string } };
-  NetworkSettings: {
-    Ports: Record<string, Array<{ HostIp: string; HostPort: string }> | null>;
-  };
-  Mounts: Array<{ Type: string; Source: string; Destination: string; Name?: string }>;
-}
 
 function DiagnoseButton({ containerId }: { containerId: string }) {
   const [open, setOpen] = useState(false);
@@ -200,18 +188,18 @@ export default function ContainerDetail() {
 
   const { data: info } = useQuery({
     queryKey: ['container', id],
-    queryFn: () => api.get<ContainerInspect>(`/containers/${id}`),
+    queryFn: () => containersApi.get(id!),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
   const actionMutation = useMutation({
-    mutationFn: (action: string) => api.post(`/containers/${id}/actions/${action}`),
+    mutationFn: (action: string) => containersApi.action(id!, action),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['container', id] }),
     onError: (err) => message.error(err.message),
   });
 
   const removeMutation = useMutation({
-    mutationFn: () => api.delete(`/containers/${id}?force=true`),
+    mutationFn: () => containersApi.remove(id!),
     onSuccess: () => {
       message.success('Container deleted');
       navigate('/containers');

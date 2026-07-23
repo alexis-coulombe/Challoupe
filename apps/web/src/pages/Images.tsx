@@ -21,16 +21,7 @@ import {
   SecurityScanOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
-import {
-  api,
-  hasPermission,
-  type GitBuildResult,
-  type ImageSummary,
-  type ImageUpdateCheckSummary,
-  type ImageUpdateStatus,
-  type TrivyScanResult,
-  type TrivySeverity,
-} from '../api';
+import { hasPermission, type ImageSummary, type TrivySeverity } from '../api';
 import {
   CONSOLE_BG,
   CONSOLE_BORDER,
@@ -45,6 +36,8 @@ import {
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
 import { useBulkAction } from '../hooks/useBulkAction';
+import { imagesApi } from '../services/imagesApi';
+import { trivyApi } from '../services/trivyApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import KeyValueFormList from '../components/KeyValueFormList';
@@ -56,7 +49,7 @@ const SEVERITY_ORDER: TrivySeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'U
 function ScanButton({ image }: { image: string }) {
   const [open, setOpen] = useState(false);
   const scanMutation = useMutation({
-    mutationFn: () => api.post<TrivyScanResult>('/trivy/scan', { image }),
+    mutationFn: () => trivyApi.scan(image),
   });
 
   const openAndScan = () => {
@@ -163,7 +156,7 @@ function BuildFromGitButton({ onBuilt }: { onBuilt: () => void }) {
 
   const buildMutation = useMutation({
     mutationFn: (values: GitBuildForm) =>
-      api.post<GitBuildResult>('/images/build-from-git', {
+      imagesApi.buildFromGit({
         repoUrl: values.repoUrl,
         ref: values.ref || undefined,
         subdir: values.subdir || undefined,
@@ -283,13 +276,13 @@ export default function Images() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['images'],
-    queryFn: () => api.get<ImageSummary[]>('/images'),
+    queryFn: () => imagesApi.list(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['images'] });
 
   const pullMutation = useMutation({
-    mutationFn: (reference: string) => api.post('/images/pull', { reference }),
+    mutationFn: (reference: string) => imagesApi.pull(reference),
     onSuccess: () => {
       message.success('Image pulled');
       setPullRef('');
@@ -299,7 +292,7 @@ export default function Images() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (ref: string) => api.delete(`/images?ref=${encodeURIComponent(ref)}`),
+    mutationFn: (ref: string) => imagesApi.remove(ref),
     onSuccess: () => {
       message.success('Image deleted');
       invalidate();
@@ -308,7 +301,7 @@ export default function Images() {
   });
 
   const pruneMutation = useMutation({
-    mutationFn: () => api.post<{ spaceReclaimed: number }>('/images/prune'),
+    mutationFn: () => imagesApi.prune(),
     onSuccess: (result) => {
       message.success(`Prune complete: ${formatBytes(result.spaceReclaimed)} reclaimed`);
       invalidate();
@@ -317,7 +310,7 @@ export default function Images() {
   });
 
   const checkUpdateMutation = useMutation({
-    mutationFn: (id: string) => api.post<ImageUpdateStatus>(`/images/${id}/check-update`),
+    mutationFn: (id: string) => imagesApi.checkUpdate(id),
     onSuccess: (result) => {
       if (result.updateAvailable === true) message.info(`Update available for ${result.reference}`);
       else if (result.updateAvailable === false) message.success(`${result.reference} is up to date`);
@@ -328,7 +321,7 @@ export default function Images() {
   });
 
   const checkAllUpdatesMutation = useMutation({
-    mutationFn: () => api.post<ImageUpdateCheckSummary>('/images/check-updates'),
+    mutationFn: () => imagesApi.checkUpdates(),
     onSuccess: (result) => {
       message.success(`Checked ${result.checked} image(s) — ${result.updatesAvailable} update(s) available`);
       if (result.errors.length) message.warning(`${result.errors.length} check(s) could not be completed`);
@@ -342,7 +335,7 @@ export default function Images() {
     queryKey: ['images'],
     run: (id) => {
       const ref = byId.get(id)?.tags[0] ?? id;
-      return api.delete(`/images?ref=${encodeURIComponent(ref)}`);
+      return imagesApi.remove(ref);
     },
     successLabel: (count) => `${count} image(s) deleted`,
     onSettled: () => setSelectedKeys([]),

@@ -4,6 +4,7 @@ import SqliteStoreFactory from 'better-sqlite3-session-store';
 import crypto from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import type Database from 'better-sqlite3';
 import type { NextFunction, Request, Response } from 'express';
 import { db } from './db.js';
 import { DATA_DIR, SESSION_TTL_DAYS } from './config.js';
@@ -14,7 +15,7 @@ import {
   type Permission,
   type Permissions,
 } from './permissions.js';
-import { recordAudit } from './audit.js';
+import { auditLog } from './audit.js';
 
 export interface User {
   id: number;
@@ -54,6 +55,97 @@ function rowToUser(row: RawUserRow): User {
     totpEnabled: !!row.totp_enabled,
   };
 }
+
+/**
+ * Reads/writes the `users` table: account lookup, OIDC auto-provisioning, and the TOTP
+ * fields stored alongside each user row.
+ */
+export class UserRepository {
+  constructor(private readonly db: Database.Database) {}
+
+  count(): number {
+    return (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n;
+  }
+
+  getById(id: number): User | undefined {
+    const row = this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as RawUserRow | undefined;
+    return row ? rowToUser(row) : undefined;
+  }
+
+  list(): User[] {
+    const rows = this.db.prepare('SELECT * FROM users ORDER BY username').all() as RawUserRow[];
+    return rows.map(rowToUser);
+  }
+
+  findByUsername(username: string): (User & { password_hash: string }) | undefined {
+    const row = this.db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
+      | RawUserRow
+      | undefined;
+    return row ? { ...rowToUser(row), password_hash: row.password_hash } : undefined;
+  }
+
+  // Finds the local account for a returning SSO user, or auto-provisions one on first
+  // login (role "user" with the same defaults a locally-created account gets). A
+  // username collision with an existing *local* account is refused rather than silently
+  // taking it over — that would let anyone who controls that claim at the identity
+  // provider log in as an unrelated pre-existing local account of the same name.
+  findOrCreateOidc(username: string): User {
+    const existing = this.db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
+      | RawUserRow
+      | undefined;
+    if (existing) {
+      if (existing.auth_provider !== 'oidc') {
+        throw Object.assign(
+          new Error('An account with this username already exists locally'),
+          { statusCode: 409 }
+        );
+      }
+      return rowToUser(existing);
+    }
+    const passwordHash = hashPassword(crypto.randomBytes(32).toString('hex'));
+    const columns = PERMISSIONS.map((p) => PERMISSION_COLUMNS[p]);
+    const info = this.db
+      .prepare(
+        `INSERT INTO users (username, password_hash, role, auth_provider, ${columns.join(', ')}) VALUES (?, ?, 'user', 'oidc', ${columns
+          .map(() => '?')
+          .join(', ')})`
+      )
+      .run(username, passwordHash, ...PERMISSIONS.map((p) => (DEFAULT_PERMISSIONS[p] ? 1 : 0)));
+    return this.getById(Number(info.lastInsertRowid))!;
+  }
+
+  // Only returns a secret/backup-codes pair when TOTP is actually enabled, so callers never
+  // need to separately check `totp_enabled` — an account mid-setup (secret generated but not
+  // yet confirmed) correctly reads as "not enabled" here.
+  getTotpSecret(id: number): { secret: string; backupCodes: string[] } | undefined {
+    const row = this.db
+      .prepare('SELECT totp_secret, totp_backup_codes FROM users WHERE id = ? AND totp_enabled = 1')
+      .get(id) as { totp_secret: string | null; totp_backup_codes: string | null } | undefined;
+    if (!row || !row.totp_secret) return undefined;
+    return {
+      secret: row.totp_secret,
+      backupCodes: row.totp_backup_codes ? (JSON.parse(row.totp_backup_codes) as string[]) : [],
+    };
+  }
+
+  enableTotp(id: number, secret: string, hashedBackupCodes: string[]): void {
+    this.db
+      .prepare('UPDATE users SET totp_secret = ?, totp_enabled = 1, totp_backup_codes = ? WHERE id = ?')
+      .run(secret, JSON.stringify(hashedBackupCodes), id);
+  }
+
+  disableTotp(id: number): void {
+    this.db
+      .prepare('UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_backup_codes = NULL WHERE id = ?')
+      .run(id);
+  }
+
+  replaceTotpBackupCodes(id: number, hashedBackupCodes: string[]): void {
+    this.db.prepare('UPDATE users SET totp_backup_codes = ? WHERE id = ?').run(JSON.stringify(hashedBackupCodes), id);
+  }
+}
+
+export const userRepository = new UserRepository(db);
 
 declare module 'express-session' {
   interface SessionData {
@@ -120,91 +212,8 @@ export function verifyPassword(password: string, hash: string): boolean {
   return bcrypt.compareSync(password, hash);
 }
 
-export function userCount(): number {
-  return (db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n;
-}
-
-export function getUserById(id: number): User | undefined {
-  const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as RawUserRow | undefined;
-  return row ? rowToUser(row) : undefined;
-}
-
-export function listUsers(): User[] {
-  const rows = db.prepare('SELECT * FROM users ORDER BY username').all() as RawUserRow[];
-  return rows.map(rowToUser);
-}
-
-export function findUserByUsername(
-  username: string
-): (User & { password_hash: string }) | undefined {
-  const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
-    | RawUserRow
-    | undefined;
-  return row ? { ...rowToUser(row), password_hash: row.password_hash } : undefined;
-}
-
-// Finds the local account for a returning SSO user, or auto-provisions one on first
-// login (role "user" with the same defaults a locally-created account gets). A
-// username collision with an existing *local* account is refused rather than silently
-// taking it over — that would let anyone who controls that claim at the identity
-// provider log in as an unrelated pre-existing local account of the same name.
-export function findOrCreateOidcUser(username: string): User {
-  const existing = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
-    | RawUserRow
-    | undefined;
-  if (existing) {
-    if (existing.auth_provider !== 'oidc') {
-      throw Object.assign(
-        new Error('An account with this username already exists locally'),
-        { statusCode: 409 }
-      );
-    }
-    return rowToUser(existing);
-  }
-  const passwordHash = hashPassword(crypto.randomBytes(32).toString('hex'));
-  const columns = PERMISSIONS.map((p) => PERMISSION_COLUMNS[p]);
-  const info = db
-    .prepare(
-      `INSERT INTO users (username, password_hash, role, auth_provider, ${columns.join(', ')}) VALUES (?, ?, 'user', 'oidc', ${columns
-        .map(() => '?')
-        .join(', ')})`
-    )
-    .run(username, passwordHash, ...PERMISSIONS.map((p) => (DEFAULT_PERMISSIONS[p] ? 1 : 0)));
-  return getUserById(Number(info.lastInsertRowid))!;
-}
-
-// Only returns a secret/backup-codes pair when TOTP is actually enabled, so callers never
-// need to separately check `totp_enabled` — an account mid-setup (secret generated but not
-// yet confirmed) correctly reads as "not enabled" here.
-export function getUserTotpSecret(id: number): { secret: string; backupCodes: string[] } | undefined {
-  const row = db
-    .prepare('SELECT totp_secret, totp_backup_codes FROM users WHERE id = ? AND totp_enabled = 1')
-    .get(id) as { totp_secret: string | null; totp_backup_codes: string | null } | undefined;
-  if (!row || !row.totp_secret) return undefined;
-  return {
-    secret: row.totp_secret,
-    backupCodes: row.totp_backup_codes ? (JSON.parse(row.totp_backup_codes) as string[]) : [],
-  };
-}
-
-export function enableTotp(id: number, secret: string, hashedBackupCodes: string[]): void {
-  db.prepare('UPDATE users SET totp_secret = ?, totp_enabled = 1, totp_backup_codes = ? WHERE id = ?').run(
-    secret,
-    JSON.stringify(hashedBackupCodes),
-    id
-  );
-}
-
-export function disableTotp(id: number): void {
-  db.prepare('UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_backup_codes = NULL WHERE id = ?').run(id);
-}
-
-export function replaceTotpBackupCodes(id: number, hashedBackupCodes: string[]): void {
-  db.prepare('UPDATE users SET totp_backup_codes = ? WHERE id = ?').run(JSON.stringify(hashedBackupCodes), id);
-}
-
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const user = req.session.userId ? getUserById(req.session.userId) : undefined;
+  const user = req.session.userId ? userRepository.getById(req.session.userId) : undefined;
   if (!user) {
     res.status(401).json({ error: 'Not authenticated' });
     return;
@@ -215,7 +224,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (req.user?.role !== 'admin') {
-    recordAudit({
+    auditLog.record({
       userId: req.user?.id ?? null,
       username: req.user?.username ?? 'unknown',
       action: 'permission.denied',
@@ -234,7 +243,7 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 export function requirePermission(permission: Permission) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (req.user?.role !== 'admin' && !req.user?.permissions[permission]) {
-      recordAudit({
+      auditLog.record({
         userId: req.user?.id ?? null,
         username: req.user?.username ?? 'unknown',
         action: 'permission.denied',

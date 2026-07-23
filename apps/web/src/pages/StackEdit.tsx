@@ -14,12 +14,13 @@ import {
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { diffLines } from 'diff';
-import { api, hasPermission, type ComposeResult, type StackDriftResult } from '../api';
+import { hasPermission, type ComposeResult } from '../api';
 import { STACK_TEMPLATES } from '../data/stackTemplates';
 import { AI_COLOR, AI_COLOR_BORDER, CONSOLE_BG, CONSOLE_BORDER, CONSOLE_TEXT, stripCodeFence } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
 import { useOllamaStream } from '../hooks/useOllamaStream';
+import { stacksApi } from '../services/stacksApi';
 import AiButton from '../components/AiButton';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
@@ -79,13 +80,13 @@ export default function StackEdit() {
 
   const { data: existing } = useQuery({
     queryKey: ['stack', routeName],
-    queryFn: () => api.get<{ name: string; compose: string }>(`/stacks/${routeName}`),
+    queryFn: () => stacksApi.get(routeName!),
     enabled: !isNew,
   });
 
   const { data: drift } = useQuery({
     queryKey: ['stack-drift', routeName],
-    queryFn: () => api.get<StackDriftResult>(`/stacks/${routeName}/drift`),
+    queryFn: () => stacksApi.drift(routeName!),
     enabled: !isNew,
   });
 
@@ -98,15 +99,11 @@ export default function StackEdit() {
   const saveMutation = useMutation({
     mutationFn: async (deploy: boolean) => {
       if (isNew) {
-        const created = await api.post<{ name: string; deploy: ComposeResult | null }>('/stacks', {
-          name,
-          compose,
-          deploy,
-        });
+        const created = await stacksApi.create({ name, compose, deploy });
         return created.deploy;
       }
-      await api.put(`/stacks/${routeName}`, { compose });
-      return deploy ? api.post<ComposeResult>(`/stacks/${routeName}/deploy`) : null;
+      await stacksApi.update(routeName!, compose);
+      return deploy ? stacksApi.deploy(routeName!) : null;
     },
     onSuccess: (deployResult, deploy) => {
       invalidate();
@@ -120,7 +117,7 @@ export default function StackEdit() {
   });
 
   const downMutation = useMutation({
-    mutationFn: () => api.post<ComposeResult>(`/stacks/${routeName}/down`),
+    mutationFn: () => stacksApi.down(routeName!),
     onSuccess: (r) => {
       setResult(r);
       invalidate();
@@ -130,7 +127,7 @@ export default function StackEdit() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/stacks/${routeName}`),
+    mutationFn: () => stacksApi.remove(routeName!),
     onSuccess: () => {
       message.success('Stack deleted');
       invalidate();

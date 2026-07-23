@@ -26,10 +26,13 @@ import {
   ReloadOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import { api, hasPermission, type ContainerSummary, type GitBuildResult, type NetworkSummary } from '../api';
+import { hasPermission, type ContainerSummary } from '../api';
 import { CONTAINER_STATE_COLORS, fromUnix, runBulk, TABLE_PAGINATION, type BulkResult } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { containersApi, type ContainerCreateRequest } from '../services/containersApi';
+import { imagesApi } from '../services/imagesApi';
+import { networksApi } from '../services/networksApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
@@ -72,13 +75,13 @@ export default function Containers() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['containers'],
-    queryFn: () => api.get<ContainerSummary[]>('/containers'),
+    queryFn: () => containersApi.list(),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
   const { data: networks } = useQuery({
     queryKey: ['networks'],
-    queryFn: () => api.get<NetworkSummary[]>('/networks'),
+    queryFn: () => networksApi.list(),
   });
 
   useEffect(() => {
@@ -93,14 +96,13 @@ export default function Containers() {
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['containers'] });
 
   const actionMutation = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: string }) =>
-      api.post(`/containers/${id}/actions/${action}`),
+    mutationFn: ({ id, action }: { id: string; action: string }) => containersApi.action(id, action),
     onSuccess: invalidate,
     onError: (err) => message.error(err.message),
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/containers/${id}?force=true`),
+    mutationFn: (id: string) => containersApi.remove(id),
     onSuccess: () => {
       message.success('Container deleted');
       invalidate();
@@ -112,7 +114,7 @@ export default function Containers() {
     mutationFn: async (values: CreateForm) => {
       if (imageSource === 'git') {
         if (!values.gitRepoUrl) throw new Error('Repository URL is required');
-        const build = await api.post<GitBuildResult>('/images/build-from-git', {
+        const build = await imagesApi.buildFromGit({
           repoUrl: values.gitRepoUrl,
           ref: values.gitRef || undefined,
           subdir: values.gitSubdir || undefined,
@@ -121,7 +123,7 @@ export default function Containers() {
         });
         if (!build.ok) throw new Error(`Build failed: ${build.error}`);
       }
-      return api.post('/containers', {
+      const body: ContainerCreateRequest = {
         name: values.name || undefined,
         image: values.image,
         network: values.network || undefined,
@@ -137,7 +139,8 @@ export default function Containers() {
         autoRemove: values.autoRemove ?? false,
         memoryMb: values.memoryMb || undefined,
         cpus: values.cpus || undefined,
-      });
+      };
+      return containersApi.create(body);
     },
     onSuccess: () => {
       message.success('Container created and started');
@@ -159,9 +162,7 @@ export default function Containers() {
   const bulkMutation = useMutation({
     mutationFn: (action: string) =>
       runBulk(selectedKeys as string[], (id) =>
-        action === 'remove'
-          ? api.delete(`/containers/${id}?force=true`)
-          : api.post(`/containers/${id}/actions/${action}`)
+        action === 'remove' ? containersApi.remove(id) : containersApi.action(id, action)
       ),
     onSuccess: (result, action) =>
       onBulkDone(

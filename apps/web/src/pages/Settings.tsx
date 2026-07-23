@@ -39,20 +39,18 @@ import {
   UploadOutlined,
   WindowsOutlined,
 } from '@ant-design/icons';
-import {
-  api,
-  ApiError,
-  type AppSettings,
-  type BackupFile,
-  type ScheduledBackupFile,
-  type SystemInfo,
-} from '../api';
+import { ApiError, type AppSettings, type BackupFile } from '../api';
 import { AI_COLOR, AI_COLOR_BORDER, fromISO, SECURITY_COLOR, SECURITY_COLOR_BORDER, formatBytes } from '../utils';
 import { findSsoProvider, guessSsoProvider, parseKnownSsoProvider, SSO_PROVIDERS } from '../data/ssoProviders';
 import AiButton from '../components/AiButton';
 import SecurityButton from '../components/SecurityButton';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { aiApi } from '../services/aiApi';
+import { backupApi } from '../services/backupApi';
+import { imagesApi } from '../services/imagesApi';
+import { settingsApi } from '../services/settingsApi';
+import { systemApi } from '../services/systemApi';
 
 const REFRESH_INTERVAL_OPTIONS = [
   { value: 3000, label: '3 seconds' },
@@ -102,7 +100,7 @@ export default function Settings() {
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
-    queryFn: () => api.get<SystemInfo>('/system/info'),
+    queryFn: () => systemApi.info(),
   });
 
   const { data: settings } = useAppSettings();
@@ -114,7 +112,7 @@ export default function Settings() {
   const [ssoProviderValues, setSsoProviderValues] = useState<Record<string, string>>({});
 
   const pullTrivyMutation = useMutation({
-    mutationFn: (reference: string) => api.post('/images/pull', { reference }),
+    mutationFn: (reference: string) => imagesApi.pull(reference),
     onSuccess: () => message.success('Trivy image pulled and ready to scan'),
     onError: (err) => message.error(err.message),
   });
@@ -160,7 +158,7 @@ export default function Settings() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (values: AppSettings) => api.put('/settings', values),
+    mutationFn: (values: AppSettings) => settingsApi.update(values),
     onSuccess: () => {
       message.success('Settings saved');
       queryClient.invalidateQueries({ queryKey: ['settings'] });
@@ -169,7 +167,7 @@ export default function Settings() {
   });
 
   const restoreMutation = useMutation({
-    mutationFn: (data: BackupFile) => api.post('/backup/restore', data),
+    mutationFn: (data: BackupFile) => backupApi.restore(data),
     onSuccess: async () => {
       message.success('Restore complete — please sign in again.');
       await logout().catch(() => {}); // the server session is already destroyed; this just clears local state
@@ -204,14 +202,14 @@ export default function Settings() {
 
   const { data: scheduledBackups } = useQuery({
     queryKey: ['scheduled-backups'],
-    queryFn: () => api.get<ScheduledBackupFile[]>('/backup/scheduled'),
+    queryFn: () => backupApi.listScheduled(),
   });
 
   const invalidateScheduledBackups = () =>
     queryClient.invalidateQueries({ queryKey: ['scheduled-backups'] });
 
   const runBackupMutation = useMutation({
-    mutationFn: () => api.post<{ filename: string }>('/backup/scheduled/run'),
+    mutationFn: () => backupApi.runScheduled(),
     onSuccess: (res) => {
       message.success(`Wrote ${res.filename}`);
       invalidateScheduledBackups();
@@ -220,7 +218,7 @@ export default function Settings() {
   });
 
   const deleteBackupMutation = useMutation({
-    mutationFn: (filename: string) => api.delete(`/backup/scheduled/${filename}`),
+    mutationFn: (filename: string) => backupApi.removeScheduled(filename),
     onSuccess: () => {
       message.success('Backup deleted');
       invalidateScheduledBackups();
@@ -235,7 +233,7 @@ export default function Settings() {
       // Tests the URL currently typed in the field, not whatever was last saved — otherwise
       // editing the Base URL and testing before hitting Save would silently test the old value.
       const baseUrl = form.getFieldValue('ollamaBaseUrl') as string;
-      const res = await api.get<{ models: string[] }>(`/ai/models?baseUrl=${encodeURIComponent(baseUrl)}`);
+      const res = await aiApi.models(baseUrl);
       setModels(res.models);
       setTestStatus('ok');
       if (res.models.length === 0) {
@@ -581,11 +579,7 @@ export default function Settings() {
                   </Space>
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Lets users sign in through an external OpenID Connect provider in addition
-                    to a local username/password. A first-time SSO sign-in auto-creates a local
-                    "user"-role account with the default permissions — an existing local account
-                    with the same username is never taken over. GitHub isn't listed below: its
-                    login flow is plain OAuth2 with no OpenID Connect discovery, so it can't be
-                    driven the same generic way.
+                    to a local username/password.
                   </Typography.Paragraph>
                   <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
                     <Form.Item name={['oidc', 'providerId']} hidden>
@@ -659,13 +653,13 @@ export default function Settings() {
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Exports every user (with their permissions), all settings, and every stack's
                     compose file as one JSON file. Running containers, images, volumes, and
-                    networks are not included — only Challoupe's own configuration.
+                    networks are not included.
                   </Typography.Paragraph>
                   <Alert
                     type="warning"
                     showIcon
                     style={{ maxWidth: 640, marginBottom: 16 }}
-                    message="Contains credentials — store it securely"
+                    message="Backups contains credentials, store it securely!"
                     description="The file includes password hashes and any configured secret (such as the SSO client secret) needed to make a restore fully functional. Treat it like you would a database backup."
                   />
                   {isAdmin && (
@@ -679,8 +673,7 @@ export default function Settings() {
                   <Typography.Title level={5}>Restore from a backup</Typography.Title>
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Replaces every current user, setting, and stack definition with the ones in
-                    the file. This cannot be undone, and everyone — including you — will need to
-                    sign in again afterward.
+                    the file. This cannot be undone, and everyone will need to sign in again afterward.
                   </Typography.Paragraph>
                   {isAdmin && (
                     <Upload accept="application/json" showUploadList={false} beforeUpload={handleRestoreFile}>
@@ -695,8 +688,7 @@ export default function Settings() {
                   <Typography.Title level={5}>Scheduled backups</Typography.Title>
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Writes the same export to <code>data/backups/</code> on a timer, keeping only
-                    the most recent files below — useful for an unattended install where nobody
-                    would remember to click "Download backup" regularly.
+                    the most recent files below.
                   </Typography.Paragraph>
                   <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
                     <Form.Item name={['scheduledBackup', 'enabled']} valuePropName="checked" noStyle>

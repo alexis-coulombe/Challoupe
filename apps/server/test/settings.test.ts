@@ -1,0 +1,155 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { db } from '../src/db.js';
+import { settingsService } from '../src/settings.js';
+
+const DEFAULTS = {
+  defaultRestartPolicy: 'no',
+  refreshIntervalMs: 5000,
+  defaultLogTail: 200,
+  defaultTerminalShell: '/bin/sh',
+  ollamaBaseUrl: 'http://localhost:11434',
+  ollamaModel: '',
+  trivyImage: 'aquasec/trivy:latest',
+  maxContainerMemoryMb: null,
+  maxContainerCpus: null,
+  featureFlags: { aiAssistant: true, vulnerabilityScanner: true, auditLog: true },
+  oidc: {
+    enabled: false,
+    issuerUrl: '',
+    clientId: '',
+    clientSecret: '',
+    buttonLabel: 'Single Sign-On',
+    providerId: '',
+  },
+  imageUpdateCheck: { enabled: false, intervalHours: 24 },
+  scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
+  terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
+};
+
+beforeEach(() => {
+  db.exec('DELETE FROM settings');
+});
+
+describe('settings', () => {
+  it('falls back to defaults when nothing is stored', () => {
+    expect(settingsService.get()).toEqual(DEFAULTS);
+  });
+
+  it('persists an updated value and returns it on read, leaving other defaults intact', () => {
+    settingsService.update({ defaultRestartPolicy: 'unless-stopped' });
+    expect(settingsService.get()).toEqual({ ...DEFAULTS, defaultRestartPolicy: 'unless-stopped' });
+  });
+
+  it('overwrites a previously stored value rather than duplicating it', () => {
+    settingsService.update({ defaultRestartPolicy: 'always' });
+    settingsService.update({ defaultRestartPolicy: 'on-failure' });
+    expect(settingsService.get()).toEqual({ ...DEFAULTS, defaultRestartPolicy: 'on-failure' });
+    const rows = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };
+    expect(rows.n).toBe(1);
+  });
+
+  it('persists numeric settings and reads them back as numbers', () => {
+    settingsService.update({ refreshIntervalMs: 10_000, defaultLogTail: 1000 });
+    expect(settingsService.get()).toEqual({ ...DEFAULTS, refreshIntervalMs: 10_000, defaultLogTail: 1000 });
+  });
+
+  it('persists the default terminal shell', () => {
+    settingsService.update({ defaultTerminalShell: '/bin/bash' });
+    expect(settingsService.get().defaultTerminalShell).toBe('/bin/bash');
+  });
+
+  it('persists the Ollama base URL and model', () => {
+    settingsService.update({ ollamaBaseUrl: 'http://192.168.1.50:11434', ollamaModel: 'llama3.1' });
+    expect(settingsService.get()).toEqual({
+      ...DEFAULTS,
+      ollamaBaseUrl: 'http://192.168.1.50:11434',
+      ollamaModel: 'llama3.1',
+    });
+  });
+
+  it('defaults every feature flag to enabled', () => {
+    expect(settingsService.get().featureFlags).toEqual({ aiAssistant: true, vulnerabilityScanner: true, auditLog: true });
+  });
+
+  it('persists a disabled feature flag independently of the other settings', () => {
+    settingsService.update({ featureFlags: { aiAssistant: false } });
+    expect(settingsService.get()).toEqual({
+      ...DEFAULTS,
+      featureFlags: { aiAssistant: false, vulnerabilityScanner: true, auditLog: true },
+    });
+  });
+
+  it('re-enables a feature flag on a later update', () => {
+    settingsService.update({ featureFlags: { aiAssistant: false } });
+    settingsService.update({ featureFlags: { aiAssistant: true } });
+    expect(settingsService.get().featureFlags).toEqual({ aiAssistant: true, vulnerabilityScanner: true, auditLog: true });
+  });
+
+  it('persists the Trivy image independently, and each feature flag independently', () => {
+    settingsService.update({ trivyImage: 'aquasec/trivy:0.50.0', featureFlags: { vulnerabilityScanner: false } });
+    expect(settingsService.get()).toEqual({
+      ...DEFAULTS,
+      trivyImage: 'aquasec/trivy:0.50.0',
+      featureFlags: { aiAssistant: true, vulnerabilityScanner: false, auditLog: true },
+    });
+  });
+
+  it('persists a numeric container quota, and clears it back to unlimited (null) on request', () => {
+    settingsService.update({ maxContainerMemoryMb: 512, maxContainerCpus: 2 });
+    expect(settingsService.get()).toEqual({ ...DEFAULTS, maxContainerMemoryMb: 512, maxContainerCpus: 2 });
+
+    settingsService.update({ maxContainerMemoryMb: null });
+    expect(settingsService.get().maxContainerMemoryMb).toBeNull();
+    expect(settingsService.get().maxContainerCpus).toBe(2); // untouched field survives
+  });
+
+  it('persists OIDC settings, including the client secret when read directly (not via the API)', () => {
+    settingsService.update({ oidc: { enabled: true, issuerUrl: 'https://accounts.example.com', clientId: 'c', clientSecret: 's' } });
+    expect(settingsService.get().oidc).toEqual({
+      enabled: true,
+      issuerUrl: 'https://accounts.example.com',
+      clientId: 'c',
+      clientSecret: 's',
+      buttonLabel: 'Single Sign-On',
+      providerId: '',
+    });
+  });
+
+  it('persists which SSO provider template the admin picked, as a plain UI hint', () => {
+    settingsService.update({ oidc: { providerId: 'okta', issuerUrl: 'https://dev-1234.okta.com' } });
+    expect(settingsService.get().oidc.providerId).toBe('okta');
+    settingsService.update({ oidc: { providerId: '' } });
+    expect(settingsService.get().oidc.providerId).toBe('');
+  });
+
+  it('leaves a stored client secret unchanged when a later update sends a blank one', () => {
+    settingsService.update({ oidc: { clientSecret: 'first' } });
+    settingsService.update({ oidc: { clientSecret: '', buttonLabel: 'New label' } });
+    expect(settingsService.get().oidc.clientSecret).toBe('first');
+    expect(settingsService.get().oidc.buttonLabel).toBe('New label');
+  });
+
+  it('persists the image update check settings independently of the other settings', () => {
+    settingsService.update({ imageUpdateCheck: { enabled: true, intervalHours: 6 } });
+    expect(settingsService.get()).toEqual({
+      ...DEFAULTS,
+      imageUpdateCheck: { enabled: true, intervalHours: 6 },
+    });
+  });
+
+  it('persists the scheduled backup settings independently of the other settings', () => {
+    settingsService.update({ scheduledBackup: { enabled: true, intervalHours: 12, keepCount: 3 } });
+    expect(settingsService.get()).toEqual({
+      ...DEFAULTS,
+      scheduledBackup: { enabled: true, intervalHours: 12, keepCount: 3 },
+    });
+  });
+
+  it('persists a partial terminal theme update, leaving the other colors at their default', () => {
+    settingsService.update({ terminalTheme: { background: '#ffffff' } });
+    expect(settingsService.get()).toEqual({
+      ...DEFAULTS,
+      terminalTheme: { background: '#ffffff', foreground: '#c9d1d9', cursor: '#3b82f6' },
+    });
+  });
+});

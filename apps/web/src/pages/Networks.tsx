@@ -3,10 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App as AntApp, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
-import { api, hasPermission, type NetworkSummary } from '../api';
+import { hasPermission, type NetworkSummary } from '../api';
 import { TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
 import { useBulkAction } from '../hooks/useBulkAction';
+import { networksApi } from '../services/networksApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
@@ -24,13 +25,13 @@ export default function Networks() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['networks'],
-    queryFn: () => api.get<NetworkSummary[]>('/networks'),
+    queryFn: () => networksApi.list(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['networks'] });
 
   const createMutation = useMutation({
-    mutationFn: (values: { name: string; driver: string }) => api.post('/networks', values),
+    mutationFn: (values: { name: string; driver: string }) => networksApi.create(values),
     onSuccess: () => {
       message.success('Network created');
       setCreateOpen(false);
@@ -41,7 +42,7 @@ export default function Networks() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/networks/${id}`),
+    mutationFn: (id: string) => networksApi.remove(id),
     onSuccess: () => {
       message.success('Network deleted');
       invalidate();
@@ -51,7 +52,7 @@ export default function Networks() {
 
   const bulkRemoveMutation = useBulkAction<string>({
     queryKey: ['networks'],
-    run: (id) => api.delete(`/networks/${id}`),
+    run: (id) => networksApi.remove(id),
     successLabel: (count) => `${count} network(s) deleted`,
     onSettled: () => setSelectedKeys([]),
   });

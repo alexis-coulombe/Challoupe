@@ -16,10 +16,11 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, PlusOutlined, SafetyOutlined } from '@ant-design/icons';
-import { api, PERMISSIONS, type Permission, type Permissions, type User } from '../api';
+import { PERMISSIONS, type Permission, type Permissions, type User } from '../api';
 import { fromISO, TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
 import { useBulkAction } from '../hooks/useBulkAction';
+import { usersApi } from '../services/usersApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
@@ -99,13 +100,13 @@ export default function Users() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api.get<User[]>('/users'),
+    queryFn: () => usersApi.list(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
 
   const createMutation = useMutation({
-    mutationFn: (values: UserFormValues) => api.post('/users', values),
+    mutationFn: (values: UserFormValues) => usersApi.create(values),
     onSuccess: () => {
       message.success('User created');
       setCreateOpen(false);
@@ -116,8 +117,8 @@ export default function Users() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...values }: { id: number; password?: string; role: string; permissions: Permissions }) =>
-      api.put(`/users/${id}`, values),
+    mutationFn: ({ id, ...values }: { id: number; password?: string; role: 'admin' | 'user'; permissions: Permissions }) =>
+      usersApi.update(id, values),
     onSuccess: () => {
       message.success('User updated');
       setEditing(null);
@@ -128,7 +129,7 @@ export default function Users() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => api.delete(`/users/${id}`),
+    mutationFn: (id: number) => usersApi.remove(id),
     onSuccess: () => {
       message.success('User deleted');
       invalidate();
@@ -137,7 +138,7 @@ export default function Users() {
   });
 
   const resetTotpMutation = useMutation({
-    mutationFn: (id: number) => api.post(`/users/${id}/totp/disable`),
+    mutationFn: (id: number) => usersApi.disableTotp(id),
     onSuccess: () => {
       message.success('Two-factor authentication reset for this user');
       invalidate();
@@ -147,7 +148,7 @@ export default function Users() {
 
   const bulkRemoveMutation = useBulkAction<number>({
     queryKey: ['users'],
-    run: (id) => api.delete(`/users/${id}`),
+    run: (id) => usersApi.remove(id),
     successLabel: (count) => `${count} user(s) deleted`,
     onSettled: () => setSelectedKeys([]),
   });

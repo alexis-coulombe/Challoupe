@@ -11,10 +11,11 @@ import {
   StopOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { api, hasPermission, type ComposeResult, type StackSummary } from '../api';
+import { hasPermission, type ComposeResult, type StackSummary } from '../api';
 import { runBulk, STACK_STATUS, TABLE_PAGINATION } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { stacksApi } from '../services/stacksApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
@@ -34,7 +35,7 @@ export default function Stacks() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['stacks'],
-    queryFn: () => api.get<StackSummary[]>('/stacks'),
+    queryFn: () => stacksApi.list(),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
@@ -58,19 +59,19 @@ export default function Stacks() {
   };
 
   const deployMutation = useMutation({
-    mutationFn: (name: string) => api.post<ComposeResult>(`/stacks/${name}/deploy`),
+    mutationFn: (name: string) => stacksApi.deploy(name),
     onSuccess: (result) => showResult('Deployment', result),
     onError: (err) => message.error(err.message),
   });
 
   const downMutation = useMutation({
-    mutationFn: (name: string) => api.post<ComposeResult>(`/stacks/${name}/down`),
+    mutationFn: (name: string) => stacksApi.down(name),
     onSuccess: (result) => showResult('Stop', result),
     onError: (err) => message.error(err.message),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (name: string) => api.delete(`/stacks/${name}`),
+    mutationFn: (name: string) => stacksApi.remove(name),
     onSuccess: () => {
       message.success('Stack deleted');
       invalidate();
@@ -82,10 +83,10 @@ export default function Stacks() {
     mutationFn: (action: 'deploy' | 'down' | 'delete') =>
       runBulk(selectedKeys as string[], async (name) => {
         if (action === 'delete') {
-          await api.delete(`/stacks/${name}`);
+          await stacksApi.remove(name);
           return;
         }
-        const result = await api.post<ComposeResult>(`/stacks/${name}/${action}`);
+        const result = action === 'deploy' ? await stacksApi.deploy(name) : await stacksApi.down(name);
         if (!result.ok) throw new Error(`${name}: ${result.output.slice(0, 200)}`);
       }),
     onSuccess: ({ ok, errors }, action) => {

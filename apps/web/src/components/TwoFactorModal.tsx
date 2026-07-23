@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { App as AntApp, Alert, Button, Form, Input, Modal, QRCode, Space, Typography } from 'antd';
-import { api, type TotpSetup } from '../api';
+import type { TotpSetup } from '../api';
+import { authApi } from '../services/authApi';
 import { useAuth } from '../auth';
 
 // Enable/disable flow for TOTP two-factor authentication, opened from the user menu in
@@ -33,7 +34,7 @@ export default function TwoFactorModal({ open, onClose }: { open: boolean; onClo
   const startSetup = async () => {
     setBusy(true);
     try {
-      setSetup(await api.post<TotpSetup>('/auth/totp/setup'));
+      setSetup(await authApi.totpSetup());
       setStage('scan');
     } catch (err) {
       message.error((err as Error).message);
@@ -45,7 +46,7 @@ export default function TwoFactorModal({ open, onClose }: { open: boolean; onClo
   const confirmSetup = async (values: { token: string }) => {
     setBusy(true);
     try {
-      const res = await api.post<{ backupCodes: string[] }>('/auth/totp/confirm', values);
+      const res = await authApi.totpConfirm(values);
       setBackupCodes(res.backupCodes);
       setStage('backupCodes');
       await refresh();
@@ -59,7 +60,7 @@ export default function TwoFactorModal({ open, onClose }: { open: boolean; onClo
   const disable = async (values: { password: string }) => {
     setBusy(true);
     try {
-      await api.post('/auth/totp/disable', values);
+      await authApi.totpDisable(values);
       message.success('Two-factor authentication disabled');
       disableForm.resetFields();
       await refresh();
@@ -73,7 +74,7 @@ export default function TwoFactorModal({ open, onClose }: { open: boolean; onClo
   const regenerateBackupCodes = async (values: { password: string }) => {
     setBusy(true);
     try {
-      const res = await api.post<{ backupCodes: string[] }>('/auth/totp/backup-codes', values);
+      const res = await authApi.totpBackupCodes(values);
       regenerateForm.resetFields();
       setBackupCodes(res.backupCodes);
       setStage('backupCodes');

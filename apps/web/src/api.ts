@@ -313,6 +313,19 @@ export interface StatsSample {
   networkTx: number;
 }
 
+export interface ContainerInspect {
+  Id: string;
+  Name: string;
+  Created: string;
+  State: { Status: string; StartedAt: string; ExitCode: number };
+  Config: { Image: string; Env: string[]; Tty: boolean };
+  HostConfig: { RestartPolicy: { Name: string } };
+  NetworkSettings: {
+    Ports: Record<string, Array<{ HostIp: string; HostPort: string }> | null>;
+  };
+  Mounts: Array<{ Type: string; Source: string; Destination: string; Name?: string }>;
+}
+
 export interface AuditLogEntry {
   id: number;
   created_at: string;

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { App as AntApp, Alert, Button, Form, Input, Modal, Space, Table, Typography } from 'antd';
 import { ImportOutlined, LinkOutlined } from '@ant-design/icons';
-import { api, type PortainerStackRef } from '../api';
+import type { PortainerStackRef } from '../api';
+import { stacksApi } from '../services/stacksApi';
 
 interface Props {
   open: boolean;
@@ -43,7 +44,7 @@ export default function ImportFromPortainerModal({ open, onClose }: Props) {
   }, [open, form]);
 
   const listMutation = useMutation({
-    mutationFn: (values: ConnectionForm) => api.post<PortainerStackRef[]>('/stacks/portainer/list', values),
+    mutationFn: (values: ConnectionForm) => stacksApi.listPortainer(values),
     onSuccess: (result) => {
       setStacks(result);
       setNames(Object.fromEntries(result.map((s) => [s.id, suggestStackName(s.name)])));
@@ -56,7 +57,7 @@ export default function ImportFromPortainerModal({ open, onClose }: Props) {
 
   const importMutation = useMutation({
     mutationFn: (stack: PortainerStackRef) =>
-      api.post<{ name: string }>('/stacks/portainer/import', {
+      stacksApi.importPortainer({
         id: stack.id,
         name: names[stack.id],
         ...form.getFieldsValue(),

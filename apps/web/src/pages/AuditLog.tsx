@@ -2,9 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App as AntApp, Button, Card, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined } from '@ant-design/icons';
-import { api, type AppSettings, type AuditLogEntry } from '../api';
+import type { AuditLogEntry } from '../api';
 import { formatDateTime, TABLE_PAGINATION } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { auditLogApi } from '../services/auditLogApi';
+import { settingsApi } from '../services/settingsApi';
 import ListPageHeader from '../components/ListPageHeader';
 
 export default function AuditLog() {
@@ -15,12 +17,12 @@ export default function AuditLog() {
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['audit-log'],
-    queryFn: () => api.get<AuditLogEntry[]>('/audit-log'),
+    queryFn: () => auditLogApi.list(),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
   const toggleMutation = useMutation({
-    mutationFn: (value: boolean) => api.put<AppSettings>('/settings', { featureFlags: { auditLog: value } }),
+    mutationFn: (value: boolean) => settingsApi.update({ featureFlags: { auditLog: value } }),
     onSuccess: () => {
       message.success('Setting saved');
       queryClient.invalidateQueries({ queryKey: ['settings'] });

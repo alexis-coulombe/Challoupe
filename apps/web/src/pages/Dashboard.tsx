@@ -9,10 +9,13 @@ import {
   CheckCircleOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import { api, type ContainerSummary, type StackSummary, type SystemInfo } from '../api';
+import type { ContainerSummary } from '../api';
 import { CONTAINER_STATE_COLORS, STACK_STATUS, usageColor } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useFavorites } from '../hooks/useFavorites';
+import { containersApi } from '../services/containersApi';
+import { stacksApi } from '../services/stacksApi';
+import { systemApi } from '../services/systemApi';
 import FavoriteButton from '../components/FavoriteButton';
 import Sparkline from '../components/Sparkline';
 
@@ -93,16 +96,16 @@ export default function Dashboard() {
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
-    queryFn: () => api.get<SystemInfo>('/system/info'),
+    queryFn: () => systemApi.info(),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
   const { data: stacks } = useQuery({
     queryKey: ['stacks'],
-    queryFn: () => api.get<StackSummary[]>('/stacks'),
+    queryFn: () => stacksApi.list(),
   });
   const { data: containers } = useQuery({
     queryKey: ['containers'],
-    queryFn: () => api.get<ContainerSummary[]>('/containers'),
+    queryFn: () => containersApi.list(),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 

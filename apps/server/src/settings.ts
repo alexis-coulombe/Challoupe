@@ -1,3 +1,4 @@
+import type Database from 'better-sqlite3';
 import { db } from './db.js';
 
 export const RESTART_POLICIES = ['no', 'always', 'unless-stopped', 'on-failure'] as const;
@@ -21,7 +22,7 @@ const FEATURE_FLAG_DEFAULTS: FeatureFlags = {
 };
 
 // SSO via an external OpenID Connect provider, in addition to local username/password
-// login. `clientSecret` is write-only from the API's point of view — see getSettings().
+// login. `clientSecret` is write-only from the API's point of view — see SettingsService.get().
 // `providerId` is purely a UI hint (which preset template — google/microsoft/okta/etc. —
 // the admin picked in Settings) so the picker can be restored on reload; the server never
 // looks at it, since discovery works generically off `issuerUrl` alone.
@@ -120,72 +121,6 @@ const DEFAULTS: Omit<
   maxContainerCpus: null,
 };
 
-export function getSettings(): AppSettings {
-  const rows = db.prepare('SELECT key, value FROM settings').all() as Array<{
-    key: string;
-    value: string;
-  }>;
-  const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-
-  const featureFlags = { ...FEATURE_FLAG_DEFAULTS };
-  for (const flag of Object.keys(featureFlags) as Array<keyof FeatureFlags>) {
-    const raw = stored[`featureFlags.${flag}`];
-    if (raw !== undefined) featureFlags[flag] = raw === 'true';
-  }
-
-  const oidc = { ...OIDC_DEFAULTS };
-  for (const field of Object.keys(oidc) as Array<keyof OidcSettings>) {
-    const raw = stored[`oidc.${field}`];
-    if (raw === undefined) continue;
-    if (field === 'enabled') oidc.enabled = raw === 'true';
-    else oidc[field] = raw;
-  }
-
-  const imageUpdateCheck = { ...IMAGE_UPDATE_CHECK_DEFAULTS };
-  if (stored['imageUpdateCheck.enabled'] !== undefined) {
-    imageUpdateCheck.enabled = stored['imageUpdateCheck.enabled'] === 'true';
-  }
-  if (stored['imageUpdateCheck.intervalHours'] !== undefined) {
-    imageUpdateCheck.intervalHours = Number(stored['imageUpdateCheck.intervalHours']);
-  }
-
-  const scheduledBackup = { ...SCHEDULED_BACKUP_DEFAULTS };
-  if (stored['scheduledBackup.enabled'] !== undefined) {
-    scheduledBackup.enabled = stored['scheduledBackup.enabled'] === 'true';
-  }
-  if (stored['scheduledBackup.intervalHours'] !== undefined) {
-    scheduledBackup.intervalHours = Number(stored['scheduledBackup.intervalHours']);
-  }
-  if (stored['scheduledBackup.keepCount'] !== undefined) {
-    scheduledBackup.keepCount = Number(stored['scheduledBackup.keepCount']);
-  }
-
-  const terminalTheme = { ...TERMINAL_THEME_DEFAULTS };
-  for (const field of Object.keys(terminalTheme) as Array<keyof TerminalThemeSettings>) {
-    const raw = stored[`terminalTheme.${field}`];
-    if (raw !== undefined) terminalTheme[field] = raw;
-  }
-
-  return {
-    defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
-    refreshIntervalMs: stored.refreshIntervalMs
-      ? Number(stored.refreshIntervalMs)
-      : DEFAULTS.refreshIntervalMs,
-    defaultLogTail: stored.defaultLogTail ? Number(stored.defaultLogTail) : DEFAULTS.defaultLogTail,
-    defaultTerminalShell: (stored.defaultTerminalShell as TerminalShell) ?? DEFAULTS.defaultTerminalShell,
-    ollamaBaseUrl: stored.ollamaBaseUrl ?? DEFAULTS.ollamaBaseUrl,
-    ollamaModel: stored.ollamaModel ?? DEFAULTS.ollamaModel,
-    trivyImage: stored.trivyImage ?? DEFAULTS.trivyImage,
-    maxContainerMemoryMb: stored.maxContainerMemoryMb ? Number(stored.maxContainerMemoryMb) : null,
-    maxContainerCpus: stored.maxContainerCpus ? Number(stored.maxContainerCpus) : null,
-    featureFlags,
-    oidc,
-    imageUpdateCheck,
-    scheduledBackup,
-    terminalTheme,
-  };
-}
-
 export type SettingsUpdate = Partial<
   Omit<AppSettings, 'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup' | 'terminalTheme'>
 > & {
@@ -196,53 +131,129 @@ export type SettingsUpdate = Partial<
   terminalTheme?: Partial<TerminalThemeSettings>;
 };
 
-export function setSettings(values: SettingsUpdate): AppSettings {
-  const upsert = db.prepare(
-    'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
-  );
-  const clear = db.prepare('DELETE FROM settings WHERE key = ?');
-  for (const [key, value] of Object.entries(values)) {
-    if (value === undefined) continue;
-    if (key === 'featureFlags') {
-      for (const [flag, enabled] of Object.entries(value as Partial<FeatureFlags>)) {
-        if (enabled !== undefined) upsert.run(`featureFlags.${flag}`, String(enabled));
-      }
-      continue;
+/**
+ * Reads/writes the flat key-value `settings` table, applying defaults for anything not
+ * yet stored.
+ */
+export class SettingsService {
+  constructor(private readonly db: Database.Database) {}
+
+  get(): AppSettings {
+    const rows = this.db.prepare('SELECT key, value FROM settings').all() as Array<{
+      key: string;
+      value: string;
+    }>;
+    const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+
+    const featureFlags = { ...FEATURE_FLAG_DEFAULTS };
+    for (const flag of Object.keys(featureFlags) as Array<keyof FeatureFlags>) {
+      const raw = stored[`featureFlags.${flag}`];
+      if (raw !== undefined) featureFlags[flag] = raw === 'true';
     }
-    if (key === 'oidc') {
-      for (const [field, val] of Object.entries(value as Partial<OidcSettings>)) {
-        if (val === undefined) continue;
-        if (field === 'clientSecret' && val === '') continue; // blank = leave the stored secret unchanged
-        upsert.run(`oidc.${field}`, String(val));
-      }
-      continue;
+
+    const oidc = { ...OIDC_DEFAULTS };
+    for (const field of Object.keys(oidc) as Array<keyof OidcSettings>) {
+      const raw = stored[`oidc.${field}`];
+      if (raw === undefined) continue;
+      if (field === 'enabled') oidc.enabled = raw === 'true';
+      else oidc[field] = raw;
     }
-    if (key === 'imageUpdateCheck') {
-      for (const [field, val] of Object.entries(value as Partial<ImageUpdateCheckSettings>)) {
-        if (val === undefined) continue;
-        upsert.run(`imageUpdateCheck.${field}`, String(val));
-      }
-      continue;
+
+    const imageUpdateCheck = { ...IMAGE_UPDATE_CHECK_DEFAULTS };
+    if (stored['imageUpdateCheck.enabled'] !== undefined) {
+      imageUpdateCheck.enabled = stored['imageUpdateCheck.enabled'] === 'true';
     }
-    if (key === 'scheduledBackup') {
-      for (const [field, val] of Object.entries(value as Partial<ScheduledBackupSettings>)) {
-        if (val === undefined) continue;
-        upsert.run(`scheduledBackup.${field}`, String(val));
-      }
-      continue;
+    if (stored['imageUpdateCheck.intervalHours'] !== undefined) {
+      imageUpdateCheck.intervalHours = Number(stored['imageUpdateCheck.intervalHours']);
     }
-    if (key === 'terminalTheme') {
-      for (const [field, val] of Object.entries(value as Partial<TerminalThemeSettings>)) {
-        if (val === undefined) continue;
-        upsert.run(`terminalTheme.${field}`, String(val));
-      }
-      continue;
+
+    const scheduledBackup = { ...SCHEDULED_BACKUP_DEFAULTS };
+    if (stored['scheduledBackup.enabled'] !== undefined) {
+      scheduledBackup.enabled = stored['scheduledBackup.enabled'] === 'true';
     }
-    if (value === null) {
-      clear.run(key);
-      continue;
+    if (stored['scheduledBackup.intervalHours'] !== undefined) {
+      scheduledBackup.intervalHours = Number(stored['scheduledBackup.intervalHours']);
     }
-    upsert.run(key, String(value));
+    if (stored['scheduledBackup.keepCount'] !== undefined) {
+      scheduledBackup.keepCount = Number(stored['scheduledBackup.keepCount']);
+    }
+
+    const terminalTheme = { ...TERMINAL_THEME_DEFAULTS };
+    for (const field of Object.keys(terminalTheme) as Array<keyof TerminalThemeSettings>) {
+      const raw = stored[`terminalTheme.${field}`];
+      if (raw !== undefined) terminalTheme[field] = raw;
+    }
+
+    return {
+      defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
+      refreshIntervalMs: stored.refreshIntervalMs
+        ? Number(stored.refreshIntervalMs)
+        : DEFAULTS.refreshIntervalMs,
+      defaultLogTail: stored.defaultLogTail ? Number(stored.defaultLogTail) : DEFAULTS.defaultLogTail,
+      defaultTerminalShell: (stored.defaultTerminalShell as TerminalShell) ?? DEFAULTS.defaultTerminalShell,
+      ollamaBaseUrl: stored.ollamaBaseUrl ?? DEFAULTS.ollamaBaseUrl,
+      ollamaModel: stored.ollamaModel ?? DEFAULTS.ollamaModel,
+      trivyImage: stored.trivyImage ?? DEFAULTS.trivyImage,
+      maxContainerMemoryMb: stored.maxContainerMemoryMb ? Number(stored.maxContainerMemoryMb) : null,
+      maxContainerCpus: stored.maxContainerCpus ? Number(stored.maxContainerCpus) : null,
+      featureFlags,
+      oidc,
+      imageUpdateCheck,
+      scheduledBackup,
+      terminalTheme,
+    };
   }
-  return getSettings();
+
+  update(values: SettingsUpdate): AppSettings {
+    const upsert = this.db.prepare(
+      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+    );
+    const clear = this.db.prepare('DELETE FROM settings WHERE key = ?');
+    for (const [key, value] of Object.entries(values)) {
+      if (value === undefined) continue;
+      if (key === 'featureFlags') {
+        for (const [flag, enabled] of Object.entries(value as Partial<FeatureFlags>)) {
+          if (enabled !== undefined) upsert.run(`featureFlags.${flag}`, String(enabled));
+        }
+        continue;
+      }
+      if (key === 'oidc') {
+        for (const [field, val] of Object.entries(value as Partial<OidcSettings>)) {
+          if (val === undefined) continue;
+          if (field === 'clientSecret' && val === '') continue; // blank = leave the stored secret unchanged
+          upsert.run(`oidc.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'imageUpdateCheck') {
+        for (const [field, val] of Object.entries(value as Partial<ImageUpdateCheckSettings>)) {
+          if (val === undefined) continue;
+          upsert.run(`imageUpdateCheck.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'scheduledBackup') {
+        for (const [field, val] of Object.entries(value as Partial<ScheduledBackupSettings>)) {
+          if (val === undefined) continue;
+          upsert.run(`scheduledBackup.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'terminalTheme') {
+        for (const [field, val] of Object.entries(value as Partial<TerminalThemeSettings>)) {
+          if (val === undefined) continue;
+          upsert.run(`terminalTheme.${field}`, String(val));
+        }
+        continue;
+      }
+      if (value === null) {
+        clear.run(key);
+        continue;
+      }
+      upsert.run(key, String(value));
+    }
+    return this.get();
+  }
 }
+
+export const settingsService = new SettingsService(db);

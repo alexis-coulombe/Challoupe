@@ -115,27 +115,26 @@ export function demuxLogs(buffer: Buffer): string {
 }
 
 /**
- * Stateful version of demuxLogs for a live stream, where a chunk boundary can 
- * land in the middle of a frame's header or body: incomplete frames are held 
- * back and completed by a later push().
+ * Stateful version of demuxLogs for a live stream, where a chunk boundary can
+ * land in the middle of a frame's header or body: incomplete frames are held
+ * back in a private buffer and completed by a later push().
  */
-export function createLogDemuxer() {
-  let buffer: Buffer<ArrayBufferLike> = Buffer.alloc(0);
-  return {
-    push(chunk: Buffer): string {
-      buffer = buffer.length ? Buffer.concat([buffer, chunk]) : chunk;
-      let out = '';
-      let offset = 0;
-      while (offset + 8 <= buffer.length) {
-        const size = buffer.readUInt32BE(offset + 4);
-        if (offset + 8 + size > buffer.length) break;
-        out += buffer.subarray(offset + 8, offset + 8 + size).toString('utf8');
-        offset += 8 + size;
-      }
-      buffer = buffer.subarray(offset);
-      return out;
-    },
-  };
+export class LogDemuxer {
+  private buffer: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+
+  push(chunk: Buffer): string {
+    this.buffer = this.buffer.length ? Buffer.concat([this.buffer, chunk]) : chunk;
+    let out = '';
+    let offset = 0;
+    while (offset + 8 <= this.buffer.length) {
+      const size = this.buffer.readUInt32BE(offset + 4);
+      if (offset + 8 + size > this.buffer.length) break;
+      out += this.buffer.subarray(offset + 8, offset + 8 + size).toString('utf8');
+      offset += 8 + size;
+    }
+    this.buffer = this.buffer.subarray(offset);
+    return out;
+  }
 }
 
 export interface StatsSample {

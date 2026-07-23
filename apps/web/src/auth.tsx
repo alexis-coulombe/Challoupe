@@ -6,7 +6,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { api, type AuthStatus, type User } from './api';
+import type { AuthStatus, User } from './api';
+import { authApi } from './services/authApi';
 
 interface AuthContextValue {
   user: User | null;
@@ -29,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // `error` instead so the caller can offer a retry rather than guessing.
   const refresh = useCallback(async () => {
     try {
-      const result = await api.get<AuthStatus>('/auth/status');
+      const result = await authApi.status();
       setStatus(result);
       setError(false);
     } catch {
@@ -42,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const logout = useCallback(async () => {
-    await api.post('/auth/logout');
+    await authApi.logout();
     setStatus((s) => ({ setupRequired: s?.setupRequired ?? false, user: null }));
   }, []);
 

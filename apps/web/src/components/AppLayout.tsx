@@ -42,7 +42,9 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../auth';
-import { api, hasPermission, type SystemInfo } from '../api';
+import { hasPermission } from '../api';
+import { authApi } from '../services/authApi';
+import { systemApi } from '../services/systemApi';
 import { AI_COLOR, AI_COLOR_SOFT, formatBytes } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useDockerEventNotifications } from '../hooks/useDockerEventNotifications';
@@ -188,7 +190,7 @@ export default function AppLayout() {
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
-    queryFn: () => api.get<SystemInfo>('/system/info'),
+    queryFn: () => systemApi.info(),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
@@ -216,7 +218,7 @@ export default function AppLayout() {
 
   const changePassword = async (values: { current: string; next: string }) => {
     try {
-      await api.post('/auth/password', values);
+      await authApi.changePassword(values);
       message.success('Password updated');
       setPasswordOpen(false);
       passwordForm.resetFields();
