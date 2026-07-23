@@ -36,8 +36,8 @@ export class BackupController {
   };
 
   // Restoring replaces the current users/settings/stacks wholesale, which can invalidate
-  // the requester's own session (their user row may not come back with the same id) —
-  // the session is deliberately destroyed afterward so everyone re-authenticates cleanly
+  // the requester's own session (their user row may not come back with the same id). The
+  // session is deliberately destroyed afterward so everyone re-authenticates cleanly
   // against the restored state rather than running with stale in-memory session data.
   restore = async (req: Request, res: Response): Promise<void> => {
     const body = restoreSchema.parse(req.body);
@@ -56,12 +56,12 @@ export class BackupController {
   };
 
   // Lists the backups written by the scheduler (see settings.ts's `scheduledBackup` for the
-  // on/off toggle and retention count) — newest first.
+  // on/off toggle and retention count), newest first.
   listScheduled = (_req: Request, res: Response): void => {
     res.json(scheduledBackupService.list());
   };
 
-  // Writes one on demand, outside the timer — e.g. right before a risky change, or to
+  // Writes one on demand, outside the timer: e.g. right before a risky change, or to
   // confirm the feature is wired up without waiting for the next scheduled run.
   runScheduled = async (req: Request, res: Response): Promise<void> => {
     const filename = await scheduledBackupService.run();

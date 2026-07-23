@@ -19,7 +19,7 @@ describe('classifyEvent', () => {
     });
   });
 
-  it('ignores a clean (exit code 0) "die" — an intentional/expected stop', () => {
+  it('ignores a clean (exit code 0) "die", an intentional/expected stop', () => {
     const notification = classifyEvent({
       Type: 'container',
       Action: 'die',

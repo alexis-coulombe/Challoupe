@@ -121,7 +121,7 @@ describe('WS /containers/:id/logs', () => {
 
     expect(mockContainer.logs).toHaveBeenCalledWith(expect.objectContaining({ tail: 5000 }));
     // The empty mock stream ends (and the server closes the socket) almost immediately,
-    // so the connection is very likely already closed by now — closeAndWait would hang
+    // so the connection is very likely already closed by now. closeAndWait would hang
     // waiting for a 'close' event that already fired before it attached its listener.
     if (ws.readyState !== WebSocket.CLOSED) await closeAndWait(ws);
   });
@@ -192,7 +192,7 @@ describe('WS /containers/:id/exec', () => {
     await closeAndWait(ws);
   });
 
-  it('rejects a non-admin user with 403 — a shell is as powerful as the Docker socket itself', async () => {
+  it('rejects a non-admin user with 403, since a shell is as powerful as the Docker socket itself', async () => {
     const adminCookie = await loginCookie();
     const cookie = await nonAdminCookie(adminCookie);
     mockExecSession();

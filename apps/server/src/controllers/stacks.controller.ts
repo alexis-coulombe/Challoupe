@@ -85,7 +85,7 @@ export class StacksController {
     res.json({ name: req.params.name, compose: await stackService.read(req.params.name) });
   };
 
-  // Read-only, same access level as GET /:name — surfaces what redeploying would change
+  // Read-only, same access level as GET /:name. Surfaces what redeploying would change
   // without actually running `docker compose up`.
   drift = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     res.json(await stackService.drift(req.params.name));
@@ -107,7 +107,7 @@ export class StacksController {
 
   // Unlike a container start/stop (bounded by config only a manageContainers holder could
   // have set), deploying a stack that was created-but-never-deployed effectively creates
-  // brand-new containers from whatever the compose file says — equivalent to container
+  // brand-new containers from whatever the compose file says. Equivalent to container
   // create, not container start. So this needs manageStacks, not just stack existence.
   deploy = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     const result = await stackService.deploy(req.params.name);

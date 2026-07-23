@@ -7,7 +7,7 @@ const testConnectionSchema = z.object({ baseUrl: z.string().trim().url().optiona
 
 export class AiController {
   // `baseUrl` lets Settings' "Test connection" button check the value currently typed in
-  // the form, before it's saved — otherwise this would only ever be able to test whatever
+  // the form, before it's saved. Otherwise this would only ever be able to test whatever
   // was last persisted, which is misleading right after editing the field.
   models = async (req: Request, res: Response): Promise<void> => {
     const { ollamaBaseUrl, featureFlags } = settingsService.get();

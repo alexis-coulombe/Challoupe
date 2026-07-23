@@ -68,7 +68,7 @@ function ScanButton({ image }: { image: string }) {
         title={
           <Space size={8}>
             <SecurityScanOutlined style={{ color: SECURITY_COLOR }} />
-            Vulnerability scan — {image}
+            Vulnerability scan : {image}
           </Space>
         }
         open={open}
@@ -209,7 +209,7 @@ function BuildFromGitButton({ onBuilt }: { onBuilt: () => void }) {
             <Form.Item
               name="ref"
               label="Branch / tag"
-              tooltip="Docker only defaults to 'master' if this is left blank — specify it explicitly for repos whose default branch is 'main' or anything else"
+              tooltip="Docker only defaults to 'master' if this is left blank. Specify it explicitly for repos whose default branch is 'main' or anything else"
             >
               <Input placeholder="main" style={{ width: 180 }} />
             </Form.Item>
@@ -323,7 +323,7 @@ export default function Images() {
   const checkAllUpdatesMutation = useMutation({
     mutationFn: () => imagesApi.checkUpdates(),
     onSuccess: (result) => {
-      message.success(`Checked ${result.checked} image(s) — ${result.updatesAvailable} update(s) available`);
+      message.success(`Checked ${result.checked} image(s) : ${result.updatesAvailable} update(s) available`);
       if (result.errors.length) message.warning(`${result.errors.length} check(s) could not be completed`);
       invalidate();
     },
@@ -395,7 +395,7 @@ export default function Images() {
         <Space>
           {scanEnabled && <ScanButton image={record.tags[0] ?? record.id} />}
           {canManage && (
-            <Tooltip title={record.tags.length ? 'Check for updates' : 'Untagged — nothing to check'}>
+            <Tooltip title={record.tags.length ? 'Check for updates' : 'Untagged. Nothing to check'}>
               <Button
                 size="small"
                 icon={<SyncOutlined />}

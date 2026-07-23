@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/brand/banner.svg" alt="Challoupe — self-hosted Docker management" width="720">
+  <img src="assets/brand/banner.svg" width="720">
 </p>
 
 A self-hosted Docker manager, containers, images, volumes, networks, docker-compose stacks and user management.
@@ -81,7 +81,8 @@ docker compose up -d --build
 This builds the image from the included `Dockerfile` (multi-stage: compiles both
 workspaces, then a slim runtime with the Docker CLI + Compose plugin installed. Needed since stacks are deployed by shelling out to the real `docker compose`), mounts `/var/run/docker.sock` so it manages the *host's* Docker daemon, and persists `data/` in a named volume. The container needs to run as root: it has to read the host's Docker socket, whose group ownership isn't predictable at  image-build time.
 
-To serve HTTPS directly instead of plain HTTP, set `TLS_CERT_FILE`/`TLS_KEY_FILE` (see below) to a cert/key pair mounted into the container — `docker-compose.yml` has a commented-out example. Skip both and put a TLS-terminating reverse proxy (Traefik, Caddy, nginx) in front instead if you'd rather have it handle certificate renewal.
+To serve HTTPS directly instead of plain HTTP, set `TLS_CERT_FILE`/`TLS_KEY_FILE` (see below) to a cert/key pair mounted into the container.
+`docker-compose.yml` has a commented-out example. Skip both and put a TLS-terminating reverse proxy (Traefik, Caddy, nginx) in front instead if you'd rather have it handle certificate renewal.
 
 The Dashboard/Settings "Storage" stat needs the host's Docker root directory visible at the same path inside the container to read its disk usage. Mount it (read-only) to get real numbers;
 `docker-compose.yml` has a commented-out example, and `docker info --format
@@ -111,4 +112,4 @@ Docker daemon's state or your `data/` directory. Route tests that exercise conta
 | `TLS_CERT_FILE` | unset | Path to a PEM certificate (set together with `TLS_KEY_FILE` to serve HTTPS directly) |
 | `TLS_KEY_FILE` | unset | Path to the matching PEM private key |
 | `TRUST_PROXY` | `false` | Set to `true` **only** behind a reverse proxy you trust to forward `X-Forwarded-*`, makes the session cookie's `Secure` flag and audit-log IP reflect the original client correctly |
-| `PUBLIC_URL` | reflects the incoming request | Externally-reachable base URL (e.g. `https://challoupe.example.com`); set this if that reflection is wrong (behind a proxy that doesn't forward the original host/proto) — used to build the OIDC SSO callback URL |
+| `PUBLIC_URL` | reflects the incoming request | Externally-reachable base URL (e.g. `https://challoupe.example.com`); set this if that reflection is wrong (behind a proxy that doesn't forward the original host/proto). Used to build the OIDC SSO callback URL |

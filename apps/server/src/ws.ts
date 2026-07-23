@@ -50,7 +50,7 @@ export function attachWebSocketServer(server: Server): void {
             const [, containerId, kind] = containerMatch;
             if (kind === 'stats') handleStats(ws, containerId);
             else if (kind === 'logs') {
-              // Same 5000-line cap as the REST endpoint (routes/containers.ts) — without it
+              // Same 5000-line cap as the REST endpoint (routes/containers.ts). Without it
               // a client can ask for an unbounded backlog and force the whole thing into memory.
               const tail = Math.min(Number(url.searchParams.get('tail')) || 200, 5000);
               handleLogs(ws, containerId, tail);
@@ -161,8 +161,8 @@ function handleExec(ws: WebSocket, containerId: string, requestedShell: string |
       Tty: true,
     });
     // A client that disconnected during the exec-create round trip above doesn't need a
-    // shell process started for it at all — skip the resize + start Docker calls entirely
-    // (the exec instance itself already exists at the daemon, but is otherwise inert).
+    // shell process started for it at all, so skip the resize + start Docker calls entirely.
+    // The exec instance itself already exists at the daemon, but is otherwise inert.
     if (closed) return;
     exec = e;
     const initialResize = pendingResize as { cols: number; rows: number } | null;

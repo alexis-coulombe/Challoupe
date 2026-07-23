@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { wsUrl, type AiChatMessage } from '../api';
 
 // Drives the multi-turn AI assistant chat: keeps a single WebSocket open across turns
-// (unlike useOllamaStream's one-shot connections) so conversation context is cheap to
-// continue — the server re-sends full history each turn, the socket just avoids the
-// reconnect round-trip.
+// (unlike useOllamaStream's one-shot connections) to avoid a reconnect round-trip per
+// message. The server still re-sends the full history each turn.
 export function useOllamaChat() {
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [streaming, setStreaming] = useState(false);

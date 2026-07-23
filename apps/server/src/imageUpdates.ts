@@ -106,9 +106,10 @@ export class ImageUpdateService {
     return { checked: targets.length, updatesAvailable, errors };
   }
 
-  // Re-reads settings and (re)starts the background interval accordingly — called once at
-  // server startup and again after any settings update that touches `imageUpdateCheck`, the
-  // same cache-invalidation pattern as oidc.ts's OidcConfigProvider.resetCache().
+  /**
+   * Re-reads settings and (re)starts the background interval accordingly
+   * @returns void
+   */
   restartScheduler(): void {
     if (this.schedulerTimer) {
       clearInterval(this.schedulerTimer);

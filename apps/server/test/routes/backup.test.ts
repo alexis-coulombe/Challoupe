@@ -93,7 +93,7 @@ describe('POST /api/backup/restore', () => {
     const restore = await agent.post('/api/backup/restore').send(exported);
     expect(restore.status).toBe(200);
 
-    // The session that performed the restore no longer works — a full state
+    // The session that performed the restore no longer works. A full state
     // replacement forces a clean re-login rather than running on stale session data.
     const whoAmI = await agent.get('/api/auth/status');
     expect(whoAmI.body.user).toBeNull();

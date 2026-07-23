@@ -150,7 +150,7 @@ function LogsPanel({
     >
       {!running && (
         <Typography.Text type="secondary">
-          Container is stopped — showing the last available logs.
+          Container is stopped. Showing the last available logs.
         </Typography.Text>
       )}
       <pre

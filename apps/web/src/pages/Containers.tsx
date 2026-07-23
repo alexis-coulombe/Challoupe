@@ -154,7 +154,7 @@ export default function Containers() {
 
   const onBulkDone = ({ ok, errors }: BulkResult, label: string) => {
     if (ok) message.success(`${ok} container(s) ${label}`);
-    if (errors.length) message.error(`${errors.length} failure(s) — ${errors[0]}`);
+    if (errors.length) message.error(`${errors.length} failure(s) : ${errors[0]}`);
     setSelectedKeys([]);
     invalidate();
   };
@@ -360,7 +360,7 @@ export default function Containers() {
                 <Form.Item
                   name="gitRef"
                   label="Branch / tag"
-                  tooltip="Docker only defaults to 'master' if this is left blank — specify it explicitly for repos whose default branch is 'main' or anything else"
+                  tooltip="Docker only defaults to 'master' if this is left blank. Specify it explicitly for repos whose default branch is 'main' or anything else"
                 >
                   <Input placeholder="main" style={{ width: 180 }} />
                 </Form.Item>

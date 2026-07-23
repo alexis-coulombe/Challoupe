@@ -112,7 +112,7 @@ describe('POST /api/containers', () => {
     expect(options.HostConfig.RestartPolicy.Name).toBe('unless-stopped');
   });
 
-  it('rejects a non-admin user — creation can grant privileged mode and host bind-mounts', async () => {
+  it('rejects a non-admin user, since creation can grant privileged mode and host bind-mounts', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
     const res = await agent.post('/api/containers').send({ image: 'alpine:latest' });
@@ -210,7 +210,7 @@ describe('POST /api/containers/:id/actions/:action', () => {
     expect(mockContainer.stop).toHaveBeenCalledOnce();
   });
 
-  it('allows a non-admin user — start/stop/restart are non-destructive', async () => {
+  it('allows a non-admin user, since start/stop/restart are non-destructive', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
     const res = await agent.post('/api/containers/container-123/actions/stop');

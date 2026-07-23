@@ -5,7 +5,7 @@ export type OllamaStreamStatus = 'idle' | 'connecting' | 'streaming' | 'done' | 
 
 // Drives a one-shot Ollama response over WebSocket: connect, optionally send an initial
 // message, accumulate streamed tokens into `text`. Used for log diagnosis and stack
-// generation — each is a single request/response per connection.
+// generation, each a single request/response per connection.
 export function useOllamaStream() {
   const [text, setText] = useState('');
   const [status, setStatus] = useState<OllamaStreamStatus>('idle');

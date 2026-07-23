@@ -50,7 +50,7 @@ describe('parseImageReference', () => {
     });
   });
 
-  it('returns null for a digest-pinned reference — nothing to compare against', () => {
+  it('returns null for a digest-pinned reference, nothing to compare against', () => {
     expect(parseImageReference('nginx@sha256:abcdef0123456789')).toBeNull();
   });
 });

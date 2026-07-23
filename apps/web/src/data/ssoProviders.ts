@@ -6,8 +6,8 @@
 //
 // GitHub is listed but disabled: its "Login with GitHub" OAuth flow does not implement
 // OpenID Connect (no ID token, no `.well-known/openid-configuration` discovery document),
-// so it cannot be driven by the generic OIDC client this app uses — unlike GitLab, which
-// does implement full OIDC.
+// so it cannot be driven by the generic OIDC client this app uses. GitLab does implement
+// full OIDC.
 export interface SsoProviderField {
   key: string;
   label: string;
@@ -24,12 +24,12 @@ export interface SsoProviderTemplate {
   disabledReason?: string;
   fields: SsoProviderField[];
   buildIssuerUrl: (values: Record<string, string>) => string;
-  // Reconstructs field values from an issuer URL already known to belong to this template
-  // — used once the settings' stored `providerId` names the template directly, so this
+  // Reconstructs field values from an issuer URL already known to belong to this template.
+  // Used once the settings' stored `providerId` names the template directly, so this
   // always just parses (no ambiguity to worry about at that point).
   parseIssuerUrl: (issuerUrl: string) => Record<string, string>;
   // Only set for templates whose issuer URL shape is distinctive enough to *guess* with no
-  // known providerId — i.e. settings saved before this field existed. Several providers
+  // known providerId, i.e. settings saved before this field existed. Several providers
   // (Okta, Auth0, GitLab, Authelia) reduce to the same bare "https://{host}" shape, so
   // guessing among them would be arbitrary; those are only ever selected via providerId.
   guessIssuerUrl?: (issuerUrl: string) => Record<string, string> | null;
@@ -162,18 +162,7 @@ export const SSO_PROVIDERS: SsoProviderTemplate[] = [
     fields: [{ key: 'host', label: 'Authelia URL', placeholder: 'https://auth.example.com' }],
     buildIssuerUrl: ({ host }) => stripTrailingSlash(host || ''),
     parseIssuerUrl: (url) => ({ host: stripTrailingSlash(url) }),
-  },
-  {
-    id: 'github',
-    name: 'GitHub',
-    buttonLabel: 'Sign in with GitHub',
-    disabled: true,
-    disabledReason:
-      "GitHub's login flow is plain OAuth2, not OpenID Connect — it has no ID token or discovery document, so it can't be driven by this generic OIDC client.",
-    fields: [],
-    buildIssuerUrl: () => '',
-    parseIssuerUrl: () => ({}),
-  },
+  }
 ];
 
 export function findSsoProvider(id: string): SsoProviderTemplate {
@@ -189,7 +178,7 @@ export function parseKnownSsoProvider(id: string, issuerUrl: string): Record<str
 
 // Best-effort fallback for settings saved before `providerId` existed: guesses which
 // template (if any) produced a stored issuer URL, only for shapes distinctive enough to
-// guess safely — see `guessIssuerUrl` above.
+// guess safely. See `guessIssuerUrl` above.
 export function guessSsoProvider(issuerUrl: string): { id: string; values: Record<string, string> } | null {
   if (!issuerUrl) return null;
   for (const provider of SSO_PROVIDERS) {

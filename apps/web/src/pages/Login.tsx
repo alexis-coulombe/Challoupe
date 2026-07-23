@@ -23,7 +23,7 @@ export default function Login() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('error') === 'oidc_failed') {
-      setError('Single sign-on failed — the account may already exist locally, or the sign-in was cancelled.');
+      setError('Single sign-on failed. The account may already exist locally, or the sign-in was cancelled.');
     }
   }, []);
 

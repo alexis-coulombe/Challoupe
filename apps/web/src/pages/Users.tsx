@@ -27,12 +27,12 @@ import ListPageHeader from '../components/ListPageHeader';
 import PasswordInput from '../components/PasswordInput';
 
 const PERMISSION_LABELS: Record<Permission, string> = {
-  manageContainers: 'Manage containers — create & delete',
-  manageImages: 'Manage images — pull, delete, prune',
-  manageVolumes: 'Manage volumes — create, delete, prune',
-  manageNetworks: 'Manage networks — create & delete',
-  manageStacks: 'Manage stacks — create, edit, delete',
-  exec: 'Terminal — shell access into containers',
+  manageContainers: 'Manage containers: create & delete',
+  manageImages: 'Manage images: pull, delete, prune',
+  manageVolumes: 'Manage volumes: create, delete, prune',
+  manageNetworks: 'Manage networks: create & delete',
+  manageStacks: 'Manage stacks: create, edit, delete',
+  exec: 'Terminal: shell access into containers',
   useAi: 'AI Assistant',
   useSecurityScanner: 'Vulnerability scanner',
 };
@@ -204,7 +204,7 @@ export default function Users() {
           {record.totpEnabled && (
             <Popconfirm
               title="Reset two-factor authentication?"
-              description="Removes their authenticator/backup codes — they'll sign in with just a password until they set it up again."
+              description="Removes their authenticator/backup codes. They'll sign in with just a password until they set it up again."
               onConfirm={() => resetTotpMutation.mutate(record.id)}
             >
               <Button size="small" icon={<SafetyOutlined />} loading={resetTotpMutation.isPending} />

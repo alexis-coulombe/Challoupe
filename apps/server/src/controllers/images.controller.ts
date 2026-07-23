@@ -54,7 +54,7 @@ export class ImagesController {
   };
 
   // Triggers an on-demand registry check for one image (or, with no :id, every locally
-  // tagged image) — the manual counterpart to the optional background scheduler in
+  // tagged image). The manual counterpart to the optional background scheduler in
   // imageUpdates.ts. Gated behind manageImages since it's outbound network activity, same
   // bar as pull/prune.
   checkUpdates = async (req: Request, res: Response): Promise<void> => {
@@ -75,7 +75,7 @@ export class ImagesController {
   };
 
   // Builds an image from a Dockerfile hosted in a Git repository (GitHub, GitLab, Gitea, or
-  // any host reachable from the Docker daemon) — see buildImageFromGit() for how the clone
+  // any host reachable from the Docker daemon). See buildImageFromGit() for how the clone
   // itself is delegated to the daemon. Always responds 200: whether the Dockerfile itself
   // built successfully is a business result (`ok`), distinct from a malformed request or an
   // unreachable daemon (which still surface as the usual HTTP error statuses).

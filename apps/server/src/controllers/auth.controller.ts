@@ -72,7 +72,7 @@ export class AuthController {
     req.session.regenerate((err) => {
       if (err) throw err;
       if (user.totpEnabled) {
-        // Password alone isn't enough — hold the session in a pending state (distinct from
+        // Password alone isn't enough, so hold the session in a pending state (distinct from
         // `userId`, which is what requireAuth actually checks) until /totp/verify passes.
         req.session.pendingTotpUserId = user.id;
         res.json({ requiresTotp: true });
@@ -172,7 +172,7 @@ export class AuthController {
     }
     const body = z.object({ token: z.string().trim().length(6) }).parse(req.body);
     if (!(await verifyTotpToken(secret, body.token))) {
-      res.status(400).json({ error: 'Invalid code — check that your device clock is correct and try again' });
+      res.status(400).json({ error: 'Invalid code. Check that your device clock is correct and try again' });
       return;
     }
     const backupCodes = generateBackupCodes();
@@ -216,7 +216,7 @@ export class AuthController {
     res.json({ ok: true });
   };
 
-  // Regenerating invalidates every previous backup code — the fresh set is shown once, same
+  // Regenerating invalidates every previous backup code. The fresh set is shown once, same
   // as at initial setup, since only hashes are ever stored.
   totpBackupCodes = (req: Request, res: Response): void => {
     const body = z.object({ password: z.string() }).parse(req.body);

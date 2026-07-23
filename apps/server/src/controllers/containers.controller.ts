@@ -62,7 +62,7 @@ export class ContainersController {
     );
   };
 
-  // Container creation can grant privileged mode and arbitrary host bind-mounts —
+  // Container creation can grant privileged mode and arbitrary host bind-mounts,
   // effectively root on the host via the Docker socket.
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
@@ -77,7 +77,7 @@ export class ContainersController {
     }
 
     // Admins are never capped; a "user"-role account is bound by the configured quota
-    // (when one is set) — a request over quota is rejected, and one left unset is
+    // (when one is set). A request over quota is rejected, and one left unset is
     // clamped to the quota so a quota can never be silently bypassed by omission.
     let memoryMb = body.memoryMb;
     let cpus = body.cpus;

@@ -12,7 +12,7 @@ export class SystemController {
     ]);
     const ram = ramUsage();
     // Reading the Docker root's disk usage requires that path to exist in *this* process's
-    // filesystem view — true on a bare-metal/host install, but not when Challoupe itself runs
+    // filesystem view. True on a bare-metal/host install, but not when Challoupe itself runs
     // containerized without also bind-mounting the host's Docker root dir in (see README).
     // Degrade to zeroed storage stats rather than failing the whole endpoint over one
     // non-critical stat.

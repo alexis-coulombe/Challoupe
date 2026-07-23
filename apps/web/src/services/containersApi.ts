@@ -36,7 +36,7 @@ export class ContainersApi {
     return api.post(`/containers/${id}/actions/${action}`);
   }
 
-  // Always force-removed — the only mode any page uses.
+  // Always force-removed, the only mode any page uses.
   remove(id: string) {
     return api.delete(`/containers/${id}?force=true`);
   }

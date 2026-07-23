@@ -16,7 +16,7 @@ interface DockerEventMessage {
 
 const DESCRIPTION: Record<DockerEventAction, (m: DockerEventMessage) => string> = {
   crashed: (m) => `Exited unexpectedly with code ${m.exitCode}.`,
-  oom: () => 'Killed by the kernel — out of memory.',
+  oom: () => 'Killed by the kernel. Out of memory.',
   unhealthy: () => 'Health check is now failing.',
 };
 
@@ -51,9 +51,8 @@ export function useDockerEventNotifications(): void {
           description: (
             <>
               {DESCRIPTION[msg.action](msg)}{' '}
-              {/* A router <Link> can't be used here — antd's notification content
-                  renders outside the <BrowserRouter> tree, so it must navigate
-                  imperatively instead of relying on router context at render time. */}
+              {/* A router <Link> can't be used here: antd's notification content renders
+                  outside the <BrowserRouter> tree, so it must navigate imperatively. */}
               <a
                 onClick={() => {
                   navigate(`/containers/${msg.containerId}`);

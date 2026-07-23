@@ -1,8 +1,3 @@
-// Thin client for a remote Portainer instance's REST API — used only to list its
-// compose-type stacks and fetch a stack's docker-compose.yml content for import. No
-// session/JWT is cached: each call logs in fresh, since this is only ever a handful of
-// interactive requests (Stacks page "Import from Portainer" flow), not a hot path.
-
 export interface PortainerStackRef {
   id: number;
   name: string;
@@ -29,8 +24,7 @@ async function portainerLogin(baseUrl: string, username: string, password: strin
 }
 
 /**
- * Portainer stack "Type": 1 = Swarm, 2 = standalone Compose. Only Type 2 has a
- * docker-compose.yml that we can use.
+ * Portainer stack "Type": 1 = Swarm, 2 = standalone Compose. Only Type 2 has a docker-compose.yml that we can use.
  * @param baseUrl string
  * @param username string
  * @param password string

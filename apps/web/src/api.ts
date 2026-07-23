@@ -220,8 +220,7 @@ export interface ScheduledBackupSettings {
   keepCount: number;
 }
 
-// clientSecret is always returned blank by the API — see routes/settings.ts. providerId is
-// a UI-only hint (which preset template was picked in Settings) — the server never reads it.
+// clientSecret is always returned blank by the API
 export interface OidcSettings {
   enabled: boolean;
   issuerUrl: string;

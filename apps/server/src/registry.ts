@@ -7,10 +7,11 @@ export interface ParsedReference {
   tag: string;
 }
 
-// Mirrors Docker's own reference-parsing heuristic: the first path segment is a registry
-// host (not Docker Hub) only if it looks like one (has a dot, a port colon, or is
-// "localhost") — otherwise the whole reference is a Docker Hub repository, and an
-// unqualified name (no slash) is an official "library/" image.
+/**
+ * Mirrors Docker's own reference-parsing heuristic
+ * @param reference string
+ * @returns ParsedReference | null
+ */
 export function parseImageReference(reference: string): ParsedReference | null {
   // A digest-pinned reference (name@sha256:...) never has a "newer version" to check for.
   if (reference.includes('@')) {
@@ -25,12 +26,14 @@ export function parseImageReference(reference: string): ParsedReference | null {
     tag = reference.slice(lastColon + 1);
     namePart = reference.slice(0, lastColon);
   }
-  if (!namePart) return null;
+
+  if (!namePart) {
+    return null;
+  }
 
   const firstSlash = namePart.indexOf('/');
   const firstSegment = firstSlash === -1 ? namePart : namePart.slice(0, firstSlash);
-  const looksLikeHost =
-    firstSegment === 'localhost' || firstSegment.includes('.') || firstSegment.includes(':');
+  const looksLikeHost = firstSegment === 'localhost' || firstSegment.includes('.') || firstSegment.includes(':');
 
   let registryHost: string;
   let repository: string;
@@ -41,10 +44,15 @@ export function parseImageReference(reference: string): ParsedReference | null {
     registryHost = DOCKER_HUB_REGISTRY;
     repository = namePart;
   }
-  if (!repository) return null;
+
+  if (!repository) {
+    return null;
+  }
+
   if (registryHost === DOCKER_HUB_REGISTRY && !repository.includes('/')) {
     repository = `library/${repository}`;
   }
+  
   return { registryHost, repository, tag };
 }
 

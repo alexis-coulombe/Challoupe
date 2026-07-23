@@ -17,9 +17,7 @@ export function formatRate(bytesPerSecond: number): string {
   return `${formatBytes(bytesPerSecond)}/s`;
 }
 
-// Local LLMs are asked for raw YAML with no markdown, but don't always comply — this pulls
-// just the fenced block's content out (discarding any ```lang fence and surrounding prose),
-// or returns the text unchanged if it was never fenced to begin with.
+// Strips a ```lang fence from LLM output, in case it added one anyway.
 export function stripCodeFence(text: string): string {
   const trimmed = text.trim();
   const match = /```[^\n]*\n([\s\S]*?)```/.exec(trimmed);
@@ -84,15 +82,14 @@ export const AI_COLOR = '#8b5cf6';
 export const AI_COLOR_SOFT = 'rgba(139, 92, 246, 0.14)';
 export const AI_COLOR_BORDER = 'rgba(139, 92, 246, 0.35)';
 
-// The accent reserved for the Trivy-powered vulnerability scanner — teal, distinct from
-// both the blue brand color and the violet AI accent, so each feature reads at a glance.
+// The accent reserved for the Trivy-powered vulnerability scanner, distinct from the blue
+// brand color and the violet AI accent.
 export const SECURITY_COLOR = '#14b8a6';
 export const SECURITY_COLOR_BORDER = 'rgba(20, 184, 166, 0.35)';
 
 // Shared "console output" look for command/build/log text (container logs, stack deploy
-// output, AI-generated stacks, git build logs) — a terminal-like dark box regardless of
-// which page's accent color surrounds it. Pair with a feature's own *_BORDER token instead
-// of CONSOLE_BORDER when the box should read as belonging to that feature (e.g. AI output).
+// output, AI-generated stacks, git build logs). Pair with a feature's own *_BORDER token
+// instead of CONSOLE_BORDER when the box should read as belonging to that feature.
 export const CONSOLE_BG = '#0b0e14';
 export const CONSOLE_BORDER = '#1f2733';
 export const CONSOLE_TEXT = '#c9d1d9';

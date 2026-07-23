@@ -57,7 +57,7 @@ describe('POST /api/stacks', () => {
     expect(res.status).toBe(400);
   });
 
-  it('rejects a non-admin user — a compose file is as powerful as a privileged container', async () => {
+  it('rejects a non-admin user, since a compose file is as powerful as a privileged container', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
     const res = await agent.post('/api/stacks').send({ name: 'my-stack', compose: VALID_COMPOSE });
@@ -75,7 +75,7 @@ describe('POST /api/stacks', () => {
 });
 
 describe('POST /api/stacks/:name/deploy and /down', () => {
-  it('rejects a non-admin user without manageStacks — deploying an unstarted stack is equivalent to creating containers', async () => {
+  it('rejects a non-admin user without manageStacks, since deploying an unstarted stack is equivalent to creating containers', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     await adminAgent.post('/api/stacks').send({ name: 'deploy-guarded', compose: VALID_COMPOSE, deploy: false });
     const agent = await createUserAgent(app, adminAgent, 'viewer');
@@ -181,8 +181,8 @@ describe('GET /api/stacks/:name/drift', () => {
         drifted: false,
       });
 
-      // Simulate someone removing one container directly, outside Challoupe entirely —
-      // the stack is still (partially) up, just no longer matching its compose file.
+      // Simulate someone removing one container directly, outside Challoupe entirely.
+      // The stack is still (partially) up, just no longer matching its compose file.
       // (Docker's label filter ORs multiple values together, so this must be a single
       // filter and then find the target container in code, not two label filters at once.)
       const containers = await docker.listContainers({
@@ -196,7 +196,7 @@ describe('GET /api/stacks/:name/drift', () => {
       expect(driftAfter.body.inSync).toBe(false);
       expect(driftAfter.body.missingServices).toEqual(['cache']);
 
-      // The remaining container is still running fine, so `status` alone reads "running" —
+      // The remaining container is still running fine, so `status` alone reads "running".
       // `drifted` is what actually surfaces that the stack no longer matches its file.
       const listAfter = await agent.get('/api/stacks');
       expect(listAfter.body.find((s: { name: string }) => s.name === 'drift-check')).toMatchObject({

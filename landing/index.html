@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Challoupe — Self-hosted Docker management, without the paywall</title>
+<meta name="description" content="Challoupe is a free, self-hosted Docker manager: containers, images, volumes, stacks, RBAC, SSO, audit logs, vulnerability scanning and a local AI assistant. No license to buy." />
+<meta property="og:title" content="Challoupe — Self-hosted Docker management, without the paywall" />
+<meta property="og:description" content="Everything a paid Docker manager charges for, free and self-hosted." />
+<meta property="og:type" content="website" />
+<link rel="icon" type="image/svg+xml" href="../apps/web/public/logo.svg" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0b0e14',
+          sider: '#0e1219',
+          surface: '#161c28',
+          surface2: '#1e2530',
+          border: '#2a3441',
+          bordersoft: '#242e3c',
+          primary: '#3b82f6',
+          primarylight: '#7ab3ff',
+          primarydark: '#1d4ed8',
+          amber: '#f5b942',
+          amberdark: '#b8791f',
+        },
+        fontFamily: {
+          mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  html { scroll-behavior: smooth; }
+  body { background-color: #0b0e14; }
+
+  ::selection { background: rgba(59, 130, 246, 0.35); }
+  * { scrollbar-width: thin; scrollbar-color: #2a3441 transparent; }
+
+  .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+  .reveal.is-visible { opacity: 1; transform: translateY(0); }
+
+  @keyframes barpulse {
+    0%, 100% { width: var(--w-from, 35%); }
+    50% { width: var(--w-to, 65%); }
+  }
+  .bar-anim { animation: barpulse 4.5s ease-in-out infinite; }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  .caret-blink { animation: blink 1s step-end infinite; }
+
+  .glow-card { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+  .glow-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(59, 130, 246, 0.45);
+    box-shadow: 0 12px 40px rgba(59, 130, 246, 0.12);
+  }
+
+  .nav-scrolled { background-color: rgba(11, 14, 20, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid #2a3441; }
+</style>
+</head>
+<body class="bg-ink text-slate-300 antialiased overflow-x-hidden">
+
+<!-- nav -->
+<header id="nav" class="fixed top-0 inset-x-0 z-50 transition-colors duration-300">
+  <div class="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+    <a href="#top" class="flex items-center gap-2.5">
+      <svg width="30" height="30" viewBox="0 0 100 100" class="shrink-0">
+        <polygon points="30,27 50,37 50,52 30,42" fill="#7ab3ff" opacity="0.9"/>
+        <polygon points="50,37 70,27 70,42 50,52" fill="#1d4ed8" opacity="0.85"/>
+        <polygon points="30,27 50,17 70,27 50,37" fill="#7ab3ff"/>
+        <polygon points="50,52 15,68 50,84" fill="#f5b942"/>
+        <polygon points="50,52 85,68 50,84" fill="#b8791f"/>
+      </svg>
+      <span class="font-mono font-bold text-lg text-white tracking-tight">Challoupe</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-8 text-sm text-slate-400">
+      <a href="#features" class="hover:text-white transition-colors">Features</a>
+      <a href="#why-free" class="hover:text-white transition-colors">Why free</a>
+      <a href="#start" class="hover:text-white transition-colors">Get started</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener"
+         class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm text-slate-200 hover:border-primary/50 hover:text-white transition-colors">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.4 7.86 10.93.57.1.78-.25.78-.55v-1.94c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.29-1.68-1.29-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.67 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.73 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.08 0 4.4-2.7 5.38-5.26 5.66.41.36.78 1.08.78 2.17v3.22c0 .3.21.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        GitHub
+      </a>
+      <button id="menu-btn" class="md:hidden text-slate-300" aria-label="Toggle menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="mobile-menu" class="hidden md:hidden border-t border-border bg-ink/95 backdrop-blur-md px-6 py-4 space-y-3 text-sm">
+    <a href="#features" class="block text-slate-300 hover:text-white">Features</a>
+    <a href="#why-free" class="block text-slate-300 hover:text-white">Why free</a>
+    <a href="#start" class="block text-slate-300 hover:text-white">Get started</a>
+    <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="block text-primarylight">GitHub →</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- hero -->
+  <section class="relative pt-36 pb-24 px-6">
+    <div class="mx-auto max-w-6xl grid lg:grid-cols-2 gap-16 items-center">
+      <div>
+        <h1 class="reveal text-4xl sm:text-5xl font-bold text-white leading-[1.1] tracking-tight">
+          Docker management,
+          without the paywall.
+        </h1>
+        <p class="reveal text-lg text-slate-400 mt-6 leading-relaxed" style="transition-delay:.1s">
+          Containers, images, volumes, networks and compose stacks. Plus the RBAC, SSO,
+          audit logging and vulnerability scanning other tools save for a paid tier.
+          Challoupe has no license to sell, so it's all included.
+        </p>
+        <div class="reveal flex flex-wrap gap-4 mt-8" style="transition-delay:.2s">
+          <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener"
+             class="rounded-lg bg-primary hover:bg-primarydark px-6 py-3 text-sm font-semibold text-white transition-colors shadow-lg shadow-primary/20">
+            View on GitHub
+          </a>
+          <a href="#start" class="rounded-lg border border-border hover:border-primary/50 px-6 py-3 text-sm font-semibold text-slate-200 hover:text-white transition-colors">
+            Get started →
+          </a>
+        </div>
+      </div>
+
+      <!-- product mockup -->
+      <div class="reveal" style="transition-delay:.15s">
+        <div class="rounded-xl border border-border bg-surface shadow-2xl shadow-black/40 overflow-hidden">
+          <div class="flex items-center gap-1.5 px-4 py-3 border-b border-border bg-surface2">
+            <span class="h-2.5 w-2.5 rounded-full bg-red-500/70"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-amber-400/70"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-emerald-500/70"></span>
+            <span class="ml-3 text-xs text-slate-500 font-mono">challoupe.local</span>
+          </div>
+          <div class="flex text-xs">
+            <aside class="w-32 shrink-0 bg-sider border-r border-border py-3 hidden sm:block">
+              <div class="px-4 py-1.5 rounded-r-full bg-primary/15 text-primarylight font-medium mb-1">Containers</div>
+              <div class="px-4 py-1.5 text-slate-500">Images</div>
+              <div class="px-4 py-1.5 text-slate-500">Volumes</div>
+              <div class="px-4 py-1.5 text-slate-500">Stacks</div>
+              <div class="px-4 py-1.5 text-slate-500">Users</div>
+              <div class="px-4 py-1.5 text-slate-500">Audit log</div>
+            </aside>
+            <div class="flex-1 p-4 space-y-2.5">
+              <div class="flex items-center justify-between rounded-md bg-surface2 border border-bordersoft px-3 py-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="text-slate-200 font-mono">nginx-proxy</span>
+                </div>
+                <span class="text-slate-500 font-mono">up 4d</span>
+              </div>
+              <div class="flex items-center justify-between rounded-md bg-surface2 border border-bordersoft px-3 py-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                  <span class="text-slate-200 font-mono">postgres-db</span>
+                </div>
+                <span class="text-slate-500 font-mono">up 12d</span>
+              </div>
+              <div class="flex items-center justify-between rounded-md bg-surface2 border border-bordersoft px-3 py-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="h-1.5 w-1.5 rounded-full bg-slate-500"></span>
+                  <span class="text-slate-400 font-mono">ollama</span>
+                </div>
+                <span class="text-slate-600 font-mono">stopped</span>
+              </div>
+              <div class="pt-2">
+                <div class="flex justify-between text-slate-500 mb-1"><span>CPU</span><span>·</span></div>
+                <div class="h-1.5 rounded-full bg-surface2 overflow-hidden">
+                  <div class="h-full rounded-full bg-primary bar-anim" style="--w-from:25%;--w-to:55%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-slate-500 mb-1"><span>Memory</span><span>·</span></div>
+                <div class="h-1.5 rounded-full bg-surface2 overflow-hidden">
+                  <div class="h-full rounded-full bg-amber bar-anim" style="--w-from:40%;--w-to:70%;animation-delay:-2s"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- terminal snippet -->
+        <div class="mt-5 rounded-xl border border-border bg-surface/80 px-4 py-3 font-mono text-xs text-slate-400">
+          <span class="text-emerald-400">$</span> docker compose up -d --build
+          <span class="inline-block w-1.5 h-3.5 bg-slate-400 align-middle ml-1 caret-blink"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- why free -->
+  <section id="why-free" class="py-24 px-6">
+    <div class="mx-auto max-w-3xl text-center">
+      <h2 class="reveal text-3xl font-bold text-white">Why is it free?</h2>
+      <p class="reveal text-slate-400 mt-5 leading-relaxed" style="transition-delay:.1s">
+        Challoupe isn't free to undercut anyone, and it isn't free because it's funded some other way behind the scenes.
+        It's free because self-hosting is supposed to mean your infrastructure stays yours: nothing rented back to you one feature at a time, and nothing quietly paid for with your data.
+      </p>
+    </div>
+
+    <div class="mx-auto max-w-4xl mt-14 grid sm:grid-cols-3 divide-y divide-border sm:divide-y-0 sm:divide-x">
+      <div class="reveal py-8 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0" style="transition-delay:.05s">
+        <div class="flex items-center gap-2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><path d="M7 11V7a5 5 0 0 1 9.5-2.2" stroke-linecap="round"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg>
+          <h3 class="text-white font-semibold">Freedom</h3>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">No license, no seat count, no feature locked behind a paywall. It's open source. Read it, fork it, run it exactly the way you want, for as long as you want.</p>
+      </div>
+
+      <div class="reveal py-8 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0" style="transition-delay:.1s">
+        <div class="flex items-center gap-2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3M1 1l22 22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <h3 class="text-white font-semibold">Privacy</h3>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">Everything runs on your own infrastructure. Even the AI assistant talks to your own Ollama server. No logs, no prompts, no container data ever leaves your network.</p>
+      </div>
+
+      <div class="reveal py-8 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0" style="transition-delay:.15s">
+        <div class="flex items-center gap-2.5">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/><line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/></svg>
+          <h3 class="text-white font-semibold">No spying</h3>
+        </div>
+        <p class="text-sm text-slate-400 mt-3 leading-relaxed">No telemetry, no usage analytics, no ads, nothing sold to a third party. Challoupe isn't funded by watching what you do with it, there's simply nothing to fund.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- features -->
+  <section id="features" class="py-8 px-6">
+    <div class="mx-auto max-w-6xl">
+      <div class="text-center mb-16">
+        <h2 class="reveal text-3xl font-bold text-white">Everything included.</h2>
+        <p class="reveal text-slate-400 mt-4" style="transition-delay:.1s">Every capability below ships in the same free build.</p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" stroke-linejoin="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Granular RBAC</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">Per-capability permissions across containers, images, volumes, networks and stacks, enforced on both API and UI.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.05s">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><rect x="6" y="10" width="12" height="9" rx="1.5"/><path d="M9 10V7a3 3 0 0 1 6 0v3" stroke-linecap="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Two-factor auth</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">TOTP with any authenticator app, single-use backup codes, and admin-side reset if a device is lost.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.1s">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><path d="M6 4h9l3 3v13H6V4Z" stroke-linejoin="round"/><path d="M9 10h6M9 13h6M9 16h4" stroke-linecap="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Full audit log</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">Every mutation, sign-in and denied permission check. Who did what, and when.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.15s">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke-linecap="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">OIDC / SSO</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">Bring your own identity provider, no per-seat SSO tax.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.2s">
+          <div class="h-10 w-10 rounded-lg bg-amber/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6"><path d="M12 3l1.8 3.9L18 8.5l-3.9 1.8L12 14l-1.8-3.7L6 8.5l4.2-1.6L12 3Z" stroke-linejoin="round"/><path d="M5 17l.8 1.7L7.5 19.5l-1.7.8L5 22l-.8-1.7L2.5 19.5l1.7-.8L5 17Z"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Local AI assistant</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">Log diagnosis, compose-file generation, and a chat assistant all via your own Ollama server, nothing sent elsewhere.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.25s">
+          <div class="h-10 w-10 rounded-lg bg-amber/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.3-4.3" stroke-linecap="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Vulnerability scanning</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">One-off Trivy scans on any image, severity-sorted CVEs, no persistent scanner service.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.3s">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><path d="M4 12a8 8 0 0 1 14.9-4M20 12a8 8 0 0 1-14.9 4" stroke-linecap="round"/><path d="M17 5v4h-4M7 19v-4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Stack drift detection</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">Flags containers, tags or services that no longer match the compose file they came from.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.35s">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16" /><path d="M9 4v5" /></svg>
+          </div>
+          <h3 class="text-white font-semibold">Backup &amp; restore</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">One JSON export of every user, setting and stack. On demand or on a schedule.</p>
+        </div>
+
+        <div class="reveal glow-card rounded-xl border border-border bg-surface/60 p-6" style="transition-delay:.4s">
+          <div class="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center mb-4">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3 class="text-white font-semibold">Container terminal</h3>
+          <p class="text-sm text-slate-400 mt-2 leading-relaxed">A real shell into any container, right from the browser.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- getting started -->
+  <section id="start" class="py-24 px-6">
+    <div class="mx-auto max-w-3xl">
+      <div class="text-center mb-10">
+        <h2 class="reveal text-3xl font-bold text-white">Running in under a minute</h2>
+        <p class="reveal text-slate-400 mt-4" style="transition-delay:.1s">One compose file. That's the whole deployment.</p>
+      </div>
+
+      <div class="reveal rounded-xl border border-border bg-surface overflow-hidden" style="transition-delay:.15s">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface2">
+          <span class="text-xs text-slate-500 font-mono">shell</span>
+          <button id="copy-btn" class="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h10" stroke-linecap="round"/></svg>
+            <span id="copy-label">Copy</span>
+          </button>
+        </div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code id="copy-target">git clone https://github.com/alexis-coulombe/Challoupe.git
+cd Challoupe
+docker compose up -d --build</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- final cta -->
+  <section class="py-24 px-6">
+    <div class="reveal mx-auto max-w-3xl text-center rounded-2xl border border-border bg-surface/50 p-12">
+      <h2 class="text-3xl font-bold text-white">Stop paying for permissions.</h2>
+      <p class="text-slate-400 mt-4">Self-host Challoupe and get the features that are usually behind a license.</p>
+      <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener"
+         class="inline-flex mt-8 rounded-lg bg-primary hover:bg-primarydark px-7 py-3.5 text-sm font-semibold text-white transition-colors shadow-lg shadow-primary/25">
+        View on GitHub →
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="border-t border-border/60 py-10 px-6">
+  <div class="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <svg width="22" height="22" viewBox="0 0 100 100" class="shrink-0">
+        <polygon points="30,27 50,37 50,52 30,42" fill="#7ab3ff" opacity="0.9"/>
+        <polygon points="50,37 70,27 70,42 50,52" fill="#1d4ed8" opacity="0.85"/>
+        <polygon points="30,27 50,17 70,27 50,37" fill="#7ab3ff"/>
+        <polygon points="50,52 15,68 50,84" fill="#f5b942"/>
+        <polygon points="50,52 85,68 50,84" fill="#b8791f"/>
+      </svg>
+      <span class="font-mono font-semibold text-slate-300">Challoupe</span>
+      <span class="text-slate-600 text-sm ml-1">self-hosted, self-owned, always free.</span>
+    </div>
+    <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="text-sm text-slate-400 hover:text-white transition-colors">github.com/alexis-coulombe/Challoupe</a>
+  </div>
+</footer>
+
+<script>
+  // Elements already inside the viewport on load are revealed immediately via a plain
+  // getBoundingClientRect check, rather than relying on IntersectionObserver's initial
+  // callback. Some browsers compute that first callback before the initial layout is
+  // committed, which can wrongly report "not intersecting" for above-the-fold content
+  // and never fire again since the state never truly changes afterwards.
+  function isInViewport(el) {
+    const r = el.getBoundingClientRect();
+    return r.top < window.innerHeight && r.bottom > 0;
+  }
+
+  // scroll-reveal
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach((el) => {
+    if (isInViewport(el)) el.classList.add('is-visible');
+    else io.observe(el);
+  });
+
+  // nav background on scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('nav-scrolled', window.scrollY > 12);
+  });
+
+  // mobile menu
+  const menuBtn = document.getElementById('menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+  menuBtn.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+  mobileMenu.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => mobileMenu.classList.add('hidden')));
+
+  // copy-to-clipboard
+  const copyBtn = document.getElementById('copy-btn');
+  const copyLabel = document.getElementById('copy-label');
+  const copyTarget = document.getElementById('copy-target');
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(copyTarget.textContent.trim());
+      copyLabel.textContent = 'Copied!';
+      setTimeout(() => (copyLabel.textContent = 'Copy'), 1600);
+    } catch (e) {
+      copyLabel.textContent = 'Select & copy';
+    }
+  });
+</script>
+
+</body>
+</html>

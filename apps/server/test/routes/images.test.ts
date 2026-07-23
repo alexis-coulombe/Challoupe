@@ -111,7 +111,7 @@ describe('image update checks', () => {
     expect(res.body).toMatchObject({ reference: 'nginx:alpine', updateAvailable: true });
   });
 
-  it('rejects checking an untagged image — nothing to compare against a registry', async () => {
+  it('rejects checking an untagged image, nothing to compare against a registry', async () => {
     mockImage.inspect.mockResolvedValue({ RepoTags: ['<none>:<none>'], RepoDigests: [] });
     const { agent } = await createAdminAgent(app);
     const res = await agent.post('/api/images/some-id/check-update');

@@ -110,7 +110,7 @@ export default function StackEdit() {
       setResult(deployResult);
       if (!deploy) message.success('Stack saved');
       else if (deployResult?.ok) message.success('Stack deployed');
-      else message.error('Deployment failed — see output below');
+      else message.error('Deployment failed. See output below');
       if (isNew) navigate(`/stacks/${name}`, { replace: true });
     },
     onError: (err) => message.error(err.message),
@@ -205,7 +205,7 @@ export default function StackEdit() {
         <Alert
           type="info"
           showIcon
-          message="Read-only — you don't have permission to edit or delete stacks."
+          message="Read-only. You don't have permission to edit or delete stacks."
           style={{ marginBottom: 16 }}
         />
       )}

@@ -9,7 +9,7 @@ import type {
 } from '../api';
 
 // Mirrors the server's SettingsUpdate (routes/settings.ts): every field, including nested
-// objects, is independently optional — the API only applies whichever ones are sent.
+// objects, is independently optional. The API only applies whichever ones are sent.
 export type SettingsUpdate = Partial<
   Omit<AppSettings, 'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup' | 'terminalTheme'>
 > & {

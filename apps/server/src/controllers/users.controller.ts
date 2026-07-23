@@ -145,7 +145,7 @@ export class UsersController {
     res.json({ ok: true });
   };
 
-  // Recovery path for a user who lost their authenticator device/backup codes — an admin
+  // Recovery path for a user who lost their authenticator device/backup codes. An admin
   // can turn TOTP back off for them, same as an admin can reset a forgotten password above.
   disableTotp = (req: Request, res: Response): void => {
     const id = Number(req.params.id);

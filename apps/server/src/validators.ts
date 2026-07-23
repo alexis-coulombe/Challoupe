@@ -1,5 +1,4 @@
-// A Docker resource name (container, volume, network) — matches what the Engine API itself
-// accepts for `--name`.
+// A Docker resource name (container, volume, network)
 export const DOCKER_NAME_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
 
 // A single "KEY=value" entry (env var, label, build arg)

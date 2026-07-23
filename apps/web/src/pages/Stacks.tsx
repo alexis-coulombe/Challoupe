@@ -92,7 +92,7 @@ export default function Stacks() {
     onSuccess: ({ ok, errors }, action) => {
       const labels = { deploy: 'deployed', down: 'stopped', delete: 'deleted' };
       if (ok) message.success(`${ok} stack(s) ${labels[action]}`);
-      if (errors.length) message.error(`${errors.length} failure(s) — ${errors[0]}`);
+      if (errors.length) message.error(`${errors.length} failure(s) : ${errors[0]}`);
       setSelectedKeys([]);
       invalidate();
     },

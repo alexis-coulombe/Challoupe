@@ -71,8 +71,7 @@ interface PasswordInputProps {
 }
 
 // Input.Password plus a one-click strong-password generator and a live strength meter.
-// For fields where a *new* password is being chosen (setup, user creation/reset,
-// self-service change) — not for a field confirming an existing password.
+// For fields where a *new* password is being chosen, not for confirming an existing one.
 export default function PasswordInput({
   value,
   onChange,

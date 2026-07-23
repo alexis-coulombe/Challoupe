@@ -169,7 +169,7 @@ export default function Settings() {
   const restoreMutation = useMutation({
     mutationFn: (data: BackupFile) => backupApi.restore(data),
     onSuccess: async () => {
-      message.success('Restore complete — please sign in again.');
+      message.success('Restore complete. Please sign in again.');
       await logout().catch(() => {}); // the server session is already destroyed; this just clears local state
       navigate('/login', { replace: true });
     },
@@ -191,7 +191,7 @@ export default function Settings() {
       }
       modal.confirm({
         title: 'Restore this backup?',
-        content: `This replaces all ${parsed.users.length} user(s), every setting, and ${parsed.stacks.length} stack(s) with the ones in this file — it cannot be undone, and everyone (including you) will need to sign in again afterward.`,
+        content: `This replaces all ${parsed.users.length} user(s), every setting, and ${parsed.stacks.length} stack(s) with the ones in this file, it cannot be undone.`,
         okText: 'Restore',
         okButtonProps: { danger: true },
         onOk: () => restoreMutation.mutate(parsed),
@@ -230,16 +230,16 @@ export default function Settings() {
     setTestStatus('testing');
     setTestError('');
     try {
-      // Tests the URL currently typed in the field, not whatever was last saved — otherwise
+      // Tests the URL currently typed in the field, not whatever was last saved. Otherwise
       // editing the Base URL and testing before hitting Save would silently test the old value.
       const baseUrl = form.getFieldValue('ollamaBaseUrl') as string;
       const res = await aiApi.models(baseUrl);
       setModels(res.models);
       setTestStatus('ok');
       if (res.models.length === 0) {
-        message.warning('Connected, but no models are pulled yet — run "ollama pull <model>".');
+        message.warning('Connected, but no models are pulled yet. Run "ollama pull <model>".');
       } else {
-        message.success(`Connected — found ${res.models.length} model${res.models.length === 1 ? '' : 's'}.`);
+        message.success(`Connected. Found ${res.models.length} model${res.models.length === 1 ? '' : 's'}.`);
       }
     } catch (err) {
       setTestStatus('error');
@@ -585,7 +585,7 @@ export default function Settings() {
                     <Form.Item name={['oidc', 'providerId']} hidden>
                       <Input />
                     </Form.Item>
-                    <Form.Item label="Provider" tooltip="Fills in the issuer URL for a known provider — Client ID/Secret still come from that provider's own admin console.">
+                    <Form.Item label="Provider" tooltip="Fills in the issuer URL for a known provider.">
                       <Select
                         value={ssoProvider}
                         onChange={handleSsoProviderChange}

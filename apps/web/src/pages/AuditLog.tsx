@@ -85,9 +85,8 @@ export default function AuditLog() {
           <Typography.Text strong>Record actions to the audit log</Typography.Text>
         </Space>
         <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-          Tracks who did what and when — container/image/volume/network/stack changes, user
-          management, settings updates, security scans, sign-ins, and denied actions. Turning this
-          off stops new entries; history already recorded stays visible below.
+          Tracks users actions. Turning this off stops new entries; 
+          history already recorded stays visible below.
         </Typography.Paragraph>
       </Card>
       <Table

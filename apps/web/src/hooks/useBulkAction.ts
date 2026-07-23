@@ -10,8 +10,7 @@ interface UseBulkActionOptions<TKey> {
 }
 
 // Runs a single action over every selected row, reporting success/failure
-// counts and refreshing the list — the shared shape behind every table's
-// bulk-delete button.
+// counts and refreshing the list. Shared shape behind every table's bulk-delete button.
 export function useBulkAction<TKey>({ queryKey, run, successLabel, onSettled }: UseBulkActionOptions<TKey>) {
   const { message } = AntApp.useApp();
   const queryClient = useQueryClient();
@@ -20,7 +19,7 @@ export function useBulkAction<TKey>({ queryKey, run, successLabel, onSettled }: 
     mutationFn: (keys: TKey[]) => runBulk(keys, run),
     onSuccess: ({ ok, errors }) => {
       if (ok) message.success(successLabel(ok));
-      if (errors.length) message.error(`${errors.length} failure(s) — ${errors[0]}`);
+      if (errors.length) message.error(`${errors.length} failure(s) : ${errors[0]}`);
       onSettled();
       queryClient.invalidateQueries({ queryKey });
     },

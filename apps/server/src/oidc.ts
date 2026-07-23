@@ -2,9 +2,7 @@ import * as client from 'openid-client';
 import { settingsService } from './settings.js';
 
 /**
- * Discovers and caches the OIDC provider Configuration, since discovery is a network
- * round-trip — re-discovered only when the relevant settings actually change (see
- * resetCache(), called by routes/settings.ts after any update).
+ * Discovers and caches the OIDC provider Configuration
  */
 export class OidcConfigProvider {
   private cachedConfig: client.Configuration | null = null;

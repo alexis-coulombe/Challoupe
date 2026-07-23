@@ -1,8 +1,8 @@
 import { Button, Form, Input, Space } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
-// A repeatable "KEY=value" row — the same shape used for container env vars, container
-// labels, and image build arguments.
+// A repeatable "KEY=value" row: used for container env vars, container labels,
+// and image build arguments.
 export default function KeyValueFormList({ name, addLabel }: { name: string; addLabel: string }) {
   return (
     <Form.List name={name}>

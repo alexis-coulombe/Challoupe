@@ -5,10 +5,9 @@ export const RESTART_POLICIES = ['no', 'always', 'unless-stopped', 'on-failure']
 export type RestartPolicy = (typeof RESTART_POLICIES)[number];
 export type TerminalShell = '/bin/bash' | '/bin/sh' | '/bin/ash';
 
-// The feature-flag registry: one boolean per gated feature. Adding a new flag is a
-// one-line addition here (plus a zod field in routes/settings.ts and a UI toggle) —
-// each flag is stored under its own `featureFlags.<name>` key, so the flat settings
-// table never needs a schema change to grow this list.
+/**
+ * Feature flags booleans
+ */
 export interface FeatureFlags {
   aiAssistant: boolean;
   vulnerabilityScanner: boolean;
@@ -21,11 +20,9 @@ const FEATURE_FLAG_DEFAULTS: FeatureFlags = {
   auditLog: true,
 };
 
-// SSO via an external OpenID Connect provider, in addition to local username/password
-// login. `clientSecret` is write-only from the API's point of view — see SettingsService.get().
-// `providerId` is purely a UI hint (which preset template — google/microsoft/okta/etc. —
-// the admin picked in Settings) so the picker can be restored on reload; the server never
-// looks at it, since discovery works generically off `issuerUrl` alone.
+/**
+ * SSO via an external OpenID Connect provider, in addition to local username/password login.
+ */
 export interface OidcSettings {
   enabled: boolean;
   issuerUrl: string;
@@ -44,9 +41,9 @@ const OIDC_DEFAULTS: OidcSettings = {
   providerId: '',
 };
 
-// Whether to periodically check pulled images against their registry for a newer digest
-// (see imageUpdates.ts). Off by default — a manifest check counts toward a registry's pull
-// rate limit (Docker Hub's anonymous quota in particular), so background polling is opt-in.
+/**
+ * Whether to periodically check pulled images against their registry for a newer digest
+ */
 export interface ImageUpdateCheckSettings {
   enabled: boolean;
   intervalHours: number;
@@ -57,10 +54,9 @@ const IMAGE_UPDATE_CHECK_DEFAULTS: ImageUpdateCheckSettings = {
   intervalHours: 24,
 };
 
-// Whether to periodically write a full backup (settings/users/stacks) to disk under
-// data/backups/ (see scheduledBackups.ts). `keepCount` bounds disk usage by pruning the
-// oldest files after each run — off by default since a manual export/download already
-// covers the occasional case, and this is aimed at unattended installs.
+/**
+ * Whether to periodically write a full backup to disk
+ */
 export interface ScheduledBackupSettings {
   enabled: boolean;
   intervalHours: number;
@@ -73,8 +69,9 @@ const SCHEDULED_BACKUP_DEFAULTS: ScheduledBackupSettings = {
   keepCount: 7,
 };
 
-// Colors applied to every container's Terminal tab (xterm.js theme). Defaults match
-// xterm's own dark palette previously hardcoded in ContainerTerminal.tsx.
+/**
+ * Colors applied to every container's Terminal tab
+ */
 export interface TerminalThemeSettings {
   background: string;
   foreground: string;

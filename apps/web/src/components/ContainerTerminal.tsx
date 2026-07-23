@@ -61,8 +61,8 @@ export default function ContainerTerminal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Settings can load after the terminal is first created (or change while it's open),
-  // so keep applying them — xterm re-renders in place when `.options.theme` is reassigned.
+  // Settings can load after the terminal is first created, or change while it's open, so
+  // keep applying them. xterm re-renders in place when `.options.theme` is reassigned.
   useEffect(() => {
     if (termRef.current) termRef.current.options.theme = theme ?? DEFAULT_THEME;
   }, [theme]);

@@ -5,7 +5,7 @@ import { authApi } from '../services/authApi';
 import { useAuth } from '../auth';
 
 // Enable/disable flow for TOTP two-factor authentication, opened from the user menu in
-// AppLayout. Not offered for SSO accounts — the password 2FA wraps doesn't exist for them.
+// AppLayout. Not offered for SSO accounts, since there's no password for 2FA to wrap.
 export default function TwoFactorModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, refresh } = useAuth();
   const { message } = AntApp.useApp();
@@ -26,7 +26,7 @@ export default function TwoFactorModal({ open, onClose }: { open: boolean; onClo
       disableForm.resetFields();
       regenerateForm.resetFields();
     }
-    // Only reset when the modal transitions to open — resetting on every render would wipe
+    // Only reset when the modal transitions to open. Resetting on every render would wipe
     // the backup-codes view before the user has a chance to read/copy them.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -116,8 +116,7 @@ export default function TwoFactorModal({ open, onClose }: { open: boolean; onClo
           <div>
             <Typography.Title level={5}>Regenerate backup codes</Typography.Title>
             <Typography.Paragraph type="secondary">
-              Invalidates every existing backup code and issues a fresh set — do this if you've
-              used most of them up or think they may have leaked.
+              Invalidates every existing backup code and issues a fresh set.
             </Typography.Paragraph>
             <Form form={regenerateForm} layout="inline" onFinish={regenerateBackupCodes}>
               <Form.Item name="password" rules={[{ required: true, message: 'Password required' }]}>

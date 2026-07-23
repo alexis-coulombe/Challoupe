@@ -19,7 +19,7 @@ interface ConnectionForm {
 const STACK_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
 
 // Turns a Portainer stack name into something that satisfies docker compose's project-name
-// rules — Portainer is far less strict about what it lets you call a stack.
+// rules, since Portainer is far less strict about what it lets you call a stack.
 function suggestStackName(raw: string): string {
   const cleaned = raw
     .toLowerCase()
@@ -63,7 +63,7 @@ export default function ImportFromPortainerModal({ open, onClose }: Props) {
         ...form.getFieldsValue(),
       }),
     onSuccess: (result, stack) => {
-      message.success(`Imported "${result.name}" — review it and deploy when ready`);
+      message.success(`Imported "${result.name}". Review it and deploy when ready`);
       setImported((prev) => new Set(prev).add(stack.id));
       queryClient.invalidateQueries({ queryKey: ['stacks'] });
     },
@@ -152,7 +152,7 @@ export default function ImportFromPortainerModal({ open, onClose }: Props) {
       )}
 
       <Typography.Paragraph type="secondary" style={{ marginTop: 16, marginBottom: 0 }}>
-        Only the compose file is copied in — nothing is deployed automatically, so any
+        Only the compose file is copied and nothing is deployed automatically, so any
         containers Portainer already runs for these stacks are left untouched.
       </Typography.Paragraph>
     </Modal>
