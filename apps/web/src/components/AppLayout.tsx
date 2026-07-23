@@ -366,7 +366,7 @@ export default function AppLayout() {
           <Form.Item name="current" label="Current password" rules={[{ required: true }]}>
             <Input.Password />
           </Form.Item>
-          <Form.Item name="next" label="New password" rules={[{ required: true, min: 4 }]}>
+          <Form.Item name="next" label="New password" rules={[{ required: true, min: 8 }]}>
             <PasswordInput />
           </Form.Item>
         </Form>

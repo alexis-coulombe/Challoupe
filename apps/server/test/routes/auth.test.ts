@@ -63,6 +63,12 @@ describe('POST /api/auth/setup', () => {
     const res = await agent.post('/api/auth/setup').send({ username: 'other', password: 'password123' });
     expect(res.status).toBe(409);
   });
+
+  it('rejects a password shorter than 8 characters', async () => {
+    const agent = request.agent(app);
+    const res = await agent.post('/api/auth/setup').send({ username: 'admin', password: 'short1' });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('POST /api/auth/login', () => {
@@ -75,6 +81,16 @@ describe('POST /api/auth/login', () => {
       .post('/api/auth/login')
       .send({ username: 'admin', password: 'wrong-password' });
     expect(res.status).toBe(401);
+  });
+
+  it('still accepts a pre-existing password shorter than the current minimum', async () => {
+    const { hashPassword } = await import('../../src/auth.js');
+    const { db } = await import('../../src/db.js');
+    db.prepare('UPDATE users SET password_hash = ? WHERE username = ?').run(hashPassword('abc'), 'admin');
+
+    const agent = request.agent(app);
+    const res = await agent.post('/api/auth/login').send({ username: 'admin', password: 'abc' });
+    expect(res.status).toBe(200);
   });
 
   it('accepts the correct password and starts a session', async () => {

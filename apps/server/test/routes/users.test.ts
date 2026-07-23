@@ -37,6 +37,12 @@ describe('POST /api/users', () => {
     expect(res.status).toBe(409);
   });
 
+  it('rejects a password shorter than 8 characters', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.post('/api/users').send({ username: 'member', password: 'short1' });
+    expect(res.status).toBe(400);
+  });
+
   it('defaults to no management permissions but AI/security scanner on', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.post('/api/users').send({ username: 'member', password: 'password123' });

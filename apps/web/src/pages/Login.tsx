@@ -138,7 +138,11 @@ export default function Login() {
                   </Form.Item>
                   <Form.Item
                     name="password"
-                    rules={[{ required: true, min: 4, message: 'At least 4 characters' }]}
+                    rules={
+                      setupRequired
+                        ? [{ required: true, min: 8, message: 'At least 8 characters' }]
+                        : [{ required: true, message: 'Password is required' }]
+                    }
                   >
                     {setupRequired ? (
                       <PasswordInput prefix={<LockOutlined />} placeholder="Password" />

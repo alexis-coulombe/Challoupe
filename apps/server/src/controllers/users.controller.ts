@@ -17,13 +17,13 @@ const permissionsSchema = z
 
 const createSchema = z.object({
   username: z.string().trim().min(1).max(64),
-  password: z.string().min(4).max(128),
+  password: z.string().min(8).max(128),
   role: z.enum(['admin', 'user']).default('user'),
   permissions: permissionsSchema.default({}),
 });
 
 const updateSchema = z.object({
-  password: z.string().min(4).max(128).optional(),
+  password: z.string().min(8).max(128).optional(),
   role: z.enum(['admin', 'user']).optional(),
   permissions: permissionsSchema.optional(),
 });

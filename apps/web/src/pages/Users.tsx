@@ -269,7 +269,7 @@ export default function Users() {
           <Form.Item name="username" label="Username" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="password" label="Password" rules={[{ required: true, min: 4 }]}>
+          <Form.Item name="password" label="Password" rules={[{ required: true, min: 8 }]}>
             <PasswordInput />
           </Form.Item>
           <Form.Item name="role" label="Role">
@@ -304,7 +304,18 @@ export default function Users() {
             })
           }
         >
-          <Form.Item name="password" label="New password (leave blank to keep current)">
+          <Form.Item
+            name="password"
+            label="New password (leave blank to keep current)"
+            rules={[
+              {
+                validator: (_, value) =>
+                  !value || value.length >= 8
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('At least 8 characters')),
+              },
+            ]}
+          >
             <PasswordInput />
           </Form.Item>
           <Form.Item name="role" label="Role">

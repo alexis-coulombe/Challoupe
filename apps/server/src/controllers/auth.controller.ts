@@ -16,10 +16,15 @@ import {
   verifyTotpToken,
 } from '../totp.js';
 
-const credentialsSchema = z.object({
-  username: z.string().trim().min(1).max(64),
-  password: z.string().min(4).max(128),
-});
+const usernameSchema = z.string().trim().min(1).max(64);
+
+// A brand-new password being set (initial setup, or a password change). Existing accounts
+// may predate this minimum, so it's only enforced when a password is actually being chosen,
+// never on the login schema below (which must keep accepting whatever is already stored).
+const newPasswordSchema = z.string().min(8).max(128);
+
+const setupSchema = z.object({ username: usernameSchema, password: newPasswordSchema });
+const loginSchema = z.object({ username: usernameSchema, password: z.string().min(1).max(128) });
 
 function callbackUrl(req: Request): string {
   return `${PUBLIC_URL || `${req.protocol}://${req.get('host')}`}/api/auth/oidc/callback`;
@@ -37,7 +42,7 @@ export class AuthController {
       res.status(409).json({ error: 'An account already exists' });
       return;
     }
-    const body = credentialsSchema.parse(req.body);
+    const body = setupSchema.parse(req.body);
     const info = db
       .prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)')
       .run(body.username, hashPassword(body.password), 'admin');
@@ -55,7 +60,7 @@ export class AuthController {
   };
 
   login = (req: Request, res: Response): void => {
-    const body = credentialsSchema.parse(req.body);
+    const body = loginSchema.parse(req.body);
     const user = userRepository.findByUsername(body.username);
     if (!user || !verifyPassword(body.password, user.password_hash)) {
       auditLog.record({
@@ -259,9 +264,7 @@ export class AuthController {
 
   // Change own password.
   changePassword = (req: Request, res: Response): void => {
-    const body = z
-      .object({ current: z.string(), next: z.string().min(4).max(128) })
-      .parse(req.body);
+    const body = z.object({ current: z.string(), next: newPasswordSchema }).parse(req.body);
     const user = userRepository.findByUsername(req.user!.username)!;
     if (!verifyPassword(body.current, user.password_hash)) {
       auditLog.record({
