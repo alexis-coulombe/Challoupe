@@ -237,6 +237,12 @@ export interface PortainerStackRef {
   endpointId: number;
 }
 
+export interface TerminalThemeSettings {
+  background: string;
+  foreground: string;
+  cursor: string;
+}
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -251,6 +257,7 @@ export interface AppSettings {
   oidc: OidcSettings;
   imageUpdateCheck: ImageUpdateCheckSettings;
   scheduledBackup: ScheduledBackupSettings;
+  terminalTheme: TerminalThemeSettings;
 }
 
 export interface OidcLoginConfig {

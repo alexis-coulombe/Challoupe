@@ -25,6 +25,7 @@ const DEFAULTS = {
   },
   imageUpdateCheck: { enabled: false, intervalHours: 24 },
   scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
+  terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
 };
 
 beforeEach(() => {
@@ -89,6 +90,7 @@ describe('PUT /api/settings', () => {
         providerId: 'google',
       },
       imageUpdateCheck: { enabled: true, intervalHours: 6 },
+      terminalTheme: { background: '#ffffff', foreground: '#111111', cursor: '#ff0000' },
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -113,6 +115,7 @@ describe('PUT /api/settings', () => {
       },
       imageUpdateCheck: { enabled: true, intervalHours: 6 },
       scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
+      terminalTheme: { background: '#ffffff', foreground: '#111111', cursor: '#ff0000' },
     });
   });
 
@@ -185,6 +188,22 @@ describe('PUT /api/settings', () => {
   it('rejects a scheduled backup retention count outside the allowed range', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.put('/api/settings').send({ scheduledBackup: { keepCount: 0 } });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets an admin update the terminal theme independently of the other settings', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ terminalTheme: { background: '#112233' } });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      ...DEFAULTS,
+      terminalTheme: { background: '#112233', foreground: '#c9d1d9', cursor: '#3b82f6' },
+    });
+  });
+
+  it('rejects a terminal theme color that is not a hex string', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ terminalTheme: { background: 'blue' } });
     expect(res.status).toBe(400);
   });
 

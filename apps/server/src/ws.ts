@@ -214,7 +214,7 @@ async function runOllamaStream(
   const closeOnDone = opts.closeOnDone !== false;
   const { ollamaBaseUrl, ollamaModel } = getSettings();
   if (!ollamaModel) {
-    ws.send(JSON.stringify({ type: 'error', message: 'No Ollama model configured — set one in Settings.' }));
+    ws.send(JSON.stringify({ type: 'error', message: 'No Ollama model configured, set one in Settings.' }));
     if (closeOnDone) ws.close();
     return;
   }
@@ -253,7 +253,7 @@ Recent logs (most recent ${300} lines):
 ${text.slice(-8000) || '(no log output)'}
 \`\`\`
 
-In a few concise sentences, explain in plain language what's happening. If something looks wrong, say what's most likely causing it and how to fix it. If everything looks healthy, just say so briefly — don't invent problems.`;
+In a few concise sentences, explain in plain language what's happening. If something looks wrong, say what's most likely causing it and how to fix it. If everything looks healthy, just say so briefly. Don't invent problems.`;
     await runOllamaStream(ws, [{ role: 'user', content: prompt }]);
   })().catch((err) => {
     if (ws.readyState === ws.OPEN) {
@@ -263,9 +263,8 @@ In a few concise sentences, explain in plain language what's happening. If somet
   });
 }
 
-const STACK_SYSTEM_PROMPT = `You are an expert at writing docker-compose.yml files. Given a short description of a desired application stack, respond with ONLY a valid docker-compose.yml (top-level "services:" key, optionally "volumes:"), nothing else — no explanation, no markdown code fences. Prefer official images, sensible defaults, named volumes for persistent data, and "restart: unless-stopped".`;
-
 function handleGenerateStack(ws: WebSocket): void {
+  const prompt = `You are an expert at writing docker-compose.yml files. Given a short description of a desired application stack, respond with ONLY a valid docker-compose.yml (top-level "services:" key, optionally "volumes:"), nothing else. No explanation, no markdown code fences. Prefer official images, sensible defaults, named volumes for persistent data, and "restart: unless-stopped".`;
   ws.on('message', (data: RawData) => {
     let msg: { type?: string; text?: string };
     try {
@@ -275,7 +274,7 @@ function handleGenerateStack(ws: WebSocket): void {
     }
     if (msg.type !== 'prompt' || typeof msg.text !== 'string' || !msg.text.trim()) return;
     void runOllamaStream(ws, [
-      { role: 'system', content: STACK_SYSTEM_PROMPT },
+      { role: 'system', content: prompt },
       { role: 'user', content: msg.text.slice(0, 2000) },
     ]);
   });
@@ -286,7 +285,7 @@ async function buildInfraContext(): Promise<string> {
   const lines = containers.map(
     (c) => `- ${(c.Names[0] ?? '').replace(/^\//, '')} (${c.Image}): ${c.State} — ${c.Status}`
   );
-  return `You are an assistant embedded in Challoupe, a self-hosted Docker manager. Answer questions about the user's Docker environment concisely and helpfully. Current containers:\n${
+  return `You are an assistant embedded in a self-hosted Docker manager. Answer questions about the user's Docker environment concisely and helpfully. Current containers:\n${
     lines.join('\n') || '(none)'
   }`;
 }

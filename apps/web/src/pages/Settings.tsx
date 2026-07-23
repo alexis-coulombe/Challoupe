@@ -7,6 +7,7 @@ import {
   AutoComplete,
   Button,
   Card,
+  ColorPicker,
   Descriptions,
   Divider,
   Form,
@@ -21,6 +22,7 @@ import {
   Typography,
   Upload,
 } from 'antd';
+import type { Color } from 'antd/es/color-picker';
 import {
   ClockCircleOutlined,
   CloudDownloadOutlined,
@@ -66,6 +68,8 @@ const SHELL_OPTIONS = [
   { value: '/bin/bash', label: '/bin/bash' },
   { value: '/bin/ash', label: '/bin/ash' },
 ];
+
+const DEFAULT_TERMINAL_THEME = { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' };
 
 // Only providers with a real ant-design brand icon get one; the rest (Okta, Auth0,
 // Keycloak, Authentik, Authelia) are plain text rather than an invented/approximate logo.
@@ -254,6 +258,7 @@ export default function Settings() {
   const securityEnabled = Form.useWatch(['featureFlags', 'vulnerabilityScanner'], form) ?? true;
   const ssoEnabled = Form.useWatch(['oidc', 'enabled'], form) ?? false;
   const imageUpdateCheckEnabled = Form.useWatch(['imageUpdateCheck', 'enabled'], form) ?? false;
+  const terminalTheme = Form.useWatch('terminalTheme', form) ?? DEFAULT_TERMINAL_THEME;
   const scheduledBackupEnabled = Form.useWatch(['scheduledBackup', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
@@ -391,9 +396,7 @@ export default function Settings() {
                   </Typography.Title>
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     A manual "Check for updates" is always available on the Images page. Turning
-                    this on also checks every pulled image against its registry on a timer — a
-                    check counts toward that registry's pull rate limit (notably Docker Hub's
-                    anonymous quota), so keep the interval wide on a host with many images.
+                    this on also checks every pulled image against its registry on a timer.
                   </Typography.Paragraph>
                   <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
                     <Form.Item name={['imageUpdateCheck', 'enabled']} valuePropName="checked" noStyle>
@@ -406,6 +409,55 @@ export default function Settings() {
                       <InputNumber min={1} max={24 * 30} disabled={!imageUpdateCheckEnabled} style={{ width: 200 }} />
                     </Form.Item>
                   </Space>
+                  <Typography.Title level={5} style={{ marginTop: 8 }}>
+                    Terminal appearance
+                  </Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Colors used by every container's Terminal tab.
+                  </Typography.Paragraph>
+                  <Space size="large" wrap align="end">
+                    <Form.Item
+                      name={['terminalTheme', 'background']}
+                      label="Background"
+                      getValueFromEvent={(color: Color) => color.toHexString()}
+                    >
+                      <ColorPicker disabledAlpha />
+                    </Form.Item>
+                    <Form.Item
+                      name={['terminalTheme', 'foreground']}
+                      label="Text"
+                      getValueFromEvent={(color: Color) => color.toHexString()}
+                    >
+                      <ColorPicker disabledAlpha />
+                    </Form.Item>
+                    <Form.Item
+                      name={['terminalTheme', 'cursor']}
+                      label="Cursor"
+                      getValueFromEvent={(color: Color) => color.toHexString()}
+                    >
+                      <ColorPicker disabledAlpha />
+                    </Form.Item>
+                    <Form.Item label=" ">
+                      <Button onClick={() => form.setFieldValue('terminalTheme', DEFAULT_TERMINAL_THEME)}>
+                        Reset to default
+                      </Button>
+                    </Form.Item>
+                  </Space>
+                  <div
+                    style={{
+                      maxWidth: 360,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      background: terminalTheme.background,
+                      color: terminalTheme.foreground,
+                    }}
+                  >
+                    <span style={{ borderLeft: `2px solid ${terminalTheme.cursor}` }}>
+                      user@challoupe:~$ echo hello
+                    </span>
+                  </div>
                 </Card>
               ),
             },

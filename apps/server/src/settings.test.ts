@@ -23,6 +23,7 @@ const DEFAULTS = {
   },
   imageUpdateCheck: { enabled: false, intervalHours: 24 },
   scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
+  terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
 };
 
 beforeEach(() => {
@@ -141,6 +142,14 @@ describe('settings', () => {
     expect(getSettings()).toEqual({
       ...DEFAULTS,
       scheduledBackup: { enabled: true, intervalHours: 12, keepCount: 3 },
+    });
+  });
+
+  it('persists a partial terminal theme update, leaving the other colors at their default', () => {
+    setSettings({ terminalTheme: { background: '#ffffff' } });
+    expect(getSettings()).toEqual({
+      ...DEFAULTS,
+      terminalTheme: { background: '#ffffff', foreground: '#c9d1d9', cursor: '#3b82f6' },
     });
   });
 });

@@ -53,6 +53,13 @@ const updateSchema = z
         keepCount: z.number().int().min(1).max(100),
       })
       .partial(),
+    terminalTheme: z
+      .object({
+        background: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color'),
+        foreground: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color'),
+        cursor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color'),
+      })
+      .partial(),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one setting is required' });

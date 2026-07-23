@@ -28,9 +28,14 @@ async function portainerLogin(baseUrl: string, username: string, password: strin
   return data.jwt;
 }
 
-// Portainer stack "Type": 1 = Swarm, 2 = standalone Compose. Only Type 2 has a
-// docker-compose.yml that `docker compose -p <name> -f <path> up -d` (stacks.ts) can use —
-// a Swarm stack is deployed with `docker stack deploy` and isn't a fit for this app's model.
+/**
+ * Portainer stack "Type": 1 = Swarm, 2 = standalone Compose. Only Type 2 has a
+ * docker-compose.yml that we can use.
+ * @param baseUrl string
+ * @param username string
+ * @param password string
+ * @returns PortainerStackRef[]
+ */
 export async function listPortainerStacks(
   baseUrl: string,
   username: string,
@@ -41,11 +46,23 @@ export async function listPortainerStacks(
     headers: { Authorization: `Bearer ${jwt}` },
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error(`Could not list Portainer stacks (${res.status})`);
+
+  if (!res.ok) {
+    throw new Error(`Could not list Portainer stacks (${res.status})`);
+  }
+  
   const data = (await res.json()) as Array<{ Id: number; Name: string; EndpointId: number; Type: number }>;
   return data.filter((s) => s.Type === 2).map((s) => ({ id: s.Id, name: s.Name, endpointId: s.EndpointId }));
 }
 
+/**
+ * Get a portainer stack file
+ * @param baseUrl string
+ * @param username string
+ * @param password string
+ * @param id number
+ * @returns 
+ */
 export async function getPortainerStackFile(
   baseUrl: string,
   username: string,
@@ -57,8 +74,16 @@ export async function getPortainerStackFile(
     headers: { Authorization: `Bearer ${jwt}` },
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error(`Could not fetch that stack's compose file (${res.status})`);
+
+  if (!res.ok) {
+    throw new Error(`Could not fetch that stack's compose file (${res.status})`);
+  }
+  
   const data = (await res.json()) as { StackFileContent?: string };
-  if (!data.StackFileContent) throw new Error('Portainer returned an empty stack file');
+  
+  if (!data.StackFileContent) {
+    throw new Error('Portainer returned an empty stack file');
+  }
+  
   return data.StackFileContent;
 }

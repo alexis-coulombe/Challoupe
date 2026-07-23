@@ -4,10 +4,6 @@ import { statSync } from 'node:fs';
 import { docker, pullImage } from './docker.js';
 import { TRIVY_CACHE_DIR, DOCKER_SOCK } from './config.js';
 
-// Run the scanner as the same uid as this process, but with the docker socket's own gid —
-// the same trick that lets a non-root host user reach /var/run/docker.sock via the "docker"
-// group. Without this Trivy (which defaults to root) leaves root-owned files in the bind-mounted
-// cache dir, which this process then can't ever clean up itself.
 function trivyRunAsUser(): string | undefined {
   if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') return undefined;
   try {
@@ -50,11 +46,14 @@ interface RawTrivyOutput {
   Results?: Array<{ Vulnerabilities?: RawTrivyVulnerability[] }>;
 }
 
-// Comfortably above any real scan's output (even a very vulnerable image's JSON report is
-// a few MB at most) — just a backstop against a misconfigured/compromised Trivy image
-// writing unbounded data to stdout/stderr and growing server memory without limit.
+// Comfortably above any real scan's output
 const MAX_COLLECT_BYTES = 50 * 1024 * 1024;
 
+/**
+ * Collect Trivy output
+ * @param stream PassThrough
+ * @returns string
+ */
 function collect(stream: PassThrough): Promise<string> {
   return new Promise((resolve, reject) => {
     let data = '';
@@ -73,6 +72,10 @@ function collect(stream: PassThrough): Promise<string> {
   });
 }
 
+/**
+ * Ensure that the Trivy image is pulled
+ * @param reference 
+ */
 async function ensureImagePulled(reference: string): Promise<void> {
   try {
     await docker.getImage(reference).inspect();
@@ -83,6 +86,12 @@ async function ensureImagePulled(reference: string): Promise<void> {
 
 const SEVERITY_ORDER: TrivySeverity[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNKNOWN'];
 
+/**
+ * Scan the reference image with Trivy
+ * @param imageRef string
+ * @param trivyImage string
+ * @returns TrivyScanResult
+ */
 export async function scanImage(imageRef: string, trivyImage: string): Promise<TrivyScanResult> {
   await mkdir(TRIVY_CACHE_DIR, { recursive: true });
   await ensureImagePulled(trivyImage);
@@ -94,9 +103,6 @@ export async function scanImage(imageRef: string, trivyImage: string): Promise<T
 
   const [result] = await docker.run(
     trivyImage,
-    // The `--` separator is defense-in-depth: it tells Trivy's (cobra/pflag-based) CLI parser
-    // that nothing after it is a flag, in case an unvalidated value ever reaches this call
-    // — the route-level zod regex is the primary defense (see validators.ts's IMAGE_REF_RE).
     ['image', '--format', 'json', '--quiet', '--scanners', 'vuln', '--', imageRef],
     [stdout, stderr],
     {

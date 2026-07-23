@@ -72,6 +72,20 @@ const SCHEDULED_BACKUP_DEFAULTS: ScheduledBackupSettings = {
   keepCount: 7,
 };
 
+// Colors applied to every container's Terminal tab (xterm.js theme). Defaults match
+// xterm's own dark palette previously hardcoded in ContainerTerminal.tsx.
+export interface TerminalThemeSettings {
+  background: string;
+  foreground: string;
+  cursor: string;
+}
+
+const TERMINAL_THEME_DEFAULTS: TerminalThemeSettings = {
+  background: '#0b0e14',
+  foreground: '#c9d1d9',
+  cursor: '#3b82f6',
+};
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -84,13 +98,17 @@ export interface AppSettings {
   // (the default, matching pre-existing behavior).
   maxContainerMemoryMb: number | null;
   maxContainerCpus: number | null;
-  featureFlags: FeatureFlags;
   oidc: OidcSettings;
+  featureFlags: FeatureFlags;
   imageUpdateCheck: ImageUpdateCheckSettings;
   scheduledBackup: ScheduledBackupSettings;
+  terminalTheme: TerminalThemeSettings;
 }
 
-const DEFAULTS: Omit<AppSettings, 'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup'> = {
+const DEFAULTS: Omit<
+  AppSettings,
+  'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup' | 'terminalTheme'
+> = {
   defaultRestartPolicy: 'no',
   refreshIntervalMs: 5000,
   defaultLogTail: 200,
@@ -142,6 +160,12 @@ export function getSettings(): AppSettings {
     scheduledBackup.keepCount = Number(stored['scheduledBackup.keepCount']);
   }
 
+  const terminalTheme = { ...TERMINAL_THEME_DEFAULTS };
+  for (const field of Object.keys(terminalTheme) as Array<keyof TerminalThemeSettings>) {
+    const raw = stored[`terminalTheme.${field}`];
+    if (raw !== undefined) terminalTheme[field] = raw;
+  }
+
   return {
     defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
     refreshIntervalMs: stored.refreshIntervalMs
@@ -158,16 +182,18 @@ export function getSettings(): AppSettings {
     oidc,
     imageUpdateCheck,
     scheduledBackup,
+    terminalTheme,
   };
 }
 
 export type SettingsUpdate = Partial<
-  Omit<AppSettings, 'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup'>
+  Omit<AppSettings, 'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup' | 'terminalTheme'>
 > & {
   featureFlags?: Partial<FeatureFlags>;
   oidc?: Partial<OidcSettings>;
   imageUpdateCheck?: Partial<ImageUpdateCheckSettings>;
   scheduledBackup?: Partial<ScheduledBackupSettings>;
+  terminalTheme?: Partial<TerminalThemeSettings>;
 };
 
 export function setSettings(values: SettingsUpdate): AppSettings {
@@ -202,6 +228,13 @@ export function setSettings(values: SettingsUpdate): AppSettings {
       for (const [field, val] of Object.entries(value as Partial<ScheduledBackupSettings>)) {
         if (val === undefined) continue;
         upsert.run(`scheduledBackup.${field}`, String(val));
+      }
+      continue;
+    }
+    if (key === 'terminalTheme') {
+      for (const [field, val] of Object.entries(value as Partial<TerminalThemeSettings>)) {
+        if (val === undefined) continue;
+        upsert.run(`terminalTheme.${field}`, String(val));
       }
       continue;
     }

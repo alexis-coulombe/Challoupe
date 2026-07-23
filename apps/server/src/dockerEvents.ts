@@ -19,10 +19,11 @@ interface RawDockerEvent {
   time?: number;
 }
 
-// Turns a raw Docker event into a user-facing notification, or null if it isn't
-// one we surface. A `die` with exit code 0 is treated as an intentional/clean
-// stop (same convention as the Dashboard's "needs attention" heuristic) and is
-// not notified — only unexpected crashes, OOM kills, and failing health checks are.
+/**
+ * Turns a raw Docker event into a user-facing notification
+ * @param event RawDockerEvent
+ * @returns DockerNotification | null
+ */
 export function classifyEvent(event: RawDockerEvent): DockerNotification | null {
   if (event.Type !== 'container' || !event.Action || !event.Actor?.ID) return null;
   const containerId = event.Actor.ID;
@@ -46,6 +47,10 @@ export function classifyEvent(event: RawDockerEvent): DockerNotification | null 
 const subscribers = new Set<WebSocket>();
 let streamStarted = false;
 
+/**
+ * Broadcast notification
+ * @param notification DockerNotification
+ */
 function broadcast(notification: DockerNotification): void {
   const payload = JSON.stringify(notification);
   for (const ws of subscribers) {
@@ -62,10 +67,15 @@ async function startEventStream(): Promise<void> {
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
       for (const line of lines) {
-        if (!line.trim()) continue;
+        if (!line.trim()) {
+          continue;
+        }
+
         try {
           const notification = classifyEvent(JSON.parse(line));
-          if (notification) broadcast(notification);
+          if (notification) {
+            broadcast(notification);
+          }
         } catch {
           // Ignore a line that didn't parse as a complete event object.
         }
@@ -73,7 +83,7 @@ async function startEventStream(): Promise<void> {
     });
     stream.on('error', () => {
       streamStarted = false;
-      console.error('Docker event stream error — will retry on next subscriber');
+      console.error('Docker event stream error, will retry on next subscriber');
     });
     stream.on('end', () => {
       streamStarted = false;
@@ -84,9 +94,10 @@ async function startEventStream(): Promise<void> {
   }
 }
 
-// Adds a WS client to the notification fan-out, lazily attaching the single
-// shared Docker event stream on the first subscriber rather than holding a
-// connection to the daemon open when nobody is listening.
+/**
+ * dds a WS client to the notification fan-out
+ * @param ws WebSocket
+ */
 export function subscribeToDockerEvents(ws: WebSocket): void {
   subscribers.add(ws);
   ws.on('close', () => subscribers.delete(ws));

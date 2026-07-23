@@ -14,7 +14,11 @@ export function ramUsage(): RamUsage {
   return { total, used, percent: total === 0 ? 0 : Math.round((used / total) * 1000) / 10 };
 }
 
-// Approximates instantaneous CPU usage by comparing tick counters across a short sample window.
+/**
+ * Approximates instantaneous CPU usage by comparing tick counters across a short sample window.
+ * @param sampleMs number
+ * @returns number
+ */
 export function cpuUsagePercent(sampleMs = 100): Promise<number> {
   const start = os.cpus();
   return new Promise((resolve) => {
@@ -41,7 +45,11 @@ export interface DiskUsage {
   percent: number;
 }
 
-// Disk usage of the filesystem backing the given path (e.g. Docker's data root).
+/**
+ * Disk usage of the filesystem backing the given path (e.g. Docker's data root).
+ * @param path string
+ * @returns DiskUsage
+ */
 export async function diskUsage(path: string): Promise<DiskUsage> {
   const stats = await fs.statfs(path);
   const total = stats.blocks * stats.bsize;

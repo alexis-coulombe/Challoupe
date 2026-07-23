@@ -17,9 +17,7 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Docker CLI + the Compose plugin — client only. Challoupe talks to the *host's* daemon over
-# the socket mounted in at /var/run/docker.sock; it never runs a daemon of its own. The CLI
-# binary is still needed because stacks.ts shells out to `docker compose` for deploy/down.
+# Docker CLI + the Compose plugin
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
   && install -m 0755 -d /etc/apt/keyrings \
   && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
@@ -31,8 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
   && apt-get purge -y curl gnupg \
   && rm -rf /var/lib/apt/lists/*
 
-# Production deps only — better-sqlite3's native binding is compiled/fetched here, against
-# this same base image, so it matches what actually runs it.
+# Production deps only
 COPY package.json package-lock.json ./
 COPY apps/server/package.json apps/server/package.json
 RUN npm ci --omit=dev --workspace=@challoupe/server
@@ -43,12 +40,8 @@ COPY --from=build /app/apps/web/dist apps/web/dist
 EXPOSE 3001
 VOLUME ["/app/data"]
 
-# Runs as root: it needs to read /var/run/docker.sock, whose group ownership varies by host
-# and can't be predicted at image-build time — the same constraint every Docker-socket-
-# mounting management tool (Portainer included) runs into, and the same trade-off they make.
-# Picks http vs https based on whether TLS is configured, and skips certificate
-# verification (rejectUnauthorized:false) since this is only ever probing the container's
-# own loopback address — a self-signed cert there is expected, not a trust decision.
+# Runs as root: it needs to read /var/run/docker.sock, whose group ownership varies by host and can't be predicted at image-build time
+# Picks http vs https based on whether TLS is configured
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "\
     const mod = require(process.env.TLS_CERT_FILE ? 'https' : 'http'); \

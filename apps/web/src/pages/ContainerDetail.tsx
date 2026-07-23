@@ -309,6 +309,7 @@ export default function ContainerDetail() {
                       containerId={id}
                       running={running}
                       defaultShell={settings?.defaultTerminalShell ?? '/bin/sh'}
+                      theme={settings?.terminalTheme}
                     />
                   ),
                 },

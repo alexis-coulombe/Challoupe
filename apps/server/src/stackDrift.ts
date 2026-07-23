@@ -1,23 +1,13 @@
-// Compares what a stack's compose file declares against the containers Docker Compose
-// itself tagged as belonging to that project (the same com.docker.compose.project/service
-// labels Compose sets on every container it creates) — a pure function over already-fetched
-// data so it's cheap to run for every stack in the list view, and easy to unit-test without
-// a real Docker daemon.
 import YAML from 'yaml';
 import type Dockerode from 'dockerode';
 
 export interface StackDriftResult {
   inSync: boolean;
-  // Declared in the compose file, but no running-or-stopped container for it — someone
-  // removed it outside Challoupe, or it was never deployed after being added to the file.
+  // Declared in the compose file, but no running-or-stopped container for it.
   missingServices: string[];
-  // A container Compose tagged as part of this project, but whose service name isn't (or
-  // no longer is) in the compose file — what `--remove-orphans` would clean up on redeploy.
+  // A container Compose tagged as part of this project, but whose service name isn't in the compose file.
   orphanedContainers: Array<{ id: string; name: string; service: string | null }>;
-  // A service present in both, but the running container's image doesn't match what the
-  // file currently specifies — a tag bump not yet redeployed, or a manual `docker run`/
-  // `docker update` outside Challoupe. Services built from a Dockerfile (no `image:` key)
-  // aren't comparable this way and are silently skipped rather than flagged.
+  // A service present in both, but the running container's image doesn't match what the file currently specifies.
   imageMismatches: Array<{ service: string; expectedImage: string; actualImage: string }>;
 }
 
@@ -26,6 +16,12 @@ function parseServices(composeText: string): Record<string, { image?: string }> 
   return parsed?.services ?? {};
 }
 
+/**
+ * Check stack drift for a stack
+ * @param composeText string
+ * @param ownContainers Dockerode.ContainerInfo[]
+ * @returns StackDriftResult
+ */
 export function computeStackDrift(
   composeText: string,
   ownContainers: Dockerode.ContainerInfo[]

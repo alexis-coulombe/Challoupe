@@ -1,15 +1,9 @@
-// Periodically writes a full backup (settings/users/stacks — same shape as the manual
-// GET /api/backup download) to data/backups/ and prunes older files past the configured
-// retention count. Off by default; see settings.ts's `scheduledBackup` for the toggle.
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { BACKUPS_DIR } from './config.js';
 import { buildBackup } from './backup.js';
 import { getSettings } from './settings.js';
 
-// The exported timestamp (already filesystem-safe apart from colons) with `:`/`.` swapped
-// for `-`, e.g. challoupe-backup-2026-07-18T21-45-03-000Z.json. ISO order means a plain
-// string sort is also a chronological sort — no need to parse dates back out to order them.
 export const SCHEDULED_BACKUP_FILENAME_RE = /^challoupe-backup-[0-9TZ-]+\.json$/;
 
 export interface ScheduledBackupFile {
@@ -18,6 +12,10 @@ export interface ScheduledBackupFile {
   createdAt: string;
 }
 
+/**
+ * List all backup files
+ * @returns string[]
+ */
 function listBackupFiles(): string[] {
   try {
     return readdirSync(BACKUPS_DIR)
@@ -28,6 +26,9 @@ function listBackupFiles(): string[] {
   }
 }
 
+/**
+ * @returns ScheduledBackupFile[]
+ */
 export function listScheduledBackups(): ScheduledBackupFile[] {
   return listBackupFiles()
     .map((filename) => {
@@ -49,8 +50,7 @@ export async function runScheduledBackup(): Promise<string> {
   mkdirSync(BACKUPS_DIR, { recursive: true });
   const backup = await buildBackup();
   const filename = `challoupe-backup-${backup.exportedAt.replace(/[:.]/g, '-')}.json`;
-  // Contains password hashes and any configured secret (e.g. the SSO client secret) —
-  // same sensitivity as the manual download, so it's written owner-only.
+  // Contains password hashes and any configured secret, so it's written owner-only.
   writeFileSync(path.join(BACKUPS_DIR, filename), JSON.stringify(backup, null, 2), { mode: 0o600 });
   pruneOldBackups(getSettings().scheduledBackup.keepCount);
   return filename;
@@ -58,9 +58,10 @@ export async function runScheduledBackup(): Promise<string> {
 
 let schedulerTimer: NodeJS.Timeout | null = null;
 
-// Re-reads settings and (re)starts the background interval accordingly — called once at
-// server startup and again after any settings update that touches `scheduledBackup`, the
-// same pattern as imageUpdates.ts's restartImageUpdateScheduler().
+/**
+ * Re-reads settings and (re)starts the background interval accordingly
+ * @returns void
+ */
 export function restartScheduledBackupScheduler(): void {
   if (schedulerTimer) clearInterval(schedulerTimer);
   schedulerTimer = null;

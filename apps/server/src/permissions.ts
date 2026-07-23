@@ -1,6 +1,3 @@
-// The granular capabilities a "user"-role account can be individually granted.
-// An "admin" account always has every permission and never consults this list —
-// see requirePermission() in auth.ts.
 export const PERMISSIONS = [
   'manageContainers',
   'manageImages',
@@ -15,9 +12,6 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 export type Permissions = Record<Permission, boolean>;
 
-// AI and the vulnerability scanner default to on (matching pre-existing behavior, where
-// every authenticated user could use them once the app-wide feature flag was enabled).
-// Everything that can create/destroy Docker resources or open a shell defaults to off.
 export const DEFAULT_PERMISSIONS: Permissions = {
   manageContainers: false,
   manageImages: false,

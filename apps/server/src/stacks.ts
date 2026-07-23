@@ -9,7 +9,6 @@ import { computeStackDrift, type StackDriftResult } from './stackDrift.js';
 
 const execFileAsync = promisify(execFile);
 
-// docker compose project name constraint.
 export const STACK_NAME_RE = /^[a-z0-9][a-z0-9_-]*$/;
 
 export interface StackSummary {
@@ -66,15 +65,13 @@ export async function listStacks(): Promise<StackSummary[]> {
             : running === 0
               ? 'stopped'
               : 'partial';
-      // A stack that's never been deployed (no containers at all) isn't "drifted" — there's
-      // nothing to compare against yet, just a compose file waiting for its first deploy.
+      // A stack that's never been deployed isn't "drifted"
       let drifted = false;
       if (own.length > 0) {
         try {
           drifted = !computeStackDrift(await readStack(name), own).inSync;
         } catch {
-          // Compose file unreadable mid-listing (e.g. deleted concurrently) — don't fail
-          // the whole list over one stack's drift check.
+          // Compose file unreadable mid-listing
         }
       }
       return { name, services: own.length, running, status, drifted };
@@ -86,6 +83,11 @@ export async function readStack(name: string): Promise<string> {
   return fs.readFile(composePath(name), 'utf8');
 }
 
+/**
+ * Get stack drift of specified stack
+ * @param name string
+ * @returns StackDriftResult
+ */
 export async function getStackDrift(name: string): Promise<StackDriftResult> {
   const containers = await docker.listContainers({
     all: true,
@@ -98,6 +100,11 @@ export async function getStackDrift(name: string): Promise<StackDriftResult> {
   return computeStackDrift(await readStack(name), containers);
 }
 
+/**
+ * Create stack
+ * @param name string
+ * @param compose string
+ */
 export async function writeStack(name: string, compose: string): Promise<void> {
   const parsed: unknown = YAML.parse(compose);
   if (!parsed || typeof parsed !== 'object' || !('services' in parsed)) {

@@ -10,13 +10,14 @@ export interface BackupFile {
   version: 1;
   exportedAt: string;
   settings: Array<{ key: string; value: string }>;
-  // Raw user rows (including password_hash and every permission column) rather than
-  // the typed User shape, so a new column added later is backed up automatically
-  // without this module needing to know its name.
   users: Array<Record<string, unknown>>;
   stacks: BackupStack[];
 }
 
+/**
+ * Create BackupFile object from current settings
+ * @returns BackupFile
+ */
 export async function buildBackup(): Promise<BackupFile> {
   const settings = db.prepare('SELECT key, value FROM settings').all() as Array<{
     key: string;
@@ -30,9 +31,10 @@ export async function buildBackup(): Promise<BackupFile> {
   return { version: 1, exportedAt: new Date().toISOString(), settings, users, stacks };
 }
 
-// Fully replaces the current users, settings, and stack definitions with the backup's —
-// it does not touch the audit log (history should survive a restore) or any actual
-// Docker resource (containers/images/volumes/networks are never part of a backup).
+/**
+ * Restore settings from BackupFile object
+ * @param data BackupFile
+ */
 export async function restoreBackup(data: BackupFile): Promise<void> {
   const userColumns = (db.prepare('PRAGMA table_info(users)').all() as Array<{ name: string }>)
     .map((c) => c.name)

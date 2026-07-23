@@ -69,6 +69,15 @@ body {
   background: rgba(59, 130, 246, 0.35);
 }
 
+/* Mobile browsers can otherwise treat these scrollable output panels as
+   non-selectable, since the drag-to-scroll and drag-to-select gestures
+   compete for the same touch input. */
+pre {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 /* The floating AI Assistant launcher: a violet gradient instead of the default
    elevated-surface circle, so it reads as a distinct "AI" affordance, not just
    another chrome button. */

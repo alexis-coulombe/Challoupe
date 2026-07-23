@@ -3,6 +3,10 @@ import { DOCKER_SOCK } from './config.js';
 
 export const docker = new Docker({ socketPath: DOCKER_SOCK });
 
+/**
+ * Pull image from repository
+ * @param reference repository
+ */
 export async function pullImage(reference: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     docker.pull(reference, (err: Error | null, stream: NodeJS.ReadableStream) => {
@@ -26,25 +30,25 @@ export interface BuildFromGitResult {
   error?: string;
 }
 
-// Docker's git-context URL fragment is `#ref:subdir`, where either half may be omitted —
-// `#:subdir` means "default branch, this subdirectory"; `#ref` alone means "repo root".
+/**
+ * Docker's git-context URL fragment is `#ref:subdir`, where either half may be omitted
+ * @param repoUrl string
+ * @param opts BuildFromGitOptions
+ * @returns 
+ */
 export function buildGitRemote(repoUrl: string, opts: Pick<BuildFromGitOptions, 'ref' | 'subdir'> = {}): string {
   if (!opts.ref && !opts.subdir) return repoUrl;
   return `${repoUrl}#${opts.ref ?? ''}${opts.subdir ? `:${opts.subdir}` : ''}`;
 }
 
-// Delegates the actual git clone entirely to the Docker daemon via the Engine API's
-// `remote` build parameter (the same mechanism `docker build <git-url>` itself uses) —
-// Challoupe never runs `git` itself. This means the *daemon's* host needs `git` available,
-// and a private repo is only reachable by embedding credentials in the URL
-// (https://<token>@host/user/repo.git), same as the plain Docker CLI.
-//
-// A build can fail two different ways at the Engine API level: some errors (an invalid
-// git ref, a missing Dockerfile) come back as an immediate non-200 response before any
-// streaming starts; others (a failing RUN step) let the stream complete normally with an
-// `error` field on the last event. Both are folded into the same `{ log, error }` shape
-// here — this function never rejects — so callers don't need to special-case which kind
-// of failure they got.
+/**
+ * Delegates the actual git clone entirely to the Docker daemon via the Engine API's `remote` build parameter.
+ * Challoupe never runs `git` itself. 
+ * @param repoUrl string
+ * @param tag string
+ * @param opts BuildFromGitOptions
+ * @returns BuildFromGitResult
+ */
 export async function buildImageFromGit(
   repoUrl: string,
   tag: string,
@@ -73,8 +77,7 @@ export async function buildImageFromGit(
     return { log: '', error: (err as Error).message };
   }
 
-  // A pathological (or just very chatty) build shouldn't be able to grow server memory
-  // without limit — this is well past what any real build log needs, just a backstop.
+  // A verbose build shouldn't be able to grow server memory without limit
   const MAX_LOG_BYTES = 10 * 1024 * 1024;
   let log = '';
   let buildError: string | undefined;
@@ -95,7 +98,11 @@ export async function buildImageFromGit(
   return { log, error: buildError };
 }
 
-// Docker logs without a TTY are multiplexed in frames with an 8-byte header.
+/**
+ * Docker logs without a TTY are multiplexed in frames with an 8-byte header.
+ * @param buffer Buffer
+ * @returns string
+ */
 export function demuxLogs(buffer: Buffer): string {
   let out = '';
   let i = 0;
@@ -107,9 +114,11 @@ export function demuxLogs(buffer: Buffer): string {
   return out;
 }
 
-// Stateful version of demuxLogs for a live stream, where a chunk boundary can
-// land in the middle of a frame's header or body: incomplete frames are held
-// back and completed by a later push().
+/**
+ * Stateful version of demuxLogs for a live stream, where a chunk boundary can 
+ * land in the middle of a frame's header or body: incomplete frames are held 
+ * back and completed by a later push().
+ */
 export function createLogDemuxer() {
   let buffer: Buffer<ArrayBufferLike> = Buffer.alloc(0);
   return {
@@ -152,13 +161,16 @@ interface RawStats {
   networks?: Record<string, { rx_bytes?: number; tx_bytes?: number }>;
 }
 
-// Same CPU-percent formula the `docker stats` CLI itself uses.
+/**
+ * Same CPU-percent formula the `docker stats` CLI itself uses.
+ * @param raw RawStats
+ * @returns StatsSample
+ */
 export function summarizeStats(raw: RawStats): StatsSample {
   const cpuDelta = raw.cpu_stats.cpu_usage.total_usage - raw.precpu_stats.cpu_usage.total_usage;
   const systemDelta = (raw.cpu_stats.system_cpu_usage ?? 0) - (raw.precpu_stats.system_cpu_usage ?? 0);
   const onlineCpus = raw.cpu_stats.online_cpus || raw.cpu_stats.cpu_usage.percpu_usage?.length || 1;
-  const cpuPercent =
-    systemDelta > 0 && cpuDelta > 0 ? (cpuDelta / systemDelta) * onlineCpus * 100 : 0;
+  const cpuPercent = systemDelta > 0 && cpuDelta > 0 ? (cpuDelta / systemDelta) * onlineCpus * 100 : 0;
 
   const memUsage = raw.memory_stats?.usage ?? 0;
   // Docker's raw "usage" includes page cache; subtract it for a more accurate working-set figure.

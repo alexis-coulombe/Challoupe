@@ -1,8 +1,3 @@
-// Talks to a Docker Registry HTTP API v2 host (Docker Hub or any self-hosted/third-party
-// registry that speaks the same protocol) to find out whether a newer image exists for a
-// repo:tag than the one already pulled locally — without pulling any image data. A manifest
-// GET is a small JSON document, not the (potentially large) image layers.
-
 const DOCKER_HUB_REGISTRY = 'registry-1.docker.io';
 const REQUEST_TIMEOUT_MS = 10_000;
 
@@ -18,7 +13,9 @@ export interface ParsedReference {
 // unqualified name (no slash) is an official "library/" image.
 export function parseImageReference(reference: string): ParsedReference | null {
   // A digest-pinned reference (name@sha256:...) never has a "newer version" to check for.
-  if (reference.includes('@')) return null;
+  if (reference.includes('@')) {
+    return null;
+  }
 
   const lastColon = reference.lastIndexOf(':');
   const lastSlash = reference.lastIndexOf('/');
@@ -57,26 +54,47 @@ interface AuthChallenge {
   scope?: string;
 }
 
-// Registries advertise how to authenticate via a `WWW-Authenticate: Bearer realm="...",
-// service="...",scope="..."` challenge on the first (unauthenticated) 401 — the same
-// token dance Docker Hub and every other Registry v2-compliant host use.
+/**
+ * Registries advertise how to authenticate via a WWW-Authenticate
+ * @param header string
+ * @returns AuthChallenge | null
+ */
 function parseWwwAuthenticate(header: string): AuthChallenge | null {
   const match = /^Bearer\s+(.*)$/i.exec(header.trim());
-  if (!match) return null;
+  if (!match) {
+    return null;
+  }
+
   const params: Record<string, string> = {};
   const re = /(\w+)="([^"]*)"/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(match[1]))) params[m[1]] = m[2];
-  if (!params.realm) return null;
+  
+  while ((m = re.exec(match[1]))) {
+    params[m[1]] = m[2];
+  }
+
+  if (!params.realm) {
+    return null;
+  }
+
   return { realm: params.realm, service: params.service, scope: params.scope };
 }
 
 async function fetchBearerToken(challenge: AuthChallenge): Promise<string | null> {
   const url = new URL(challenge.realm);
-  if (challenge.service) url.searchParams.set('service', challenge.service);
-  if (challenge.scope) url.searchParams.set('scope', challenge.scope);
+  if (challenge.service) {
+    url.searchParams.set('service', challenge.service);
+  }
+
+  if (challenge.scope) {
+    url.searchParams.set('scope', challenge.scope);
+  }
+
   const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    return null;
+  }
+
   const body = (await res.json()) as { token?: string; access_token?: string };
   return body.token ?? body.access_token ?? null;
 }
@@ -88,12 +106,17 @@ const MANIFEST_ACCEPT = [
   'application/vnd.oci.image.index.v1+json',
 ].join(', ');
 
-// Returns the digest a registry currently serves for a repo:tag, or null if the
-// reference can't be checked (digest-pinned, unreachable, private without credentials,
-// not found, etc.) — callers treat null as "couldn't determine", not "no update".
+/**
+ * Returns the digest a registry currently serves for a repo:tag, or null if the
+ * reference can't be checked (digest-pinned, unreachable, private without credentials, not found, etc.) 
+ * @param reference string
+ * @returns string | null
+ */
 export async function getRemoteDigest(reference: string): Promise<string | null> {
   const parsed = parseImageReference(reference);
-  if (!parsed) return null;
+  if (!parsed) {
+    return null;
+  }
 
   const manifestUrl = `https://${parsed.registryHost}/v2/${parsed.repository}/manifests/${parsed.tag}`;
   const headers: Record<string, string> = { Accept: MANIFEST_ACCEPT };
@@ -101,14 +124,24 @@ export async function getRemoteDigest(reference: string): Promise<string | null>
   let res = await fetch(manifestUrl, { headers, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (res.status === 401) {
     const challenge = parseWwwAuthenticate(res.headers.get('www-authenticate') ?? '');
-    if (!challenge) return null;
+    if (!challenge) {
+      return null;
+    }
+
     const token = await fetchBearerToken(challenge);
-    if (!token) return null;
+    if (!token) {
+      return null;
+    }
+
     res = await fetch(manifestUrl, {
       headers: { ...headers, Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   }
-  if (!res.ok) return null;
+
+  if (!res.ok) {
+    return null;
+  }
+  
   return res.headers.get('docker-content-digest');
 }

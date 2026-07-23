@@ -3,18 +3,26 @@ import { Button, Card, Select, Space, Typography } from 'antd';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { wsUrl, type TerminalShell } from '../api';
+import { wsUrl, type TerminalShell, type TerminalThemeSettings } from '../api';
 
 const SHELLS: TerminalShell[] = ['/bin/sh', '/bin/bash', '/bin/ash'];
+
+const DEFAULT_THEME: TerminalThemeSettings = {
+  background: '#0b0e14',
+  foreground: '#c9d1d9',
+  cursor: '#3b82f6',
+};
 
 export default function ContainerTerminal({
   containerId,
   running,
   defaultShell,
+  theme,
 }: {
   containerId: string;
   running: boolean;
   defaultShell: TerminalShell;
+  theme?: TerminalThemeSettings;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -34,7 +42,7 @@ export default function ContainerTerminal({
     const term = new Terminal({
       convertEol: true,
       fontSize: 13,
-      theme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
+      theme: theme ?? DEFAULT_THEME,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -50,7 +58,14 @@ export default function ContainerTerminal({
       wsRef.current?.close();
       term.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Settings can load after the terminal is first created (or change while it's open),
+  // so keep applying them — xterm re-renders in place when `.options.theme` is reassigned.
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.theme = theme ?? DEFAULT_THEME;
+  }, [theme]);
 
   const connect = () => {
     const term = termRef.current;

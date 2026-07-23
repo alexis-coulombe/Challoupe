@@ -23,10 +23,16 @@ export interface AuditLogRow {
   ip: string | null;
 }
 
-// A logging bug must never take down the action it's trying to record, and disabling the
-// feature (Settings) should stop new entries without touching history already on disk.
+/**
+ * Add log entry
+ * @param entry AuditEntry
+ * @returns void
+ */
 export function recordAudit(entry: AuditEntry): void {
-  if (!getSettings().featureFlags.auditLog) return;
+  if (!getSettings().featureFlags.auditLog) {
+    return;
+  }
+
   try {
     db.prepare(
       `INSERT INTO audit_log (user_id, username, action, target, detail, status, ip) VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -44,6 +50,11 @@ export function recordAudit(entry: AuditEntry): void {
   }
 }
 
+/**
+ * Get logs from db
+ * @param limit number
+ * @returns 
+ */
 export function listAuditLog(limit = 300): AuditLogRow[] {
   const capped = Math.min(Math.max(limit, 1), 1000);
   return db
