@@ -1,10 +1,20 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { RESTART_POLICIES, settingsService } from '../settings.js';
+import { RESTART_POLICIES, settingsService, type AppSettings } from '../settings.js';
 import { oidcConfigProvider } from '../oidc.js';
 import { imageUpdateService } from '../imageUpdates.js';
 import { scheduledBackupService } from '../scheduledBackups.js';
+
+// Both are write-only from the API's point of view: the settings form always shows a
+// blank field and treats blank-on-save as "leave unchanged".
+function redactSecrets(settings: AppSettings): AppSettings {
+  return {
+    ...settings,
+    oidc: { ...settings.oidc, clientSecret: '' },
+    notifications: { ...settings.notifications, webhookUrl: '' },
+  };
+}
 
 const updateSchema = z
   .object({
@@ -50,6 +60,16 @@ const updateSchema = z
         cursor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color'),
       })
       .partial(),
+    notifications: z
+      .object({
+        enabled: z.boolean(),
+        webhookUrl: z.string().max(500).refine((v) => v === '' || /^https?:\/\//.test(v), 'Must be a valid URL'),
+        format: z.enum(['generic', 'discord', 'slack']),
+        onContainerCrash: z.boolean(),
+        onImageUpdate: z.boolean(),
+        onBackupFailure: z.boolean(),
+      })
+      .partial(),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one setting is required' });
@@ -57,9 +77,7 @@ const updateSchema = z
 export class SettingsController {
   get = (_req: Request, res: Response): void => {
     const settings = settingsService.get();
-    // The client secret is write-only from the API's point of view: the settings form
-    // always shows a blank field and treats blank-on-save as "leave unchanged".
-    res.json({ ...settings, oidc: { ...settings.oidc, clientSecret: '' } });
+    res.json(redactSecrets(settings));
   };
 
   update = (req: Request, res: Response): void => {
@@ -78,7 +96,7 @@ export class SettingsController {
     if (body.oidc) oidcConfigProvider.resetCache();
     if (body.imageUpdateCheck) imageUpdateService.restartScheduler();
     if (body.scheduledBackup) scheduledBackupService.restartScheduler();
-    res.json({ ...updated, oidc: { ...updated.oidc, clientSecret: '' } });
+    res.json(redactSecrets(updated));
   };
 }
 

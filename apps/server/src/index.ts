@@ -21,8 +21,10 @@ import aiRoutes from './routes/ai.js';
 import trivyRoutes from './routes/trivy.js';
 import auditLogRoutes from './routes/auditLog.js';
 import backupRoutes from './routes/backup.js';
+import notificationsRoutes from './routes/notifications.js';
 import { imageUpdateService } from './imageUpdates.js';
 import { scheduledBackupService } from './scheduledBackups.js';
+import { dockerEventBroadcaster } from './dockerEvents.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -44,6 +46,7 @@ app.use('/api/ai', requireAuth, aiRoutes);
 app.use('/api/trivy', requireAuth, trivyRoutes);
 app.use('/api/audit-log', requireAuth, requireAdmin, auditLogRoutes);
 app.use('/api/backup', requireAuth, requireAdmin, backupRoutes);
+app.use('/api/notifications', requireAuth, requireAdmin, notificationsRoutes);
 app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
@@ -91,6 +94,7 @@ export { app, server };
 if (import.meta.url === `file://${process.argv[1]}`) {
   imageUpdateService.restartScheduler();
   scheduledBackupService.restartScheduler();
+  dockerEventBroadcaster.start();
   server.listen(PORT, HOST, () => {
     console.log(`Challoupe listening on ${tlsEnabled ? 'https' : 'http'}://${HOST}:${PORT}`);
   });

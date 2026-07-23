@@ -242,6 +242,18 @@ export interface TerminalThemeSettings {
   cursor: string;
 }
 
+export type NotificationFormat = 'generic' | 'discord' | 'slack';
+
+// webhookUrl is always returned blank by the API
+export interface NotificationSettings {
+  enabled: boolean;
+  webhookUrl: string;
+  format: NotificationFormat;
+  onContainerCrash: boolean;
+  onImageUpdate: boolean;
+  onBackupFailure: boolean;
+}
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -257,6 +269,7 @@ export interface AppSettings {
   imageUpdateCheck: ImageUpdateCheckSettings;
   scheduledBackup: ScheduledBackupSettings;
   terminalTheme: TerminalThemeSettings;
+  notifications: NotificationSettings;
 }
 
 export interface OidcLoginConfig {

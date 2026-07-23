@@ -84,6 +84,29 @@ const TERMINAL_THEME_DEFAULTS: TerminalThemeSettings = {
   cursor: '#3b82f6',
 };
 
+export type NotificationFormat = 'generic' | 'discord' | 'slack';
+
+/**
+ * A webhook that gets posted to for background events
+ */
+export interface NotificationSettings {
+  enabled: boolean;
+  webhookUrl: string;
+  format: NotificationFormat;
+  onContainerCrash: boolean;
+  onImageUpdate: boolean;
+  onBackupFailure: boolean;
+}
+
+const NOTIFICATION_DEFAULTS: NotificationSettings = {
+  enabled: false,
+  webhookUrl: '',
+  format: 'generic',
+  onContainerCrash: true,
+  onImageUpdate: true,
+  onBackupFailure: true,
+};
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -101,12 +124,19 @@ export interface AppSettings {
   imageUpdateCheck: ImageUpdateCheckSettings;
   scheduledBackup: ScheduledBackupSettings;
   terminalTheme: TerminalThemeSettings;
+  notifications: NotificationSettings;
 }
 
-const DEFAULTS: Omit<
-  AppSettings,
-  'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup' | 'terminalTheme'
-> = {
+const NESTED_KEYS = [
+  'featureFlags',
+  'oidc',
+  'imageUpdateCheck',
+  'scheduledBackup',
+  'terminalTheme',
+  'notifications',
+] as const;
+
+const DEFAULTS: Omit<AppSettings, (typeof NESTED_KEYS)[number]> = {
   defaultRestartPolicy: 'no',
   refreshIntervalMs: 5000,
   defaultLogTail: 200,
@@ -118,14 +148,13 @@ const DEFAULTS: Omit<
   maxContainerCpus: null,
 };
 
-export type SettingsUpdate = Partial<
-  Omit<AppSettings, 'featureFlags' | 'oidc' | 'imageUpdateCheck' | 'scheduledBackup' | 'terminalTheme'>
-> & {
+export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[number]>> & {
   featureFlags?: Partial<FeatureFlags>;
   oidc?: Partial<OidcSettings>;
   imageUpdateCheck?: Partial<ImageUpdateCheckSettings>;
   scheduledBackup?: Partial<ScheduledBackupSettings>;
   terminalTheme?: Partial<TerminalThemeSettings>;
+  notifications?: Partial<NotificationSettings>;
 };
 
 /**
@@ -181,6 +210,15 @@ export class SettingsService {
       if (raw !== undefined) terminalTheme[field] = raw;
     }
 
+    const notifications = { ...NOTIFICATION_DEFAULTS };
+    for (const field of Object.keys(notifications) as Array<keyof NotificationSettings>) {
+      const raw = stored[`notifications.${field}`];
+      if (raw === undefined) continue;
+      if (field === 'format') notifications.format = raw as NotificationFormat;
+      else if (field === 'webhookUrl') notifications.webhookUrl = raw;
+      else notifications[field] = raw === 'true';
+    }
+
     return {
       defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
       refreshIntervalMs: stored.refreshIntervalMs
@@ -198,6 +236,7 @@ export class SettingsService {
       imageUpdateCheck,
       scheduledBackup,
       terminalTheme,
+      notifications,
     };
   }
 
@@ -240,6 +279,14 @@ export class SettingsService {
         for (const [field, val] of Object.entries(value as Partial<TerminalThemeSettings>)) {
           if (val === undefined) continue;
           upsert.run(`terminalTheme.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'notifications') {
+        for (const [field, val] of Object.entries(value as Partial<NotificationSettings>)) {
+          if (val === undefined) continue;
+          if (field === 'webhookUrl' && val === '') continue; // blank = leave the stored URL unchanged
+          upsert.run(`notifications.${field}`, String(val));
         }
         continue;
       }

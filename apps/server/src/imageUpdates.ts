@@ -1,4 +1,5 @@
 import { docker } from './docker.js';
+import { notificationService } from './notifications.js';
 import { getRemoteDigest } from './registry.js';
 import { settingsService } from './settings.js';
 
@@ -124,7 +125,11 @@ export class ImageUpdateService {
 
     const intervalMs = Math.max(1, imageUpdateCheck.intervalHours) * 60 * 60 * 1000;
     this.schedulerTimer = setInterval(() => {
-      this.checkAll().catch((err) => console.error('Background image update check failed', err));
+      this.checkAll()
+        .then((result) => {
+          if (result.updatesAvailable > 0) void notificationService.notifyImageUpdates(result.updatesAvailable);
+        })
+        .catch((err) => console.error('Background image update check failed', err));
     }, intervalMs);
     this.schedulerTimer.unref?.();
   }

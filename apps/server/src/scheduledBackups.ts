@@ -2,6 +2,7 @@ import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs
 import path from 'node:path';
 import { BACKUPS_DIR } from './config.js';
 import { backupService, type BackupService } from './backup.js';
+import { notificationService } from './notifications.js';
 import { settingsService } from './settings.js';
 
 export const SCHEDULED_BACKUP_FILENAME_RE = /^challoupe-backup-[0-9TZ-]+\.json$/;
@@ -70,7 +71,10 @@ export class ScheduledBackupService {
 
     const intervalMs = Math.max(1, scheduledBackup.intervalHours) * 60 * 60 * 1000;
     this.schedulerTimer = setInterval(() => {
-      this.run().catch((err) => console.error('Scheduled backup failed', err));
+      this.run().catch((err: Error) => {
+        console.error('Scheduled backup failed', err);
+        void notificationService.notifyBackupFailure(err.message);
+      });
     }, intervalMs);
     this.schedulerTimer.unref?.();
   }

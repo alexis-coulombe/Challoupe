@@ -26,6 +26,14 @@ const DEFAULTS = {
   imageUpdateCheck: { enabled: false, intervalHours: 24 },
   scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
   terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
+  notifications: {
+    enabled: false,
+    webhookUrl: '',
+    format: 'generic',
+    onContainerCrash: true,
+    onImageUpdate: true,
+    onBackupFailure: true,
+  },
 };
 
 beforeEach(() => {
@@ -91,6 +99,14 @@ describe('PUT /api/settings', () => {
       },
       imageUpdateCheck: { enabled: true, intervalHours: 6 },
       terminalTheme: { background: '#ffffff', foreground: '#111111', cursor: '#ff0000' },
+      notifications: {
+        enabled: true,
+        webhookUrl: 'https://discord.com/api/webhooks/x/y',
+        format: 'discord',
+        onContainerCrash: true,
+        onImageUpdate: false,
+        onBackupFailure: true,
+      },
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -116,6 +132,15 @@ describe('PUT /api/settings', () => {
       imageUpdateCheck: { enabled: true, intervalHours: 6 },
       scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
       terminalTheme: { background: '#ffffff', foreground: '#111111', cursor: '#ff0000' },
+      // Same write-only treatment as the OIDC client secret above.
+      notifications: {
+        enabled: true,
+        webhookUrl: '',
+        format: 'discord',
+        onContainerCrash: true,
+        onImageUpdate: false,
+        onBackupFailure: true,
+      },
     });
   });
 
@@ -204,6 +229,48 @@ describe('PUT /api/settings', () => {
   it('rejects a terminal theme color that is not a hex string', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.put('/api/settings').send({ terminalTheme: { background: 'blue' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets an admin turn on webhook notifications, never echoing the URL back', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({
+      notifications: { enabled: true, webhookUrl: 'https://discord.com/api/webhooks/x/y', format: 'discord' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.notifications).toEqual({
+      enabled: true,
+      webhookUrl: '',
+      format: 'discord',
+      onContainerCrash: true,
+      onImageUpdate: true,
+      onBackupFailure: true,
+    });
+  });
+
+  it('leaves the stored webhook URL unchanged when sent blank', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    await admin
+      .put('/api/settings')
+      .send({ notifications: { webhookUrl: 'https://discord.com/api/webhooks/x/y' } });
+
+    const res = await admin
+      .put('/api/settings')
+      .send({ notifications: { webhookUrl: '', onImageUpdate: false } });
+    expect(res.status).toBe(200);
+    expect(res.body.notifications.onImageUpdate).toBe(false);
+    expect(res.body.notifications.webhookUrl).toBe(''); // never echoed back
+
+    // Not readable back over the API by design, so check the stored value directly.
+    const stored = db.prepare("SELECT value FROM settings WHERE key = 'notifications.webhookUrl'").get() as {
+      value: string;
+    };
+    expect(stored.value).toBe('https://discord.com/api/webhooks/x/y');
+  });
+
+  it('rejects an invalid webhook URL', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ notifications: { webhookUrl: 'not-a-url' } });
     expect(res.status).toBe(400);
   });
 

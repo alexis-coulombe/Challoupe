@@ -9,6 +9,11 @@ vi.mock('../src/docker.js', async (importOriginal) => {
 const mockGetRemoteDigest = vi.fn();
 vi.mock('../src/registry.js', () => ({ getRemoteDigest: mockGetRemoteDigest }));
 
+const mockNotifyImageUpdates = vi.fn();
+vi.mock('../src/notifications.js', () => ({
+  notificationService: { notifyImageUpdates: mockNotifyImageUpdates },
+}));
+
 const { imageUpdateService } = await import('../src/imageUpdates.js');
 const { db } = await import('../src/db.js');
 const { settingsService } = await import('../src/settings.js');
@@ -108,5 +113,21 @@ describe('restartImageUpdateScheduler', () => {
     imageUpdateService.restartScheduler();
     await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
     expect(mockDocker.listImages).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a notification when the scheduled check finds an update, not when it finds none', async () => {
+    settingsService.update({ imageUpdateCheck: { enabled: true, intervalHours: 1 } });
+    mockDocker.listImages.mockResolvedValue([
+      { Id: 'i1', RepoTags: ['app-k:v1'], RepoDigests: ['app-k@sha256:old'] },
+    ]);
+    mockGetRemoteDigest.mockResolvedValue('sha256:new');
+    imageUpdateService.restartScheduler();
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    expect(mockNotifyImageUpdates).toHaveBeenCalledWith(1);
+
+    mockNotifyImageUpdates.mockClear();
+    mockGetRemoteDigest.mockResolvedValue('sha256:old');
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+    expect(mockNotifyImageUpdates).not.toHaveBeenCalled();
   });
 });

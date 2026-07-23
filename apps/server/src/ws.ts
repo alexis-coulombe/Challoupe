@@ -16,7 +16,10 @@ const ALLOWED_SHELLS: TerminalShell[] = ['/bin/bash', '/bin/sh', '/bin/ash'];
 
 function isSameOriginUpgrade(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
-  if (!origin) return true;
+  if (!origin) {
+    return true;
+  }
+  
   try {
     return new URL(origin).host === req.headers.host;
   } catch {

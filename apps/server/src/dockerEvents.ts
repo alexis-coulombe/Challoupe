@@ -1,5 +1,12 @@
 import type { WebSocket } from 'ws';
 import { docker } from './docker.js';
+import { notificationService } from './notifications.js';
+
+const EVENT_DETAIL: Record<DockerEventAction, (notification: DockerNotification) => string> = {
+  crashed: (n) => `crashed (exit code ${n.exitCode})`,
+  oom: () => 'was killed by the OOM killer',
+  unhealthy: () => 'failed its health check',
+};
 
 export type DockerEventAction = 'crashed' | 'oom' | 'unhealthy';
 
@@ -53,10 +60,19 @@ export class DockerEventBroadcaster {
   private streamStarted = false;
 
   private broadcast(notification: DockerNotification): void {
+    void notificationService.notifyContainerEvent(
+      notification.containerName,
+      EVENT_DETAIL[notification.action](notification)
+    );
     const payload = JSON.stringify(notification);
     for (const ws of this.subscribers) {
       if (ws.readyState === ws.OPEN) ws.send(payload);
     }
+  }
+
+  private scheduleRetry(): void {
+    this.streamStarted = false;
+    setTimeout(() => this.start(), 5000).unref?.();
   }
 
   private async startEventStream(): Promise<void> {
@@ -83,16 +99,27 @@ export class DockerEventBroadcaster {
         }
       });
       stream.on('error', () => {
-        this.streamStarted = false;
-        console.error('Docker event stream error, will retry on next subscriber');
+        console.error('Docker event stream error, reconnecting shortly');
+        this.scheduleRetry();
       });
       stream.on('end', () => {
-        this.streamStarted = false;
+        this.scheduleRetry();
       });
     } catch (err) {
-      this.streamStarted = false;
       console.error('Failed to attach to the Docker event stream:', err);
+      this.scheduleRetry();
     }
+  }
+
+  /**
+   * Starts consuming the Docker event stream if it isn't already running, independent of
+   * whether any WebSocket client is subscribed, so background notifications keep working
+   * with no browser tab open.
+   */
+  start(): void {
+    if (this.streamStarted) return;
+    this.streamStarted = true;
+    void this.startEventStream();
   }
 
   /**
@@ -102,10 +129,7 @@ export class DockerEventBroadcaster {
   subscribe(ws: WebSocket): void {
     this.subscribers.add(ws);
     ws.on('close', () => this.subscribers.delete(ws));
-    if (!this.streamStarted) {
-      this.streamStarted = true;
-      void this.startEventStream();
-    }
+    this.start();
   }
 }
 

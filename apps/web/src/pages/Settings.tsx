@@ -7,6 +7,7 @@ import {
   AutoComplete,
   Button,
   Card,
+  Checkbox,
   ColorPicker,
   Descriptions,
   Divider,
@@ -24,6 +25,7 @@ import {
 } from 'antd';
 import type { Color } from 'antd/es/color-picker';
 import {
+  BellOutlined,
   ClockCircleOutlined,
   CloudDownloadOutlined,
   DeleteOutlined,
@@ -39,7 +41,7 @@ import {
   UploadOutlined,
   WindowsOutlined,
 } from '@ant-design/icons';
-import { ApiError, type AppSettings, type BackupFile } from '../api';
+import { ApiError, type AppSettings, type BackupFile, type NotificationFormat } from '../api';
 import { AI_COLOR, AI_COLOR_BORDER, fromISO, SECURITY_COLOR, SECURITY_COLOR_BORDER, formatBytes } from '../utils';
 import { findSsoProvider, guessSsoProvider, parseKnownSsoProvider, SSO_PROVIDERS } from '../data/ssoProviders';
 import AiButton from '../components/AiButton';
@@ -49,6 +51,7 @@ import { useAuth } from '../auth';
 import { aiApi } from '../services/aiApi';
 import { backupApi } from '../services/backupApi';
 import { imagesApi } from '../services/imagesApi';
+import { notificationsApi } from '../services/notificationsApi';
 import { settingsApi } from '../services/settingsApi';
 import { systemApi } from '../services/systemApi';
 
@@ -108,6 +111,8 @@ export default function Settings() {
   const [models, setModels] = useState<string[]>([]);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
   const [testError, setTestError] = useState('');
+  const [notifTestStatus, setNotifTestStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
+  const [notifTestError, setNotifTestError] = useState('');
   const [ssoProvider, setSsoProvider] = useState('custom');
   const [ssoProviderValues, setSsoProviderValues] = useState<Record<string, string>>({});
 
@@ -247,6 +252,22 @@ export default function Settings() {
     }
   };
 
+  const testWebhook = async () => {
+    setNotifTestStatus('testing');
+    setNotifTestError('');
+    try {
+      // Tests the values currently typed in the form, not whatever was last saved.
+      const webhookUrl = form.getFieldValue(['notifications', 'webhookUrl']) as string;
+      const format = form.getFieldValue(['notifications', 'format']) as NotificationFormat;
+      await notificationsApi.test(webhookUrl, format);
+      setNotifTestStatus('ok');
+      message.success('Test notification sent.');
+    } catch (err) {
+      setNotifTestStatus('error');
+      setNotifTestError(err instanceof ApiError ? err.message : 'Could not reach the webhook');
+    }
+  };
+
   const currentModel = Form.useWatch('ollamaModel', form);
   const modelOptions = Array.from(new Set([...models, ...(currentModel ? [currentModel] : [])])).map((m) => ({
     value: m,
@@ -258,12 +279,20 @@ export default function Settings() {
   const imageUpdateCheckEnabled = Form.useWatch(['imageUpdateCheck', 'enabled'], form) ?? false;
   const terminalTheme = Form.useWatch('terminalTheme', form) ?? DEFAULT_TERMINAL_THEME;
   const scheduledBackupEnabled = Form.useWatch(['scheduledBackup', 'enabled'], form) ?? false;
+  const notificationsEnabled = Form.useWatch(['notifications', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
   const aiTabLabel = (
     <Space size={6}>
       <RobotOutlined style={{ color: AI_COLOR }} />
       AI Assistant
+    </Space>
+  );
+
+  const notificationsTabLabel = (
+    <Space size={6}>
+      <BellOutlined />
+      Notifications
     </Space>
   );
 
@@ -746,6 +775,90 @@ export default function Settings() {
                       </List.Item>
                     )}
                   />
+                </Card>
+              ),
+            },
+            {
+              key: 'notifications',
+              label: notificationsTabLabel,
+              forceRender: true,
+              children: (
+                <Card>
+                  <Space align="center" style={{ marginBottom: 16 }}>
+                    <Form.Item name={['notifications', 'enabled']} valuePropName="checked" noStyle>
+                      <Switch />
+                    </Form.Item>
+                    <Typography.Text strong>Send webhook notifications</Typography.Text>
+                  </Space>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Posts a message to a Discord, Slack, or generic JSON webhook for things that
+                    happen in the background: a container crash, a scheduled image update check
+                    finding something new, or a scheduled backup failing.
+                  </Typography.Paragraph>
+                  <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
+                    <Form.Item
+                      name={['notifications', 'webhookUrl']}
+                      label="Webhook URL"
+                      tooltip="Never sent back to the browser, leave blank to keep the currently stored URL"
+                    >
+                      <Input.Password
+                        placeholder="Leave blank to keep current"
+                        disabled={!notificationsEnabled}
+                      />
+                    </Form.Item>
+                    <Space size="large" wrap align="end">
+                      <Form.Item name={['notifications', 'format']} label="Format">
+                        <Select
+                          style={{ width: 200 }}
+                          disabled={!notificationsEnabled}
+                          options={[
+                            { value: 'generic', label: 'Generic JSON' },
+                            { value: 'discord', label: 'Discord' },
+                            { value: 'slack', label: 'Slack' },
+                          ]}
+                        />
+                      </Form.Item>
+                      {isAdmin && (
+                        <Form.Item label=" ">
+                          <Button
+                            icon={<BellOutlined />}
+                            loading={notifTestStatus === 'testing'}
+                            onClick={testWebhook}
+                            disabled={!notificationsEnabled}
+                          >
+                            Send test notification
+                          </Button>
+                        </Form.Item>
+                      )}
+                    </Space>
+                  </Space>
+                  {notifTestStatus === 'error' && (
+                    <Alert
+                      type="error"
+                      showIcon
+                      message="Could not reach the webhook"
+                      description={notifTestError}
+                      style={{ marginBottom: 16, maxWidth: 600 }}
+                    />
+                  )}
+                  <Typography.Title level={5} style={{ marginTop: 8 }}>
+                    Notify me when
+                  </Typography.Title>
+                  <Space direction="vertical">
+                    <Form.Item name={['notifications', 'onContainerCrash']} valuePropName="checked" noStyle>
+                      <Checkbox disabled={!notificationsEnabled}>
+                        A container crashes, is OOM-killed, or fails its health check
+                      </Checkbox>
+                    </Form.Item>
+                    <Form.Item name={['notifications', 'onImageUpdate']} valuePropName="checked" noStyle>
+                      <Checkbox disabled={!notificationsEnabled}>
+                        A scheduled image update check finds something new
+                      </Checkbox>
+                    </Form.Item>
+                    <Form.Item name={['notifications', 'onBackupFailure']} valuePropName="checked" noStyle>
+                      <Checkbox disabled={!notificationsEnabled}>A scheduled backup fails</Checkbox>
+                    </Form.Item>
+                  </Space>
                 </Card>
               ),
             },

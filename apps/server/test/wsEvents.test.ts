@@ -11,6 +11,11 @@ vi.mock('../src/docker.js', async (importOriginal) => {
   return { ...actual, docker: mockDocker };
 });
 
+const mockNotifyContainerEvent = vi.fn();
+vi.mock('../src/notifications.js', () => ({
+  notificationService: { notifyContainerEvent: mockNotifyContainerEvent },
+}));
+
 const { app, server } = await import('../src/index.js');
 const { db } = await import('../src/db.js');
 
@@ -89,5 +94,8 @@ describe('WS /events', () => {
     expect(messages).toEqual([
       { type: 'container_event', action: 'crashed', containerId: 'ccc', containerName: 'db', exitCode: 137, time: 3 },
     ]);
+    // Only the crash reaches the notification service, same filtering as the WS broadcast.
+    expect(mockNotifyContainerEvent).toHaveBeenCalledOnce();
+    expect(mockNotifyContainerEvent).toHaveBeenCalledWith('db', 'crashed (exit code 137)');
   });
 });

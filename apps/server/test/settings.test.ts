@@ -24,6 +24,14 @@ const DEFAULTS = {
   imageUpdateCheck: { enabled: false, intervalHours: 24 },
   scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
   terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
+  notifications: {
+    enabled: false,
+    webhookUrl: '',
+    format: 'generic',
+    onContainerCrash: true,
+    onImageUpdate: true,
+    onBackupFailure: true,
+  },
 };
 
 beforeEach(() => {
@@ -151,5 +159,26 @@ describe('settings', () => {
       ...DEFAULTS,
       terminalTheme: { background: '#ffffff', foreground: '#c9d1d9', cursor: '#3b82f6' },
     });
+  });
+
+  it('persists the notification settings, including the webhook URL when read directly', () => {
+    settingsService.update({
+      notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x', format: 'slack' },
+    });
+    expect(settingsService.get().notifications).toEqual({
+      enabled: true,
+      webhookUrl: 'https://hooks.example.com/x',
+      format: 'slack',
+      onContainerCrash: true,
+      onImageUpdate: true,
+      onBackupFailure: true,
+    });
+  });
+
+  it('leaves a stored webhook URL unchanged when a later update sends a blank one', () => {
+    settingsService.update({ notifications: { webhookUrl: 'https://hooks.example.com/x' } });
+    settingsService.update({ notifications: { webhookUrl: '', onBackupFailure: false } });
+    expect(settingsService.get().notifications.webhookUrl).toBe('https://hooks.example.com/x');
+    expect(settingsService.get().notifications.onBackupFailure).toBe(false);
   });
 });
