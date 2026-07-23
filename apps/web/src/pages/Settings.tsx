@@ -25,6 +25,7 @@ import {
 } from 'antd';
 import type { Color } from 'antd/es/color-picker';
 import {
+  ApiOutlined,
   BellOutlined,
   ClockCircleOutlined,
   CloudDownloadOutlined,
@@ -282,17 +283,10 @@ export default function Settings() {
   const notificationsEnabled = Form.useWatch(['notifications', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
-  const aiTabLabel = (
+  const integrationsTabLabel = (
     <Space size={6}>
-      <RobotOutlined style={{ color: AI_COLOR }} />
-      AI Assistant
-    </Space>
-  );
-
-  const notificationsTabLabel = (
-    <Space size={6}>
-      <BellOutlined />
-      Notifications
+      <ApiOutlined />
+      Integrations
     </Space>
   );
 
@@ -310,13 +304,6 @@ export default function Settings() {
     </Space>
   );
 
-  const securityTabLabel = (
-    <Space size={6}>
-      <SecurityScanOutlined style={{ color: SECURITY_COLOR }} />
-      Security
-    </Space>
-  );
-
   return (
     <div>
       <Typography.Title level={3}>Settings</Typography.Title>
@@ -328,19 +315,24 @@ export default function Settings() {
         onFinish={(values) => saveMutation.mutate(values)}
       >
         <Tabs
-          defaultActiveKey="environment"
+          defaultActiveKey="general"
           items={[
             {
-              key: 'environment',
+              key: 'general',
               label: (
                 <Space size={6}>
-                  <DesktopOutlined />
-                  Environment
+                  <SettingOutlined />
+                  General
                 </Space>
               ),
+              forceRender: true,
               children: (
                 <Card>
-                  <Descriptions column={{ xs: 1, md: 2 }} bordered size="small">
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    <DesktopOutlined style={{ marginRight: 8 }} />
+                    Environment
+                  </Typography.Title>
+                  <Descriptions column={{ xs: 1, md: 2 }} bordered size="small" style={{ marginBottom: 24 }}>
                     <Descriptions.Item label="Host">{info?.name}</Descriptions.Item>
                     <Descriptions.Item label="Docker version">{info?.serverVersion}</Descriptions.Item>
                     <Descriptions.Item label="API version">{info?.apiVersion}</Descriptions.Item>
@@ -353,20 +345,9 @@ export default function Settings() {
                     <Descriptions.Item label="Docker socket">{info?.dockerSock}</Descriptions.Item>
                     <Descriptions.Item label="Data directory">{info?.dataDir}</Descriptions.Item>
                   </Descriptions>
-                </Card>
-              ),
-            },
-            {
-              key: 'general',
-              label: (
-                <Space size={6}>
-                  <SettingOutlined />
-                  General
-                </Space>
-              ),
-              forceRender: true,
-              children: (
-                <Card>
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    Defaults
+                  </Typography.Title>
                   <Space size="large" wrap align="start">
                     <Form.Item
                       name="refreshIntervalMs"
@@ -489,109 +470,195 @@ export default function Settings() {
               ),
             },
             {
-              key: 'ai',
-              label: aiTabLabel,
+              key: 'integrations',
+              label: integrationsTabLabel,
               forceRender: true,
               children: (
-                <Card style={{ border: `1px solid ${AI_COLOR_BORDER}` }}>
-                  <Space align="center" style={{ marginBottom: 16 }}>
-                    <Form.Item
-                      name={['featureFlags', 'aiAssistant']}
-                      valuePropName="checked"
-                      noStyle
-                    >
-                      <Switch />
-                    </Form.Item>
-                    <Typography.Text strong>Enable AI features</Typography.Text>
-                  </Space>
-                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    Point this at a local or LAN{' '}
-                    <a href="https://ollama.com" target="_blank" rel="noreferrer">
-                      Ollama
-                    </a>{' '}
-                    server to unlock log diagnosis, AI stack generation, and the chat assistant.
-                    Nothing leaves this address. Turning this off hides every AI entry point in the
-                    app and disables it on the server too.
-                  </Typography.Paragraph>
-                  <Space size="large" wrap align="start">
-                    <Form.Item name="ollamaBaseUrl" label="Base URL">
-                      <Input style={{ width: 260 }} placeholder="http://localhost:11434" disabled={!aiEnabled} />
-                    </Form.Item>
-                    <Form.Item name="ollamaModel" label="Model">
-                      <AutoComplete
-                        style={{ width: 200 }}
-                        options={modelOptions}
-                        placeholder="e.g. llama3.1"
-                        disabled={!aiEnabled}
+                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                  <Card style={{ border: `1px solid ${AI_COLOR_BORDER}` }}>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <RobotOutlined style={{ color: AI_COLOR, marginRight: 8 }} />
+                      AI Assistant
+                    </Typography.Title>
+                    <Space align="center" style={{ marginBottom: 16 }}>
+                      <Form.Item
+                        name={['featureFlags', 'aiAssistant']}
+                        valuePropName="checked"
+                        noStyle
+                      >
+                        <Switch />
+                      </Form.Item>
+                      <Typography.Text strong>Enable AI features</Typography.Text>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Point this at a local or LAN{' '}
+                      <a href="https://ollama.com" target="_blank" rel="noreferrer">
+                        Ollama
+                      </a>{' '}
+                      server to unlock log diagnosis, AI stack generation, and the chat assistant.
+                      Nothing leaves this address. Turning this off hides every AI entry point in the
+                      app and disables it on the server too.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="start">
+                      <Form.Item name="ollamaBaseUrl" label="Base URL">
+                        <Input style={{ width: 260 }} placeholder="http://localhost:11434" disabled={!aiEnabled} />
+                      </Form.Item>
+                      <Form.Item name="ollamaModel" label="Model">
+                        <AutoComplete
+                          style={{ width: 200 }}
+                          options={modelOptions}
+                          placeholder="e.g. llama3.1"
+                          disabled={!aiEnabled}
+                        />
+                      </Form.Item>
+                      {isAdmin && (
+                        <Form.Item label=" ">
+                          <AiButton loading={testStatus === 'testing'} onClick={testOllama} disabled={!aiEnabled}>
+                            Test connection
+                          </AiButton>
+                        </Form.Item>
+                      )}
+                    </Space>
+                    {testStatus === 'error' && (
+                      <Alert
+                        type="error"
+                        showIcon
+                        message="Could not reach Ollama"
+                        description={testError}
+                        style={{ marginBottom: 0, maxWidth: 600 }}
                       />
-                    </Form.Item>
-                    {isAdmin && (
-                      <Form.Item label=" ">
-                        <AiButton loading={testStatus === 'testing'} onClick={testOllama} disabled={!aiEnabled}>
-                          Test connection
-                        </AiButton>
-                      </Form.Item>
                     )}
-                  </Space>
-                  {testStatus === 'error' && (
-                    <Alert
-                      type="error"
-                      showIcon
-                      message="Could not reach Ollama"
-                      description={testError}
-                      style={{ marginBottom: 16, maxWidth: 600 }}
-                    />
-                  )}
-                </Card>
-              ),
-            },
-            {
-              key: 'security',
-              label: securityTabLabel,
-              forceRender: true,
-              children: (
-                <Card style={{ border: `1px solid ${SECURITY_COLOR_BORDER}` }}>
-                  <Space align="center" style={{ marginBottom: 16 }}>
-                    <Form.Item
-                      name={['featureFlags', 'vulnerabilityScanner']}
-                      valuePropName="checked"
-                      noStyle
-                    >
-                      <Switch />
-                    </Form.Item>
-                    <Typography.Text strong>Enable vulnerability scanning</Typography.Text>
-                  </Space>
-                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    Runs{' '}
-                    <a href="https://trivy.dev" target="_blank" rel="noreferrer">
-                      Trivy
-                    </a>{' '}
-                    as a one-off local container (mounted against the Docker socket) to unlock the
-                    "Scan" action on the Images page. The first scan downloads a vulnerability
-                    database, cached locally so later scans are fast. Turning this off hides the
-                    scan button and disables it on the server too.
-                  </Typography.Paragraph>
-                  <Space size="large" wrap align="start">
-                    <Form.Item
-                      name="trivyImage"
-                      label="Trivy image"
-                      tooltip="Which aquasec/trivy image tag to run for each scan"
-                    >
-                      <Input style={{ width: 260 }} placeholder="aquasec/trivy:latest" disabled={!securityEnabled} />
-                    </Form.Item>
-                    {isAdmin && (
-                      <Form.Item label=" ">
-                        <SecurityButton
-                          loading={pullTrivyMutation.isPending}
-                          disabled={!securityEnabled || !trivyImage}
-                          onClick={() => trivyImage && pullTrivyMutation.mutate(trivyImage)}
-                        >
-                          Pull image now
-                        </SecurityButton>
+                  </Card>
+
+                  <Card style={{ border: `1px solid ${SECURITY_COLOR_BORDER}` }}>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <SecurityScanOutlined style={{ color: SECURITY_COLOR, marginRight: 8 }} />
+                      Security Scanner
+                    </Typography.Title>
+                    <Space align="center" style={{ marginBottom: 16 }}>
+                      <Form.Item
+                        name={['featureFlags', 'vulnerabilityScanner']}
+                        valuePropName="checked"
+                        noStyle
+                      >
+                        <Switch />
                       </Form.Item>
+                      <Typography.Text strong>Enable vulnerability scanning</Typography.Text>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Runs{' '}
+                      <a href="https://trivy.dev" target="_blank" rel="noreferrer">
+                        Trivy
+                      </a>{' '}
+                      as a one-off local container (mounted against the Docker socket) to unlock the
+                      "Scan" action on the Images page. The first scan downloads a vulnerability
+                      database, cached locally so later scans are fast. Turning this off hides the
+                      scan button and disables it on the server too.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="start">
+                      <Form.Item
+                        name="trivyImage"
+                        label="Trivy image"
+                        tooltip="Which aquasec/trivy image tag to run for each scan"
+                      >
+                        <Input style={{ width: 260 }} placeholder="aquasec/trivy:latest" disabled={!securityEnabled} />
+                      </Form.Item>
+                      {isAdmin && (
+                        <Form.Item label=" ">
+                          <SecurityButton
+                            loading={pullTrivyMutation.isPending}
+                            disabled={!securityEnabled || !trivyImage}
+                            onClick={() => trivyImage && pullTrivyMutation.mutate(trivyImage)}
+                          >
+                            Pull image now
+                          </SecurityButton>
+                        </Form.Item>
+                      )}
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <BellOutlined style={{ marginRight: 8 }} />
+                      Notifications
+                    </Typography.Title>
+                    <Space align="center" style={{ marginBottom: 16 }}>
+                      <Form.Item name={['notifications', 'enabled']} valuePropName="checked" noStyle>
+                        <Switch />
+                      </Form.Item>
+                      <Typography.Text strong>Send webhook notifications</Typography.Text>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Posts a message to a Discord, Slack, or generic JSON webhook for things that
+                      happen in the background: a container crash, a scheduled image update check
+                      finding something new, or a scheduled backup failing.
+                    </Typography.Paragraph>
+                    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
+                      <Form.Item
+                        name={['notifications', 'webhookUrl']}
+                        label="Webhook URL"
+                        tooltip="Never sent back to the browser, leave blank to keep the currently stored URL"
+                      >
+                        <Input.Password
+                          placeholder="Leave blank to keep current"
+                          disabled={!notificationsEnabled}
+                        />
+                      </Form.Item>
+                      <Space size="large" wrap align="end">
+                        <Form.Item name={['notifications', 'format']} label="Format">
+                          <Select
+                            style={{ width: 200 }}
+                            disabled={!notificationsEnabled}
+                            options={[
+                              { value: 'generic', label: 'Generic JSON' },
+                              { value: 'discord', label: 'Discord' },
+                              { value: 'slack', label: 'Slack' },
+                            ]}
+                          />
+                        </Form.Item>
+                        {isAdmin && (
+                          <Form.Item label=" ">
+                            <Button
+                              icon={<BellOutlined />}
+                              loading={notifTestStatus === 'testing'}
+                              onClick={testWebhook}
+                              disabled={!notificationsEnabled}
+                            >
+                              Send test notification
+                            </Button>
+                          </Form.Item>
+                        )}
+                      </Space>
+                    </Space>
+                    {notifTestStatus === 'error' && (
+                      <Alert
+                        type="error"
+                        showIcon
+                        message="Could not reach the webhook"
+                        description={notifTestError}
+                        style={{ marginBottom: 16, maxWidth: 600 }}
+                      />
                     )}
-                  </Space>
-                </Card>
+                    <Typography.Title level={5} style={{ marginTop: 8 }}>
+                      Notify me when
+                    </Typography.Title>
+                    <Space direction="vertical">
+                      <Form.Item name={['notifications', 'onContainerCrash']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!notificationsEnabled}>
+                          A container crashes, is OOM-killed, or fails its health check
+                        </Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['notifications', 'onImageUpdate']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!notificationsEnabled}>
+                          A scheduled image update check finds something new
+                        </Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['notifications', 'onBackupFailure']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!notificationsEnabled}>A scheduled backup fails</Checkbox>
+                      </Form.Item>
+                    </Space>
+                  </Card>
+                </Space>
               ),
             },
             {
@@ -775,90 +842,6 @@ export default function Settings() {
                       </List.Item>
                     )}
                   />
-                </Card>
-              ),
-            },
-            {
-              key: 'notifications',
-              label: notificationsTabLabel,
-              forceRender: true,
-              children: (
-                <Card>
-                  <Space align="center" style={{ marginBottom: 16 }}>
-                    <Form.Item name={['notifications', 'enabled']} valuePropName="checked" noStyle>
-                      <Switch />
-                    </Form.Item>
-                    <Typography.Text strong>Send webhook notifications</Typography.Text>
-                  </Space>
-                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    Posts a message to a Discord, Slack, or generic JSON webhook for things that
-                    happen in the background: a container crash, a scheduled image update check
-                    finding something new, or a scheduled backup failing.
-                  </Typography.Paragraph>
-                  <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
-                    <Form.Item
-                      name={['notifications', 'webhookUrl']}
-                      label="Webhook URL"
-                      tooltip="Never sent back to the browser, leave blank to keep the currently stored URL"
-                    >
-                      <Input.Password
-                        placeholder="Leave blank to keep current"
-                        disabled={!notificationsEnabled}
-                      />
-                    </Form.Item>
-                    <Space size="large" wrap align="end">
-                      <Form.Item name={['notifications', 'format']} label="Format">
-                        <Select
-                          style={{ width: 200 }}
-                          disabled={!notificationsEnabled}
-                          options={[
-                            { value: 'generic', label: 'Generic JSON' },
-                            { value: 'discord', label: 'Discord' },
-                            { value: 'slack', label: 'Slack' },
-                          ]}
-                        />
-                      </Form.Item>
-                      {isAdmin && (
-                        <Form.Item label=" ">
-                          <Button
-                            icon={<BellOutlined />}
-                            loading={notifTestStatus === 'testing'}
-                            onClick={testWebhook}
-                            disabled={!notificationsEnabled}
-                          >
-                            Send test notification
-                          </Button>
-                        </Form.Item>
-                      )}
-                    </Space>
-                  </Space>
-                  {notifTestStatus === 'error' && (
-                    <Alert
-                      type="error"
-                      showIcon
-                      message="Could not reach the webhook"
-                      description={notifTestError}
-                      style={{ marginBottom: 16, maxWidth: 600 }}
-                    />
-                  )}
-                  <Typography.Title level={5} style={{ marginTop: 8 }}>
-                    Notify me when
-                  </Typography.Title>
-                  <Space direction="vertical">
-                    <Form.Item name={['notifications', 'onContainerCrash']} valuePropName="checked" noStyle>
-                      <Checkbox disabled={!notificationsEnabled}>
-                        A container crashes, is OOM-killed, or fails its health check
-                      </Checkbox>
-                    </Form.Item>
-                    <Form.Item name={['notifications', 'onImageUpdate']} valuePropName="checked" noStyle>
-                      <Checkbox disabled={!notificationsEnabled}>
-                        A scheduled image update check finds something new
-                      </Checkbox>
-                    </Form.Item>
-                    <Form.Item name={['notifications', 'onBackupFailure']} valuePropName="checked" noStyle>
-                      <Checkbox disabled={!notificationsEnabled}>A scheduled backup fails</Checkbox>
-                    </Form.Item>
-                  </Space>
                 </Card>
               ),
             },
