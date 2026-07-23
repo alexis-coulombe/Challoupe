@@ -14,10 +14,24 @@ type Destroyable = { destroy?: () => void };
 
 const ALLOWED_SHELLS: TerminalShell[] = ['/bin/bash', '/bin/sh', '/bin/ash'];
 
+function isSameOriginUpgrade(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
+}
+
 export function attachWebSocketServer(server: Server): void {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    if (!isSameOriginUpgrade(req)) {
+      socket.destroy();
+      return;
+    }
     const url = new URL(req.url ?? '', 'http://internal');
     const containerMatch = url.pathname.match(/^\/ws\/containers\/([^/]+)\/(stats|logs|exec)$/);
     const aiMatch = url.pathname.match(/^\/ws\/ai\/(diagnose\/([^/]+)|generate-stack|chat)$/);

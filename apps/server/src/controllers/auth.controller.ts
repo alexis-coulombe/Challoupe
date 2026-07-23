@@ -18,9 +18,6 @@ import {
 
 const usernameSchema = z.string().trim().min(1).max(64);
 
-// A brand-new password being set (initial setup, or a password change). Existing accounts
-// may predate this minimum, so it's only enforced when a password is actually being chosen,
-// never on the login schema below (which must keep accepting whatever is already stored).
 const newPasswordSchema = z.string().min(8).max(128);
 
 const setupSchema = z.object({ username: usernameSchema, password: newPasswordSchema });

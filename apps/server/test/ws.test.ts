@@ -236,6 +236,35 @@ describe('WS unknown path', () => {
   });
 });
 
+describe('WS cross-site handshake', () => {
+  it('destroys the socket when Origin does not match the request Host', async () => {
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/stats`, {
+      headers: { Cookie: cookie, Origin: 'http://evil.example.com' },
+    });
+    const errored = await new Promise<boolean>((resolve) => {
+      ws.on('open', () => resolve(false));
+      ws.on('error', () => resolve(true));
+      ws.on('unexpected-response', () => resolve(true));
+    });
+    expect(errored).toBe(true);
+  });
+
+  it('allows the handshake when Origin matches the request Host', async () => {
+    mockContainer.stats.mockImplementation((_opts, cb) => cb(null, Readable.from([])));
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/stats`, {
+      headers: { Cookie: cookie, Origin: `http://127.0.0.1:${port}` },
+    });
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('unexpected-response', (_req, res) => reject(new Error(`unexpected ${res.statusCode}`)));
+      ws.on('error', reject);
+    });
+    await closeAndWait(ws);
+  });
+});
+
 function mockOllamaStream(chunks: string[]): void {
   globalThis.fetch = vi.fn().mockResolvedValue(new Response(chunks.join(''), { status: 200 })) as unknown as typeof fetch;
 }
