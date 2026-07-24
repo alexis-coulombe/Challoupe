@@ -2,16 +2,18 @@
   <img src="assets/brand/banner.svg" width="720">
 </p>
 
-A self-hosted Docker manager: containers, images, volumes, networks, compose stacks, and user management.
+A self-hosted Docker manager: containers, images, volumes, networks, compose stacks, and user management — across the local host and any number of remote Docker hosts over SSH.
 
 ## Architecture
 
 | Directory | Role | Technologies |
 |---|---|---|
-| `apps/server` | REST + WebSocket API, serves the built frontend | Express 5, ws, dockerode, better-sqlite3, express-session, bcryptjs, zod |
+| `apps/server` | REST + WebSocket API, serves the built frontend | Express 5, ws, dockerode, ssh2, better-sqlite3, express-session, bcryptjs, zod |
 | `apps/web` | Web interface (SPA) | React 18, Ant Design 5, TanStack Query, CodeMirror, xterm.js, Vite |
 
-- **Docker**: the server talks to `/var/run/docker.sock` via dockerode.
+- **Docker**: the server talks to `/var/run/docker.sock` via dockerode for the local host.
+
+- **Multi-host management**: add remote Docker hosts reachable over SSH. SSH private keys/passphrases are encrypted at rest and never returned by the API.
 
 - **Stacks**: each stack is a `docker-compose.yml` under `data/stacks/<name>/`, deployed with the real `docker compose -p <name> up -d`.
 
@@ -32,7 +34,9 @@ A self-hosted Docker manager: containers, images, volumes, networks, compose sta
 
 - **Vulnerability scanning (local Trivy)**: a "Scan" action on the Images page runs [Trivy](https://trivy.dev) as a one-off container (Docker socket mounted in, no persistent service). Vulnerability database cached under `data/trivy-cache/`. Returns a severity-sorted CVE list.
 
-- **Notifications**: an optional webhook (Discord, Slack, or generic JSON) posts on container crashes, scheduled image updates, and scheduled backup failures. Configured from Settings, off by default.
+- **Resource alerts**: periodically checks CPU, memory, and disk usage against configurable thresholds and notifies over the channels below when one is crossed.
+
+- **Notifications**: an optional webhook (Discord, Slack, or generic JSON) and/or [ntfy](https://ntfy.sh) push notifications post on container crashes, scheduled image updates, resource alerts, and scheduled backup failures. Configured from Settings, off by default.
 
 - **Audit log**: an admin-only page (`audit_log` table) records who did what: resource mutations, user management, settings changes, scans, sign-ins, password changes, and denied permission checks. Toggled from the page itself, on by default; turning it off stops new entries without erasing history.
 
@@ -79,7 +83,7 @@ Tests run against an in-memory database and an isolated temp directory (`NODE_EN
 |---|---|---|
 | `PORT` | `3001` | Server listen port |
 | `HOST` | `0.0.0.0` | Listen interface |
-| `DATA_DIR` | `./data` | SQLite database, session secret, and stacks |
+| `DATA_DIR` | `./data` | SQLite database, session secret, host SSH encryption key, and stacks |
 | `DOCKER_SOCK` | `/var/run/docker.sock` | Docker socket |
 | `SESSION_SECRET` | generated and persisted under `data/` | Session signing secret |
 | `TLS_CERT_FILE` | unset | Path to a PEM certificate (set together with `TLS_KEY_FILE` to serve HTTPS directly) |
