@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { requireAuth } from '../auth.js';
 import { authController as c } from '../controllers/auth.controller.js';
+import oidcRoutes from '../integrations/oidc/oidc.routes.js';
 
 const router = Router();
 
@@ -30,8 +31,6 @@ router.post('/totp/disable', requireAuth, c.totpDisable);
 router.post('/totp/backup-codes', requireAuth, c.totpBackupCodes);
 router.post('/logout', c.logout);
 router.post('/password', requireAuth, c.changePassword);
-router.get('/oidc/config', c.oidcConfig);
-router.get('/oidc/login', c.oidcLogin);
-router.get('/oidc/callback', c.oidcCallback);
+router.use('/oidc', oidcRoutes);
 
 export default router;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listOllamaModels, streamOllamaChat } from '../src/ollama.js';
+import { listOllamaModels, streamOllamaChat } from '../../../src/integrations/ollama/ollama.js';
 
 const originalFetch = globalThis.fetch;
 

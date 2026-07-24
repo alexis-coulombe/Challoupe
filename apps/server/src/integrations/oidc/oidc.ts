@@ -1,5 +1,5 @@
 import * as client from 'openid-client';
-import { settingsService } from './settings.js';
+import { settingsService } from '../../settings.js';
 
 /**
  * Discovers and caches the OIDC provider Configuration

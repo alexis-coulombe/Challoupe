@@ -7,10 +7,10 @@ vi.mock('../src/docker.js', async (importOriginal) => {
 });
 
 const mockGetRemoteDigest = vi.fn();
-vi.mock('../src/registry.js', () => ({ getRemoteDigest: mockGetRemoteDigest }));
+vi.mock('../src/integrations/registry/registry.js', () => ({ getRemoteDigest: mockGetRemoteDigest }));
 
 const mockNotifyImageUpdates = vi.fn();
-vi.mock('../src/notifications.js', () => ({
+vi.mock('../src/integrations/notifications/notifications.js', () => ({
   notificationService: { notifyImageUpdates: mockNotifyImageUpdates },
 }));
 

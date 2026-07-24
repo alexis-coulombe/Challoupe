@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { getPortainerStackFile, listPortainerStacks } from '../portainer.js';
+import { getPortainerStackFile, listPortainerStacks } from '../integrations/portainer/portainer.js';
 import { STACK_NAME_RE, stackService } from '../stacks.js';
 
 const createSchema = z.object({

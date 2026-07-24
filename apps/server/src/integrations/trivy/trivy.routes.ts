@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { requirePermission } from '../auth.js';
-import { trivyController as c } from '../controllers/trivy.controller.js';
+import { requirePermission } from '../../auth.js';
+import { trivyController as c } from './trivy.controller.js';
 
 const router = Router();
 

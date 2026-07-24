@@ -1,8 +1,8 @@
 import { PassThrough } from 'node:stream';
 import { mkdir } from 'node:fs/promises';
 import { statSync } from 'node:fs';
-import { docker, pullImage } from './docker.js';
-import { TRIVY_CACHE_DIR, DOCKER_SOCK } from './config.js';
+import { docker, pullImage } from '../../docker.js';
+import { TRIVY_CACHE_DIR, DOCKER_SOCK } from '../../config.js';
 
 function trivyRunAsUser(): string | undefined {
   if (typeof process.getuid !== 'function' || typeof process.getgid !== 'function') return undefined;

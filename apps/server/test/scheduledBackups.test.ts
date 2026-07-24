@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNotifyBackupFailure = vi.fn();
-vi.mock('../src/notifications.js', () => ({
+vi.mock('../src/integrations/notifications/notifications.js', () => ({
   notificationService: { notifyBackupFailure: mockNotifyBackupFailure },
 }));
 

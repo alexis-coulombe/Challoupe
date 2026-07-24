@@ -1,6 +1,6 @@
 import { docker } from './docker.js';
-import { notificationService } from './notifications.js';
-import { getRemoteDigest } from './registry.js';
+import { notificationService } from './integrations/notifications/notifications.js';
+import { getRemoteDigest } from './integrations/registry/registry.js';
 import { settingsService } from './settings.js';
 
 export interface ImageUpdateStatus {

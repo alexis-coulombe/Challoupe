@@ -12,7 +12,7 @@ vi.mock('../src/docker.js', async (importOriginal) => {
 });
 
 const mockNotifyContainerEvent = vi.fn();
-vi.mock('../src/notifications.js', () => ({
+vi.mock('../src/integrations/notifications/notifications.js', () => ({
   notificationService: { notifyContainerEvent: mockNotifyContainerEvent },
 }));
 

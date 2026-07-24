@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { notificationService } from '../notifications.js';
+import { notificationService } from './notifications.js';
 
 const testSchema = z.object({
   webhookUrl: z.string().url(),

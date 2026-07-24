@@ -2,7 +2,7 @@ import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs
 import path from 'node:path';
 import { BACKUPS_DIR } from './config.js';
 import { backupService, type BackupService } from './backup.js';
-import { notificationService } from './notifications.js';
+import { notificationService } from './integrations/notifications/notifications.js';
 import { settingsService } from './settings.js';
 
 export const SCHEDULED_BACKUP_FILENAME_RE = /^challoupe-backup-[0-9TZ-]+\.json$/;

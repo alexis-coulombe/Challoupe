@@ -16,7 +16,7 @@ vi.mock('openid-client', () => mockClient);
 
 const { app } = await import('../../src/index.js');
 const { db } = await import('../../src/db.js');
-const { oidcConfigProvider } = await import('../../src/oidc.js');
+const { oidcConfigProvider } = await import('../../src/integrations/oidc/oidc.js');
 
 beforeEach(() => {
   db.exec('DELETE FROM users');

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getRemoteDigest, parseImageReference } from '../src/registry.js';
+import { getRemoteDigest, parseImageReference } from '../../../src/integrations/registry/registry.js';
 
 describe('parseImageReference', () => {
   it('treats an unqualified name as a Docker Hub official image', () => {

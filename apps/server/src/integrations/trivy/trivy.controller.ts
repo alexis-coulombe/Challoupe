@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { auditLog } from '../audit.js';
-import { settingsService } from '../settings.js';
-import { scanImage } from '../trivy.js';
-import { IMAGE_REF_RE } from '../validators.js';
+import { auditLog } from '../../audit.js';
+import { settingsService } from '../../settings.js';
+import { scanImage } from './trivy.js';
+import { IMAGE_REF_RE } from '../../validators.js';
 
 const scanSchema = z.object({
   image: z.string().trim().min(1).max(255).regex(IMAGE_REF_RE, 'Invalid image reference'),

@@ -4,12 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockDocker = { run: vi.fn(), getImage: vi.fn() };
 const mockPullImage = vi.fn();
 
-vi.mock('../src/docker.js', () => ({
+vi.mock('../../../src/docker.js', () => ({
   docker: mockDocker,
   pullImage: mockPullImage,
 }));
 
-const { scanImage } = await import('../src/trivy.js');
+const { scanImage } = await import('../../../src/integrations/trivy/trivy.js');
 
 function trivyOutput(vulnerabilities: unknown[]): string {
   return JSON.stringify({ Results: [{ Vulnerabilities: vulnerabilities }] });

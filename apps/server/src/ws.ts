@@ -8,7 +8,7 @@ import { hasPermission } from './auth.js';
 import { LogDemuxer, demuxLogs, docker, summarizeStats } from './docker.js';
 import { dockerEventBroadcaster } from './dockerEvents.js';
 import { settingsService, type TerminalShell } from './settings.js';
-import { streamOllamaChat, type OllamaChatMessage } from './ollama.js';
+import { streamOllamaChat, type OllamaChatMessage } from './integrations/ollama/ollama.js';
 
 type Destroyable = { destroy?: () => void };
 

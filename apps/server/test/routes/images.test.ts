@@ -21,7 +21,7 @@ vi.mock('../../src/docker.js', async (importOriginal) => {
 });
 
 const mockGetRemoteDigest = vi.fn();
-vi.mock('../../src/registry.js', () => ({ getRemoteDigest: mockGetRemoteDigest }));
+vi.mock('../../src/integrations/registry/registry.js', () => ({ getRemoteDigest: mockGetRemoteDigest }));
 
 const { app } = await import('../../src/index.js');
 const { db } = await import('../../src/db.js');

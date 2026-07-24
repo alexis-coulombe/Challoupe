@@ -1,14 +1,11 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { settingsService } from '../settings.js';
-import { listOllamaModels } from '../ollama.js';
+import { settingsService } from '../../settings.js';
+import { listOllamaModels } from './ollama.js';
 
 const testConnectionSchema = z.object({ baseUrl: z.string().trim().url().optional() });
 
 export class AiController {
-  // `baseUrl` lets Settings' "Test connection" button check the value currently typed in
-  // the form, before it's saved. Otherwise this would only ever be able to test whatever
-  // was last persisted, which is misleading right after editing the field.
   models = async (req: Request, res: Response): Promise<void> => {
     const { ollamaBaseUrl, featureFlags } = settingsService.get();
     if (!featureFlags.aiAssistant) {

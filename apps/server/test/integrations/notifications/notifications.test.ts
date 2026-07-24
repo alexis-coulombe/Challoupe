@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { db } from '../src/db.js';
-import { settingsService } from '../src/settings.js';
-import { notificationService } from '../src/notifications.js';
+import { db } from '../../../src/db.js';
+import { settingsService } from '../../../src/settings.js';
+import { notificationService } from '../../../src/integrations/notifications/notifications.js';
 
 const originalFetch = globalThis.fetch;
 

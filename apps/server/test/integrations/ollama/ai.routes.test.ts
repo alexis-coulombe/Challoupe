@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
-import { app } from '../../src/index.js';
-import { db } from '../../src/db.js';
-import { createAdminAgent, createUserAgent } from '../helpers.js';
+import { app } from '../../../src/index.js';
+import { db } from '../../../src/db.js';
+import { createAdminAgent, createUserAgent } from '../../helpers.js';
 
 const originalFetch = globalThis.fetch;
 

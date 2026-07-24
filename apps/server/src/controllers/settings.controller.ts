@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
 import { RESTART_POLICIES, settingsService, type AppSettings } from '../settings.js';
-import { oidcConfigProvider } from '../oidc.js';
+import { oidcConfigProvider } from '../integrations/oidc/oidc.js';
 import { imageUpdateService } from '../imageUpdates.js';
 import { scheduledBackupService } from '../scheduledBackups.js';
 import { userRepository } from '../auth.js';

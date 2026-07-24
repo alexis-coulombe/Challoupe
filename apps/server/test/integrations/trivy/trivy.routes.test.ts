@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
-import { createAdminAgent, createUserAgent } from '../helpers.js';
+import { createAdminAgent, createUserAgent } from '../../helpers.js';
 
-vi.mock('../../src/trivy.js', () => ({ scanImage: vi.fn() }));
+vi.mock('../../../src/integrations/trivy/trivy.js', () => ({ scanImage: vi.fn() }));
 
-const { app } = await import('../../src/index.js');
-const { db } = await import('../../src/db.js');
-const { scanImage } = await import('../../src/trivy.js');
+const { app } = await import('../../../src/index.js');
+const { db } = await import('../../../src/db.js');
+const { scanImage } = await import('../../../src/integrations/trivy/trivy.js');
 
 beforeEach(() => {
   db.exec('DELETE FROM users');

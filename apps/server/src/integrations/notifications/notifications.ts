@@ -1,4 +1,4 @@
-import { settingsService, type NotificationFormat, type SettingsService } from './settings.js';
+import { settingsService, type NotificationFormat, type SettingsService } from '../../settings.js';
 
 export interface WebhookTarget {
   webhookUrl: string;

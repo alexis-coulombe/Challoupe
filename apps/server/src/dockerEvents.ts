@@ -1,6 +1,6 @@
 import type { WebSocket } from 'ws';
 import { docker } from './docker.js';
-import { notificationService } from './notifications.js';
+import { notificationService } from './integrations/notifications/notifications.js';
 
 const EVENT_DETAIL: Record<DockerEventAction, (notification: DockerNotification) => string> = {
   crashed: (n) => `crashed (exit code ${n.exitCode})`,
