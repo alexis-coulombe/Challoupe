@@ -298,3 +298,42 @@ describe('PUT /api/settings', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('POST /api/settings/reset', () => {
+  it('is forbidden for a non-admin user', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const memberAgent = await createUserAgent(app, admin, 'member');
+    const res = await memberAgent.post('/api/settings/reset');
+    expect(res.status).toBe(403);
+  });
+
+  it('deletes every user and stack, resets settings, and keeps only the audit log', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    await createUserAgent(app, admin, 'member');
+    await admin.put('/api/settings').send({
+      defaultRestartPolicy: 'always',
+      oidc: { enabled: true, clientSecret: 'shh' },
+    });
+    await admin
+      .post('/api/stacks')
+      .send({ name: 'reset-me', compose: 'services:\n  web:\n    image: nginx:alpine\n', deploy: false });
+
+    const res = await admin.post('/api/settings/reset');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(DEFAULTS);
+
+    // The requester's own session no longer works, since their user row is gone.
+    const after = await admin.get('/api/settings');
+    expect(after.status).toBe(401);
+
+    // Setup is possible again, and finds no stacks left behind.
+    const { agent: newAdmin } = await createAdminAgent(app, 'admin2');
+    const stacks = await newAdmin.get('/api/stacks');
+    expect(stacks.body).toEqual([]);
+
+    const auditRows = db
+      .prepare("SELECT username FROM audit_log WHERE action = 'settings.factory_reset'")
+      .all() as Array<{ username: string }>;
+    expect(auditRows).toEqual([{ username: 'admin' }]);
+  });
+});

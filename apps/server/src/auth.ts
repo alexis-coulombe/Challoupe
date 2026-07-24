@@ -145,6 +145,10 @@ export class UserRepository {
   replaceTotpBackupCodes(id: number, hashedBackupCodes: string[]): void {
     this.db.prepare('UPDATE users SET totp_backup_codes = ? WHERE id = ?').run(JSON.stringify(hashedBackupCodes), id);
   }
+
+  deleteAll(): void {
+    this.db.exec('DELETE FROM users');
+  }
 }
 
 export const userRepository = new UserRepository(db);

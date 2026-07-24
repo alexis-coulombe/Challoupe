@@ -181,4 +181,15 @@ describe('settings', () => {
     expect(settingsService.get().notifications.webhookUrl).toBe('https://hooks.example.com/x');
     expect(settingsService.get().notifications.onBackupFailure).toBe(false);
   });
+
+  it('reset() clears every stored setting back to its default', () => {
+    settingsService.update({
+      defaultRestartPolicy: 'always',
+      oidc: { enabled: true, clientSecret: 'shh' },
+      notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+    });
+    expect(settingsService.reset()).toEqual(DEFAULTS);
+    const rows = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };
+    expect(rows.n).toBe(0);
+  });
 });

@@ -40,6 +40,7 @@ import {
   SecurityScanOutlined,
   SettingOutlined,
   UploadOutlined,
+  WarningOutlined,
   WindowsOutlined,
 } from '@ant-design/icons';
 import { ApiError, type AppSettings, type BackupFile, type NotificationFormat } from '../api';
@@ -95,7 +96,7 @@ const SSO_PROVIDER_OPTIONS = SSO_PROVIDERS.map((p) => ({
 }));
 
 export default function Settings() {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const navigate = useNavigate();
   const { message, modal } = AntApp.useApp();
   const queryClient = useQueryClient();
@@ -171,6 +172,27 @@ export default function Settings() {
     },
     onError: (err) => message.error(err.message),
   });
+
+  const resetMutation = useMutation({
+    mutationFn: () => settingsApi.reset(),
+    onSuccess: async () => {
+      message.success('Factory reset complete. Create a new administrator account to continue.');
+      await refresh();
+      navigate('/login', { replace: true });
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const handleResetToDefaults = () => {
+    modal.confirm({
+      title: 'Factory reset Challoupe?',
+      content:
+        'This deletes every users, stacks and settings. This cannot be undone, and you will need to create a new administrator account afterward.',
+      okText: 'Delete everything',
+      okButtonProps: { danger: true },
+      onOk: () => resetMutation.mutate(),
+    });
+  };
 
   const restoreMutation = useMutation({
     mutationFn: (data: BackupFile) => backupApi.restore(data),
@@ -859,6 +881,22 @@ export default function Settings() {
           </Typography.Text>
         )}
       </Form>
+
+      {isAdmin && (
+        <Card style={{ marginTop: 24, borderColor: '#ff4d4f' }}>
+          <Typography.Title level={5} style={{ marginTop: 0, color: '#ff4d4f' }}>
+            <WarningOutlined style={{ marginRight: 8 }} />
+            Danger zone
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+            Deletes every users, stack and settings to its default values. 
+            Backups already written to disk are not affected.
+          </Typography.Paragraph>
+          <Button danger loading={resetMutation.isPending} onClick={handleResetToDefaults}>
+            Factory reset
+          </Button>
+        </Card>
+      )}
     </div>
   );
 }

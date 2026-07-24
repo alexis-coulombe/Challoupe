@@ -37,6 +37,10 @@ export class SettingsApi {
   update(values: SettingsUpdate) {
     return api.put<AppSettings>('/settings', values);
   }
+
+  reset() {
+    return api.post<AppSettings>('/settings/reset');
+  }
 }
 
 export const settingsApi = new SettingsApi();

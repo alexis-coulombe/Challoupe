@@ -37,4 +37,21 @@ describe('user lookups', () => {
   it('returns undefined for an unknown username', () => {
     expect(userRepository.findByUsername('nobody')).toBeUndefined();
   });
+
+  it('deleteAll() removes every user', () => {
+    db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)').run(
+      'alice',
+      hashPassword('secret123'),
+      'admin'
+    );
+    db.prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)').run(
+      'bob',
+      hashPassword('secret123'),
+      'user'
+    );
+    expect(userRepository.count()).toBe(2);
+
+    userRepository.deleteAll();
+    expect(userRepository.count()).toBe(0);
+  });
 });

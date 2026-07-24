@@ -5,6 +5,8 @@ import { RESTART_POLICIES, settingsService, type AppSettings } from '../settings
 import { oidcConfigProvider } from '../oidc.js';
 import { imageUpdateService } from '../imageUpdates.js';
 import { scheduledBackupService } from '../scheduledBackups.js';
+import { userRepository } from '../auth.js';
+import { stackService } from '../stacks.js';
 
 // Both are write-only from the API's point of view: the settings form always shows a
 // blank field and treats blank-on-save as "leave unchanged".
@@ -97,6 +99,29 @@ export class SettingsController {
     if (body.imageUpdateCheck) imageUpdateService.restartScheduler();
     if (body.scheduledBackup) scheduledBackupService.restartScheduler();
     res.json(redactSecrets(updated));
+  };
+
+  reset = async (req: Request, res: Response): Promise<void> => {
+    const stackNames = await stackService.listNames();
+    for (const name of stackNames) {
+      await stackService.delete(name);
+    }
+    userRepository.deleteAll();
+    const reset = settingsService.reset();
+    oidcConfigProvider.resetCache();
+    imageUpdateService.restartScheduler();
+    scheduledBackupService.restartScheduler();
+    auditLog.record({
+      userId: req.user!.id,
+      username: req.user!.username,
+      action: 'settings.factory_reset',
+      detail: `deleted ${stackNames.length} stack(s) and all users, kept the audit log`,
+      status: 'success',
+      ip: req.ip,
+    });
+    req.session.destroy(() => {
+      res.json(redactSecrets(reset));
+    });
   };
 }
 

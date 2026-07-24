@@ -6,5 +6,6 @@ const router = Router();
 
 router.get('/', c.get);
 router.put('/', requireAdmin, c.update);
+router.post('/reset', requireAdmin, c.reset);
 
 export default router;

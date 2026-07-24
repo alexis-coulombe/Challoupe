@@ -298,6 +298,11 @@ export class SettingsService {
     }
     return this.get();
   }
+
+  reset(): AppSettings {
+    this.db.exec('DELETE FROM settings');
+    return this.get();
+  }
 }
 
 export const settingsService = new SettingsService(db);
