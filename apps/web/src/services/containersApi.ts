@@ -20,25 +20,25 @@ export interface ContainerCreateRequest {
 }
 
 export class ContainersApi {
-  list() {
-    return api.get<ContainerSummary[]>('/containers');
+  list(hostId: string) {
+    return api.get<ContainerSummary[]>(`/hosts/${hostId}/containers`);
   }
 
-  get(id: string) {
-    return api.get<ContainerInspect>(`/containers/${id}`);
+  get(hostId: string, id: string) {
+    return api.get<ContainerInspect>(`/hosts/${hostId}/containers/${id}`);
   }
 
-  create(body: ContainerCreateRequest) {
-    return api.post<{ id: string }>('/containers', body);
+  create(hostId: string, body: ContainerCreateRequest) {
+    return api.post<{ id: string }>(`/hosts/${hostId}/containers`, body);
   }
 
-  action(id: string, action: string) {
-    return api.post(`/containers/${id}/actions/${action}`);
+  action(hostId: string, id: string, action: string) {
+    return api.post(`/hosts/${hostId}/containers/${id}/actions/${action}`);
   }
 
   // Always force-removed, the only mode any page uses.
-  remove(id: string) {
-    return api.delete(`/containers/${id}?force=true`);
+  remove(hostId: string, id: string) {
+    return api.delete(`/hosts/${hostId}/containers/${id}?force=true`);
   }
 }
 

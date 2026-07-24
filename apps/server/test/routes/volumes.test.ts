@@ -22,11 +22,11 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('GET /api/volumes', () => {
+describe('GET /api/hosts/local/volumes', () => {
   it('is readable by a non-admin user', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.get('/api/volumes');
+    const res = await agent.get('/api/hosts/local/volumes');
     expect(res.status).toBe(200);
   });
 });
@@ -35,7 +35,7 @@ describe('admin-only volume mutations', () => {
   it('rejects a non-admin creating a volume', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.post('/api/volumes').send({ name: 'my-volume' });
+    const res = await agent.post('/api/hosts/local/volumes').send({ name: 'my-volume' });
     expect(res.status).toBe(403);
     expect(mockDocker.createVolume).not.toHaveBeenCalled();
   });
@@ -43,7 +43,7 @@ describe('admin-only volume mutations', () => {
   it('rejects a non-admin deleting a volume', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.delete('/api/volumes/my-volume');
+    const res = await agent.delete('/api/hosts/local/volumes/my-volume');
     expect(res.status).toBe(403);
     expect(mockVolume.remove).not.toHaveBeenCalled();
   });
@@ -51,16 +51,16 @@ describe('admin-only volume mutations', () => {
   it('rejects a non-admin pruning volumes', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.post('/api/volumes/prune');
+    const res = await agent.post('/api/hosts/local/volumes/prune');
     expect(res.status).toBe(403);
     expect(mockDocker.pruneVolumes).not.toHaveBeenCalled();
   });
 
   it('allows an admin to create, delete, and prune', async () => {
     const { agent } = await createAdminAgent(app);
-    expect((await agent.post('/api/volumes').send({ name: 'my-volume' })).status).toBe(201);
-    expect((await agent.delete('/api/volumes/my-volume')).status).toBe(200);
-    expect((await agent.post('/api/volumes/prune')).status).toBe(200);
+    expect((await agent.post('/api/hosts/local/volumes').send({ name: 'my-volume' })).status).toBe(201);
+    expect((await agent.delete('/api/hosts/local/volumes/my-volume')).status).toBe(200);
+    expect((await agent.post('/api/hosts/local/volumes/prune')).status).toBe(200);
   });
 
   it('allows a non-admin with the manageVolumes permission', async () => {
@@ -68,8 +68,8 @@ describe('admin-only volume mutations', () => {
     const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', {
       manageVolumes: true,
     });
-    expect((await agent.post('/api/volumes').send({ name: 'my-volume' })).status).toBe(201);
-    expect((await agent.delete('/api/volumes/my-volume')).status).toBe(200);
-    expect((await agent.post('/api/volumes/prune')).status).toBe(200);
+    expect((await agent.post('/api/hosts/local/volumes').send({ name: 'my-volume' })).status).toBe(201);
+    expect((await agent.delete('/api/hosts/local/volumes/my-volume')).status).toBe(200);
+    expect((await agent.post('/api/hosts/local/volumes/prune')).status).toBe(200);
   });
 });

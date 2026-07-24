@@ -4,14 +4,15 @@ import { DOCKER_SOCK } from './config.js';
 export const docker = new Docker({ socketPath: DOCKER_SOCK });
 
 /**
- * Pull image from repository
+ * Pull image from repository, against whichever host's client is passed in
+ * @param client Docker
  * @param reference repository
  */
-export async function pullImage(reference: string): Promise<void> {
+export async function pullImage(client: Docker, reference: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    docker.pull(reference, (err: Error | null, stream: NodeJS.ReadableStream) => {
+    client.pull(reference, (err: Error | null, stream: NodeJS.ReadableStream) => {
       if (err) return reject(err);
-      docker.modem.followProgress(stream, (err2: Error | null) =>
+      client.modem.followProgress(stream, (err2: Error | null) =>
         err2 ? reject(err2) : resolve()
       );
     });
@@ -43,13 +44,15 @@ export function buildGitRemote(repoUrl: string, opts: Pick<BuildFromGitOptions, 
 
 /**
  * Delegates the actual git clone entirely to the Docker daemon via the Engine API's `remote` build parameter.
- * Challoupe never runs `git` itself. 
+ * Challoupe never runs `git` itself.
+ * @param client Docker
  * @param repoUrl string
  * @param tag string
  * @param opts BuildFromGitOptions
  * @returns BuildFromGitResult
  */
 export async function buildImageFromGit(
+  client: Docker,
   repoUrl: string,
   tag: string,
   opts: BuildFromGitOptions = {}
@@ -59,7 +62,7 @@ export async function buildImageFromGit(
   let stream: NodeJS.ReadableStream;
   try {
     stream = await new Promise<NodeJS.ReadableStream>((resolve, reject) => {
-      docker.buildImage(
+      client.buildImage(
         null as unknown as NodeJS.ReadableStream,
         {
           remote,
@@ -83,7 +86,7 @@ export async function buildImageFromGit(
   let buildError: string | undefined;
   try {
     await new Promise<void>((resolve, reject) => {
-      docker.modem.followProgress(
+      client.modem.followProgress(
         stream,
         (err: Error | null) => (err ? reject(err) : resolve()),
         (event: { stream?: string; error?: string }) => {

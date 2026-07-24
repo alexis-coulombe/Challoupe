@@ -27,7 +27,10 @@ vi.mock('../src/integrations/notifications/notifications.js', () => ({
 }));
 
 const { db } = await import('../src/db.js');
+const { docker } = await import('../src/docker.js');
 const { settingsService } = await import('../src/settings.js');
+const { hostManager } = await import('../src/hostManager.js');
+const { hostRepository } = await import('../src/hosts.js');
 const { detectResourceAlerts, ResourceWatchdogService } = await import('../src/resourceWatchdog.js');
 
 const THRESHOLDS: ResourceAlertSettings = {
@@ -181,5 +184,57 @@ describe('ResourceWatchdogService.restartScheduler', () => {
     service.restartScheduler();
     await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
     expect(mockNotifyResourceThreshold).toHaveBeenCalledOnce();
+  });
+});
+
+describe('ResourceWatchdogService.checkNow — multi-host container checks', () => {
+  beforeEach(() => {
+    db.exec('DELETE FROM settings');
+    db.exec('DELETE FROM hosts');
+    vi.clearAllMocks();
+    mockInfo.mockResolvedValue({ DockerRootDir: '/var/lib/docker' });
+    mockCpuUsagePercent.mockResolvedValue(10);
+    mockRamUsage.mockReturnValue({ total: 100, used: 10, percent: 10 });
+    mockDiskUsage.mockResolvedValue({ total: 100, used: 10, percent: 10 });
+    mockListContainers.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    db.exec('DELETE FROM hosts');
+  });
+
+  it('samples containers on every registered host, not just local, and flags a remote one over threshold', async () => {
+    const host = hostRepository.create({
+      name: 'remote-1',
+      sshHost: '10.0.0.5',
+      sshPort: 22,
+      sshUsername: 'deploy',
+      sshPrivateKey: 'key',
+      createdBy: 1,
+    });
+
+    const remoteListContainers = vi.fn().mockResolvedValue([{ Id: 'r1', Names: ['/remote-app'] }]);
+    const remoteContainerStats = vi.fn().mockResolvedValue({});
+    const remoteClient = {
+      listContainers: remoteListContainers,
+      getContainer: vi.fn(() => ({ stats: remoteContainerStats })),
+    };
+    mockSummarizeStats.mockReturnValue({ cpuPercent: 95, memoryPercent: 10 });
+
+    vi.spyOn(hostManager, 'getClient').mockImplementation(async (hostId: string) => {
+      if (hostId === 'local') return docker as never;
+      if (hostId === String(host.id)) return remoteClient as never;
+      return null;
+    });
+
+    settingsService.update({ resourceAlerts: { enabled: true, containerCpuPercent: 90 } });
+    const service = new ResourceWatchdogService();
+    await service.checkNow();
+
+    expect(remoteListContainers).toHaveBeenCalledOnce();
+    expect(mockNotifyResourceThreshold).toHaveBeenCalledWith(
+      expect.stringContaining('Container "remote-app" CPU usage at 95%')
+    );
   });
 });

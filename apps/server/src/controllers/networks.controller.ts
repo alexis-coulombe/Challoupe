@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { docker } from '../docker.js';
 import { DOCKER_NAME_RE } from '../validators.js';
 
 const createSchema = z.object({
@@ -10,8 +9,8 @@ const createSchema = z.object({
 });
 
 export class NetworksController {
-  list = async (_req: Request, res: Response): Promise<void> => {
-    const list = await docker.listNetworks();
+  list = async (req: Request, res: Response): Promise<void> => {
+    const list = await req.dockerClient!.listNetworks();
     res.json(
       list.map((n) => ({
         id: n.Id,
@@ -26,7 +25,7 @@ export class NetworksController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
-    const network = await docker.createNetwork({ Name: body.name, Driver: body.driver });
+    const network = await req.dockerClient!.createNetwork({ Name: body.name, Driver: body.driver });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,
@@ -39,7 +38,7 @@ export class NetworksController {
   };
 
   remove = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
-    await docker.getNetwork(req.params.id).remove();
+    await req.dockerClient!.getNetwork(req.params.id).remove();
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

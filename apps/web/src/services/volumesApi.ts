@@ -2,20 +2,20 @@ import { api } from '../api';
 import type { VolumeSummary } from '../api';
 
 export class VolumesApi {
-  list() {
-    return api.get<VolumeSummary[]>('/volumes');
+  list(hostId: string) {
+    return api.get<VolumeSummary[]>(`/hosts/${hostId}/volumes`);
   }
 
-  create(values: { name: string; driver: string }) {
-    return api.post('/volumes', values);
+  create(hostId: string, values: { name: string; driver: string }) {
+    return api.post(`/hosts/${hostId}/volumes`, values);
   }
 
-  remove(name: string) {
-    return api.delete(`/volumes/${encodeURIComponent(name)}`);
+  remove(hostId: string, name: string) {
+    return api.delete(`/hosts/${hostId}/volumes/${encodeURIComponent(name)}`);
   }
 
-  prune() {
-    return api.post<{ spaceReclaimed: number }>('/volumes/prune');
+  prune(hostId: string) {
+    return api.post<{ spaceReclaimed: number }>(`/hosts/${hostId}/volumes/prune`);
   }
 }
 

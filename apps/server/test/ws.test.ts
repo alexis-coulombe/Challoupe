@@ -61,9 +61,9 @@ function closeAndWait(ws: WebSocket): Promise<void> {
   });
 }
 
-describe('WS /containers/:id/stats', () => {
+describe('WS /hosts/:hostId/containers/:id/stats', () => {
   it('rejects a connection with no valid session', async () => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/stats`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/stats`);
     const statusCode = await new Promise<number>((resolve, reject) => {
       ws.on('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
       ws.on('open', () => reject(new Error('connection should have been rejected')));
@@ -85,7 +85,7 @@ describe('WS /containers/:id/stats', () => {
       cb(null, Readable.from([Buffer.from(JSON.stringify(raw) + '\n')]));
     });
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/stats`, {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/stats`, {
       headers: { Cookie: cookie },
     });
 
@@ -104,13 +104,13 @@ describe('WS /containers/:id/stats', () => {
   });
 });
 
-describe('WS /containers/:id/logs', () => {
+describe('WS /hosts/:hostId/containers/:id/logs', () => {
   it('clamps an oversized tail request to the same 5000-line cap as the REST endpoint', async () => {
     const cookie = await loginCookie();
     mockContainer.inspect.mockResolvedValue({ Config: { Tty: false } });
     mockContainer.logs.mockResolvedValue(Readable.from([]));
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/logs?tail=999999999`, {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/logs?tail=999999999`, {
       headers: { Cookie: cookie },
     });
     await new Promise<void>((resolve, reject) => {
@@ -127,7 +127,7 @@ describe('WS /containers/:id/logs', () => {
   });
 });
 
-describe('WS /containers/:id/exec', () => {
+describe('WS /hosts/:hostId/containers/:id/exec', () => {
   function mockExecSession() {
     const execStream = new PassThrough();
     const exec = { resize: vi.fn().mockResolvedValue(undefined), start: vi.fn().mockResolvedValue(execStream) };
@@ -145,7 +145,7 @@ describe('WS /containers/:id/exec', () => {
     await request(app).put('/api/settings').set('Cookie', cookie).send({ defaultTerminalShell: '/bin/bash' });
     mockExecSession();
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/exec`, { headers: { Cookie: cookie } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/exec`, { headers: { Cookie: cookie } });
     await new Promise<void>((resolve, reject) => {
       ws.on('open', () => resolve());
       ws.on('error', reject);
@@ -161,7 +161,7 @@ describe('WS /containers/:id/exec', () => {
     mockExecSession();
 
     const ws = new WebSocket(
-      `ws://127.0.0.1:${port}/ws/containers/abc/exec?shell=${encodeURIComponent('/bin/ash')}`,
+      `ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/exec?shell=${encodeURIComponent('/bin/ash')}`,
       { headers: { Cookie: cookie } }
     );
     await new Promise<void>((resolve, reject) => {
@@ -179,7 +179,7 @@ describe('WS /containers/:id/exec', () => {
     mockExecSession();
 
     const ws = new WebSocket(
-      `ws://127.0.0.1:${port}/ws/containers/abc/exec?shell=${encodeURIComponent('/bin/evil')}`,
+      `ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/exec?shell=${encodeURIComponent('/bin/evil')}`,
       { headers: { Cookie: cookie } }
     );
     await new Promise<void>((resolve, reject) => {
@@ -197,7 +197,7 @@ describe('WS /containers/:id/exec', () => {
     const cookie = await nonAdminCookie(adminCookie);
     mockExecSession();
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/exec`, { headers: { Cookie: cookie } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/exec`, { headers: { Cookie: cookie } });
     const statusCode = await new Promise<number>((resolve, reject) => {
       ws.on('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
       ws.on('open', () => reject(new Error('connection should have been rejected')));
@@ -212,7 +212,7 @@ describe('WS /containers/:id/exec', () => {
     const cookie = await nonAdminCookie(adminCookie, { exec: true });
     mockExecSession();
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/exec`, { headers: { Cookie: cookie } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/exec`, { headers: { Cookie: cookie } });
     await new Promise<void>((resolve, reject) => {
       ws.on('open', () => resolve());
       ws.on('error', reject);
@@ -236,10 +236,26 @@ describe('WS unknown path', () => {
   });
 });
 
+describe('WS /hosts/:hostId/... with an unresolvable host', () => {
+  it('rejects with 404 before the WebSocket handshake completes', async () => {
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/9999/containers/abc/stats`, {
+      headers: { Cookie: cookie },
+    });
+    const statusCode = await new Promise<number>((resolve, reject) => {
+      ws.on('unexpected-response', (_req, res) => resolve(res.statusCode ?? 0));
+      ws.on('open', () => reject(new Error('connection should have been rejected')));
+      ws.on('error', () => {});
+    });
+    expect(statusCode).toBe(404);
+    expect(mockContainer.stats).not.toHaveBeenCalled();
+  });
+});
+
 describe('WS cross-site handshake', () => {
   it('destroys the socket when Origin does not match the request Host', async () => {
     const cookie = await loginCookie();
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/stats`, {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/stats`, {
       headers: { Cookie: cookie, Origin: 'http://evil.example.com' },
     });
     const errored = await new Promise<boolean>((resolve) => {
@@ -253,7 +269,7 @@ describe('WS cross-site handshake', () => {
   it('allows the handshake when Origin matches the request Host', async () => {
     mockContainer.stats.mockImplementation((_opts, cb) => cb(null, Readable.from([])));
     const cookie = await loginCookie();
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/containers/abc/stats`, {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/containers/abc/stats`, {
       headers: { Cookie: cookie, Origin: `http://127.0.0.1:${port}` },
     });
     await new Promise<void>((resolve, reject) => {
@@ -295,7 +311,7 @@ describe('WS /ws/ai/* with the feature flag disabled', () => {
   });
 });
 
-describe('WS /ai/diagnose/:id', () => {
+describe('WS /hosts/:hostId/ai/diagnose/:id', () => {
   it('streams a diagnosis built from the container logs and closes when done', async () => {
     const cookie = await loginCookie();
     await request(app).put('/api/settings').set('Cookie', cookie).send({ ollamaModel: 'llama3.1' });
@@ -307,7 +323,7 @@ describe('WS /ai/diagnose/:id', () => {
     mockContainer.logs.mockResolvedValue(Buffer.from('plain log line\n'));
     mockOllamaStream(['{"message":{"content":"Looks healthy."}}\n', '{"done":true}\n']);
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/ai/diagnose/abc`, { headers: { Cookie: cookie } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/ai/diagnose/abc`, { headers: { Cookie: cookie } });
     const messages = await collectMessages(ws, 2);
     await closeAndWait(ws);
 
@@ -325,7 +341,7 @@ describe('WS /ai/diagnose/:id', () => {
     });
     mockContainer.logs.mockResolvedValue(Buffer.from(''));
 
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/ai/diagnose/abc`, { headers: { Cookie: cookie } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/hosts/local/ai/diagnose/abc`, { headers: { Cookie: cookie } });
     const [message] = await collectMessages(ws, 1);
     await closeAndWait(ws);
 

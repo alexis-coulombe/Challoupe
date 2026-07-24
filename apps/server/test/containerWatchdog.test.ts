@@ -26,7 +26,7 @@ beforeEach(() => {
 describe('ContainerWatchdog', () => {
   it('returns null when no Ollama model is configured', async () => {
     const watchdog = new ContainerWatchdog();
-    const result = await watchdog.diagnose('abc', 'app', 'crashed (exit code 1)');
+    const result = await watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)');
     expect(result).toBeNull();
     expect(mockOllamaChat).not.toHaveBeenCalled();
   });
@@ -35,14 +35,14 @@ describe('ContainerWatchdog', () => {
     settingsService.update({ ollamaModel: 'llama3.1' });
     mockOllamaChat.mockResolvedValue('OK');
     const watchdog = new ContainerWatchdog();
-    expect(await watchdog.diagnose('abc', 'app', 'crashed (exit code 1)')).toBeNull();
+    expect(await watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)')).toBeNull();
   });
 
   it('returns the one-sentence summary when the model flags an issue', async () => {
     settingsService.update({ ollamaModel: 'llama3.1' });
     mockOllamaChat.mockResolvedValue('ISSUE: the database connection string is invalid');
     const watchdog = new ContainerWatchdog();
-    expect(await watchdog.diagnose('abc', 'app', 'crashed (exit code 1)')).toBe(
+    expect(await watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)')).toBe(
       'the database connection string is invalid'
     );
   });
@@ -51,8 +51,8 @@ describe('ContainerWatchdog', () => {
     settingsService.update({ ollamaModel: 'llama3.1' });
     mockOllamaChat.mockResolvedValue('ISSUE: bad config');
     const watchdog = new ContainerWatchdog();
-    await watchdog.diagnose('abc', 'app', 'crashed (exit code 1)');
-    const second = await watchdog.diagnose('abc', 'app', 'crashed again (exit code 1)');
+    await watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)');
+    const second = await watchdog.diagnose('local', 'abc', 'app', 'crashed again (exit code 1)');
     expect(second).toBeNull();
     expect(mockOllamaChat).toHaveBeenCalledOnce();
   });
@@ -61,21 +61,21 @@ describe('ContainerWatchdog', () => {
     settingsService.update({ ollamaModel: 'llama3.1' });
     mockOllamaChat.mockResolvedValue('ISSUE: bad config');
     const watchdog = new ContainerWatchdog();
-    await watchdog.diagnose('abc', 'app', 'crashed (exit code 1)');
-    expect(await watchdog.diagnose('xyz', 'worker', 'crashed (exit code 1)')).toBe('bad config');
+    await watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)');
+    expect(await watchdog.diagnose('local', 'xyz', 'worker', 'crashed (exit code 1)')).toBe('bad config');
   });
 
   it('swallows an Ollama failure and returns null instead of throwing', async () => {
     settingsService.update({ ollamaModel: 'llama3.1' });
     mockOllamaChat.mockRejectedValue(new Error('connection refused'));
     const watchdog = new ContainerWatchdog();
-    await expect(watchdog.diagnose('abc', 'app', 'crashed (exit code 1)')).resolves.toBeNull();
+    await expect(watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)')).resolves.toBeNull();
   });
 
   it('swallows a missing/removed container and returns null instead of throwing', async () => {
     settingsService.update({ ollamaModel: 'llama3.1' });
     mockInspect.mockRejectedValue(new Error('no such container'));
     const watchdog = new ContainerWatchdog();
-    await expect(watchdog.diagnose('abc', 'app', 'crashed (exit code 1)')).resolves.toBeNull();
+    await expect(watchdog.diagnose('local', 'abc', 'app', 'crashed (exit code 1)')).resolves.toBeNull();
   });
 });

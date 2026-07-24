@@ -29,6 +29,7 @@ import { hasPermission, type ContainerSummary } from '../api';
 import { CONTAINER_STATE_COLORS, fromUnix, runBulk, TABLE_PAGINATION, type BulkResult } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { containersApi, type ContainerCreateRequest } from '../services/containersApi';
 import { imagesApi } from '../services/imagesApi';
 import { networksApi } from '../services/networksApi';
@@ -64,6 +65,7 @@ export default function Containers() {
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageContainers');
   const [createOpen, setCreateOpen] = useState(false);
   const [imageSource, setImageSource] = useState<'existing' | 'git'>('existing');
@@ -73,14 +75,14 @@ export default function Containers() {
   const { data: settings } = useAppSettings();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['containers'],
-    queryFn: () => containersApi.list(),
+    queryKey: ['containers', hostId],
+    queryFn: () => containersApi.list(hostId),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
   const { data: networks } = useQuery({
-    queryKey: ['networks'],
-    queryFn: () => networksApi.list(),
+    queryKey: ['networks', hostId],
+    queryFn: () => networksApi.list(hostId),
   });
 
   useEffect(() => {
@@ -92,16 +94,16 @@ export default function Containers() {
     if (autoRemove) form.setFieldValue('restartPolicy', 'no');
   }, [autoRemove, form]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['containers'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['containers', hostId] });
 
   const actionMutation = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: string }) => containersApi.action(id, action),
+    mutationFn: ({ id, action }: { id: string; action: string }) => containersApi.action(hostId, id, action),
     onSuccess: invalidate,
     onError: (err) => message.error(err.message),
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => containersApi.remove(id),
+    mutationFn: (id: string) => containersApi.remove(hostId, id),
     onSuccess: () => {
       message.success('Container deleted');
       invalidate();
@@ -113,7 +115,7 @@ export default function Containers() {
     mutationFn: async (values: CreateForm) => {
       if (imageSource === 'git') {
         if (!values.gitRepoUrl) throw new Error('Repository URL is required');
-        const build = await imagesApi.buildFromGit({
+        const build = await imagesApi.buildFromGit(hostId, {
           repoUrl: values.gitRepoUrl,
           ref: values.gitRef || undefined,
           subdir: values.gitSubdir || undefined,
@@ -139,7 +141,7 @@ export default function Containers() {
         memoryMb: values.memoryMb || undefined,
         cpus: values.cpus || undefined,
       };
-      return containersApi.create(body);
+      return containersApi.create(hostId, body);
     },
     onSuccess: () => {
       message.success('Container created and started');
@@ -161,7 +163,7 @@ export default function Containers() {
   const bulkMutation = useMutation({
     mutationFn: (action: string) =>
       runBulk(selectedKeys as string[], (id) =>
-        action === 'remove' ? containersApi.remove(id) : containersApi.action(id, action)
+        action === 'remove' ? containersApi.remove(hostId, id) : containersApi.action(hostId, id, action)
       ),
     onSuccess: (result, action) =>
       onBulkDone(

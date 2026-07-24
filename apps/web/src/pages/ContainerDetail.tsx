@@ -35,6 +35,7 @@ import {
 } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { useContainerLogStream } from '../hooks/useContainerLogStream';
 import { useOllamaStream } from '../hooks/useOllamaStream';
 import AiButton from '../components/AiButton';
@@ -43,13 +44,13 @@ import ContainerTerminal from '../components/ContainerTerminal';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
 
-function DiagnoseButton({ containerId }: { containerId: string }) {
+function DiagnoseButton({ hostId, containerId }: { hostId: string; containerId: string }) {
   const [open, setOpen] = useState(false);
   const { text, status, error, start } = useOllamaStream();
 
   const openAndDiagnose = () => {
     setOpen(true);
-    start(`/ai/diagnose/${containerId}`);
+    start(`/hosts/${hostId}/ai/diagnose/${containerId}`);
   };
 
   return (
@@ -99,11 +100,13 @@ function DiagnoseButton({ containerId }: { containerId: string }) {
 }
 
 function LogsPanel({
+  hostId,
   containerId,
   running,
   defaultTail,
   aiEnabled,
 }: {
+  hostId: string;
   containerId: string;
   running: boolean;
   defaultTail: number;
@@ -112,7 +115,7 @@ function LogsPanel({
   const [tail, setTail] = useState(defaultTail);
   const [tailTouched, setTailTouched] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
-  const logs = useContainerLogStream(containerId, tail, true);
+  const logs = useContainerLogStream(hostId, containerId, tail, true);
   const preRef = useRef<HTMLPreElement>(null);
 
   // Adopt the configured default once it loads, unless the user already picked a value.
@@ -132,7 +135,7 @@ function LogsPanel({
       title="Logs"
       extra={
         <Space wrap size={8}>
-          {aiEnabled && <DiagnoseButton containerId={containerId} />}
+          {aiEnabled && <DiagnoseButton hostId={hostId} containerId={containerId} />}
           <span>Backlog:</span>
           <Select
             size="small"
@@ -181,25 +184,26 @@ export default function ContainerDetail() {
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageContainers');
   const canExec = hasPermission(user, 'exec');
 
   const { data: settings } = useAppSettings();
 
   const { data: info } = useQuery({
-    queryKey: ['container', id],
-    queryFn: () => containersApi.get(id!),
+    queryKey: ['container', hostId, id],
+    queryFn: () => containersApi.get(hostId, id!),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
   const actionMutation = useMutation({
-    mutationFn: (action: string) => containersApi.action(id!, action),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['container', id] }),
+    mutationFn: (action: string) => containersApi.action(hostId, id!, action),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['container', hostId, id] }),
     onError: (err) => message.error(err.message),
   });
 
   const removeMutation = useMutation({
-    mutationFn: () => containersApi.remove(id!),
+    mutationFn: () => containersApi.remove(hostId, id!),
     onSuccess: () => {
       message.success('Container deleted');
       navigate('/containers');
@@ -284,6 +288,7 @@ export default function ContainerDetail() {
             label: 'Logs',
             children: (
               <LogsPanel
+                hostId={hostId}
                 containerId={id}
                 running={running}
                 defaultTail={settings?.defaultLogTail ?? 200}
@@ -291,7 +296,11 @@ export default function ContainerDetail() {
               />
             ),
           },
-          { key: 'stats', label: 'Stats', children: <ContainerStats containerId={id} running={running} /> },
+          {
+            key: 'stats',
+            label: 'Stats',
+            children: <ContainerStats hostId={hostId} containerId={id} running={running} />,
+          },
           ...(canExec
             ? [
                 {
@@ -299,6 +308,7 @@ export default function ContainerDetail() {
                   label: 'Terminal',
                   children: (
                     <ContainerTerminal
+                      hostId={hostId}
                       containerId={id}
                       running={running}
                       defaultShell={settings?.defaultTerminalShell ?? '/bin/sh'}

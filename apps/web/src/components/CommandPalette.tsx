@@ -16,6 +16,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { useFavorites, type FavoriteType } from '../hooks/useFavorites';
 import { containersApi } from '../services/containersApi';
 import { stacksApi } from '../services/stacksApi';
@@ -33,14 +34,15 @@ interface PaletteItem {
 export default function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const { favorites, isFavorite } = useFavorites();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<InputRef>(null);
 
   const { data: containers } = useQuery({
-    queryKey: ['containers'],
-    queryFn: () => containersApi.list(),
+    queryKey: ['containers', hostId],
+    queryFn: () => containersApi.list(hostId),
     enabled: open,
   });
   const { data: stacks } = useQuery({

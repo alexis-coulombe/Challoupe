@@ -14,11 +14,13 @@ const DEFAULT_THEME: TerminalThemeSettings = {
 };
 
 export default function ContainerTerminal({
+  hostId,
   containerId,
   running,
   defaultShell,
   theme,
 }: {
+  hostId: string;
   containerId: string;
   running: boolean;
   defaultShell: TerminalShell;
@@ -71,7 +73,9 @@ export default function ContainerTerminal({
     const term = termRef.current;
     if (!term) return;
     term.reset();
-    const ws = new WebSocket(wsUrl(`/containers/${containerId}/exec?shell=${encodeURIComponent(shell)}`));
+    const ws = new WebSocket(
+      wsUrl(`/hosts/${hostId}/containers/${containerId}/exec?shell=${encodeURIComponent(shell)}`)
+    );
     wsRef.current = ws;
 
     ws.onopen = () => {

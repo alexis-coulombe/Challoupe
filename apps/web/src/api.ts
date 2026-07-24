@@ -81,6 +81,16 @@ export interface TotpSetup {
   qrCodeDataUrl: string;
 }
 
+export interface HostSummary {
+  id: number;
+  name: string;
+  sshHost: string;
+  sshPort: number;
+  sshUsername: string;
+  hasPassphrase: boolean;
+  createdAt: string;
+}
+
 export interface ContainerPort {
   IP?: string;
   PrivatePort: number;
@@ -190,14 +200,14 @@ export interface SystemInfo {
   arch: string;
   cpus: number;
   memory: number;
-  cpuPercent: number;
-  memoryUsed: number;
-  memoryPercent: number;
-  storageUsed: number;
-  storageTotal: number;
-  storagePercent: number;
-  dockerSock: string;
-  dataDir: string;
+  cpuPercent: number | null;
+  memoryUsed: number | null;
+  memoryPercent: number | null;
+  storageUsed: number | null;
+  storageTotal: number | null;
+  storagePercent: number | null;
+  dockerSock: string | null;
+  dataDir: string | null;
 }
 
 export type RestartPolicy = 'no' | 'always' | 'unless-stopped' | 'on-failure';

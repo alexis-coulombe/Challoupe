@@ -21,11 +21,11 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('GET /api/networks', () => {
+describe('GET /api/hosts/local/networks', () => {
   it('is readable by a non-admin user', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.get('/api/networks');
+    const res = await agent.get('/api/hosts/local/networks');
     expect(res.status).toBe(200);
   });
 });
@@ -34,7 +34,7 @@ describe('admin-only network mutations', () => {
   it('rejects a non-admin creating a network', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.post('/api/networks').send({ name: 'my-network' });
+    const res = await agent.post('/api/hosts/local/networks').send({ name: 'my-network' });
     expect(res.status).toBe(403);
     expect(mockDocker.createNetwork).not.toHaveBeenCalled();
   });
@@ -42,15 +42,15 @@ describe('admin-only network mutations', () => {
   it('rejects a non-admin deleting a network', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
-    const res = await agent.delete('/api/networks/net-123');
+    const res = await agent.delete('/api/hosts/local/networks/net-123');
     expect(res.status).toBe(403);
     expect(mockNetwork.remove).not.toHaveBeenCalled();
   });
 
   it('allows an admin to create and delete', async () => {
     const { agent } = await createAdminAgent(app);
-    expect((await agent.post('/api/networks').send({ name: 'my-network' })).status).toBe(201);
-    expect((await agent.delete('/api/networks/net-123')).status).toBe(200);
+    expect((await agent.post('/api/hosts/local/networks').send({ name: 'my-network' })).status).toBe(201);
+    expect((await agent.delete('/api/hosts/local/networks/net-123')).status).toBe(200);
   });
 
   it('allows a non-admin with the manageNetworks permission', async () => {
@@ -58,7 +58,7 @@ describe('admin-only network mutations', () => {
     const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', {
       manageNetworks: true,
     });
-    expect((await agent.post('/api/networks').send({ name: 'my-network' })).status).toBe(201);
-    expect((await agent.delete('/api/networks/net-123')).status).toBe(200);
+    expect((await agent.post('/api/hosts/local/networks').send({ name: 'my-network' })).status).toBe(201);
+    expect((await agent.delete('/api/hosts/local/networks/net-123')).status).toBe(200);
   });
 });

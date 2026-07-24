@@ -1,4 +1,5 @@
-import { docker, demuxLogs } from './docker.js';
+import { demuxLogs } from './docker.js';
+import { hostManager } from './hostManager.js';
 import { settingsService } from './settings.js';
 import { ollamaChat } from './integrations/ollama/ollama.js';
 
@@ -12,20 +13,25 @@ const COOLDOWN_MS = 15 * 60 * 1000;
 export class ContainerWatchdog {
   private readonly lastCheckedAt = new Map<string, number>();
 
-  private onCooldown(containerId: string): boolean {
-    const last = this.lastCheckedAt.get(containerId);
+  private onCooldown(key: string): boolean {
+    const last = this.lastCheckedAt.get(key);
     return last !== undefined && Date.now() - last < COOLDOWN_MS;
   }
 
-  async diagnose(containerId: string, containerName: string, detail: string): Promise<string | null> {
-    if (this.onCooldown(containerId)) return null;
-    this.lastCheckedAt.set(containerId, Date.now());
+  async diagnose(hostId: string, containerId: string, containerName: string, detail: string): Promise<string | null> {
+    // Keyed by host + container id, not container id alone — the same convention imageUpdateService
+    // uses, since a cooldown window is meaningless if it silently spans two different daemons.
+    const cooldownKey = `${hostId}:${containerId}`;
+    if (this.onCooldown(cooldownKey)) return null;
+    this.lastCheckedAt.set(cooldownKey, Date.now());
 
     const { ollamaBaseUrl, ollamaModel } = settingsService.get();
     if (!ollamaModel) return null;
 
     try {
-      const container = docker.getContainer(containerId);
+      const client = await hostManager.getClient(hostId);
+      if (!client) return null;
+      const container = client.getContainer(containerId);
       const info = await container.inspect();
       const raw = (await container.logs({ follow: false, stdout: true, stderr: true, tail: LOG_TAIL_LINES })) as unknown as Buffer;
       const text = info.Config.Tty ? raw.toString('utf8') : demuxLogs(raw);

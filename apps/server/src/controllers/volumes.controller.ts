@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { docker } from '../docker.js';
 import { DOCKER_NAME_RE } from '../validators.js';
 
 const createSchema = z.object({
@@ -10,8 +9,8 @@ const createSchema = z.object({
 });
 
 export class VolumesController {
-  list = async (_req: Request, res: Response): Promise<void> => {
-    const { Volumes } = await docker.listVolumes();
+  list = async (req: Request, res: Response): Promise<void> => {
+    const { Volumes } = await req.dockerClient!.listVolumes();
     res.json(
       (Volumes ?? []).map((v) => ({
         name: v.Name,
@@ -25,7 +24,7 @@ export class VolumesController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
-    const volume = await docker.createVolume({ Name: body.name, Driver: body.driver });
+    const volume = await req.dockerClient!.createVolume({ Name: body.name, Driver: body.driver });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,
@@ -38,7 +37,7 @@ export class VolumesController {
   };
 
   remove = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
-    await docker.getVolume(req.params.name).remove({ force: req.query.force === 'true' });
+    await req.dockerClient!.getVolume(req.params.name).remove({ force: req.query.force === 'true' });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,
@@ -51,7 +50,7 @@ export class VolumesController {
   };
 
   prune = async (req: Request, res: Response): Promise<void> => {
-    const result = await docker.pruneVolumes();
+    const result = await req.dockerClient!.pruneVolumes();
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

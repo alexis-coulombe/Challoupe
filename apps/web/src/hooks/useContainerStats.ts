@@ -27,7 +27,7 @@ const EMPTY: StatsHistory = {
 
 // Tracks a rolling window of live `docker stats` samples over a WebSocket,
 // converting cumulative network byte counters into an instantaneous rate.
-export function useContainerStats(containerId: string, enabled: boolean): StatsHistory {
+export function useContainerStats(hostId: string, containerId: string, enabled: boolean): StatsHistory {
   const [history, setHistory] = useState<StatsHistory>(EMPTY);
   const prevNetRef = useRef<{ rx: number; tx: number; t: number } | null>(null);
 
@@ -38,7 +38,7 @@ export function useContainerStats(containerId: string, enabled: boolean): StatsH
     }
     prevNetRef.current = null;
     setHistory(EMPTY);
-    const ws = new WebSocket(wsUrl(`/containers/${containerId}/stats`));
+    const ws = new WebSocket(wsUrl(`/hosts/${hostId}/containers/${containerId}/stats`));
 
     ws.onopen = () => setHistory((prev) => ({ ...prev, connected: true }));
     ws.onclose = () => setHistory((prev) => ({ ...prev, connected: false }));
@@ -69,7 +69,7 @@ export function useContainerStats(containerId: string, enabled: boolean): StatsH
     };
 
     return () => ws.close();
-  }, [containerId, enabled]);
+  }, [hostId, containerId, enabled]);
 
   return history;
 }

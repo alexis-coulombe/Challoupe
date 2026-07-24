@@ -80,7 +80,7 @@ async function ensureImagePulled(reference: string): Promise<void> {
   try {
     await docker.getImage(reference).inspect();
   } catch {
-    await pullImage(reference);
+    await pullImage(docker, reference);
   }
 }
 

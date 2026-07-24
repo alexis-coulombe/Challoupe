@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { demuxLogs, docker, pullImage } from '../docker.js';
+import { demuxLogs, pullImage } from '../docker.js';
 import { RESTART_POLICIES, settingsService } from '../settings.js';
 import { imageUpdateService } from '../imageUpdates.js';
 import { DOCKER_NAME_RE, KEY_VALUE_RE, parseKeyValueList } from '../validators.js';
@@ -42,11 +42,11 @@ const ACTIONS = ['start', 'stop', 'restart', 'kill', 'pause', 'unpause'] as cons
 type ContainerAction = (typeof ACTIONS)[number];
 
 export class ContainersController {
-  list = async (_req: Request, res: Response): Promise<void> => {
-    const list = await docker.listContainers({ all: true });
+  list = async (req: Request, res: Response): Promise<void> => {
+    const list = await req.dockerClient!.listContainers({ all: true });
     res.json(
       list.map((c) => {
-        const cached = imageUpdateService.getCachedStatus(c.Image);
+        const cached = imageUpdateService.getCachedStatus(req.hostId!, c.Image);
         return {
           id: c.Id,
           name: (c.Names[0] ?? '').replace(/^\//, ''),
@@ -134,12 +134,12 @@ export class ContainersController {
 
     let container;
     try {
-      container = await docker.createContainer(options);
+      container = await req.dockerClient!.createContainer(options);
     } catch (err) {
       // Image not present locally: pull it and retry.
       if ((err as { statusCode?: number }).statusCode !== 404) throw err;
-      await pullImage(body.image);
-      container = await docker.createContainer(options);
+      await pullImage(req.dockerClient!, body.image);
+      container = await req.dockerClient!.createContainer(options);
     }
     await container.start();
     auditLog.record({
@@ -155,12 +155,12 @@ export class ContainersController {
   };
 
   getOne = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
-    res.json(await docker.getContainer(req.params.id).inspect());
+    res.json(await req.dockerClient!.getContainer(req.params.id).inspect());
   };
 
   logs = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     const tail = Math.min(Number(req.query.tail) || 200, 5000);
-    const container = docker.getContainer(req.params.id);
+    const container = req.dockerClient!.getContainer(req.params.id);
     const info = await container.inspect();
     const buf = (await container.logs({
       stdout: true,
@@ -177,7 +177,7 @@ export class ContainersController {
       res.status(400).json({ error: `Unknown action: ${req.params.action}` });
       return;
     }
-    const container = docker.getContainer(req.params.id);
+    const container = req.dockerClient!.getContainer(req.params.id);
     await (container[action] as () => Promise<unknown>)();
     auditLog.record({
       userId: req.user!.id,
@@ -191,7 +191,7 @@ export class ContainersController {
   };
 
   remove = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
-    await docker.getContainer(req.params.id).remove({ force: req.query.force === 'true' });
+    await req.dockerClient!.getContainer(req.params.id).remove({ force: req.query.force === 'true' });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

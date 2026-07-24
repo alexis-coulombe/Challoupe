@@ -7,6 +7,7 @@ import { authenticateUpgrade } from './wsAuth.js';
 import { hasPermission } from './auth.js';
 import { LogDemuxer, demuxLogs, docker, summarizeStats } from './docker.js';
 import { dockerEventBroadcaster } from './dockerEvents.js';
+import { hostManager } from './hostManager.js';
 import { settingsService, type TerminalShell } from './settings.js';
 import { streamOllamaChat, type OllamaChatMessage } from './integrations/ollama/ollama.js';
 
@@ -36,46 +37,58 @@ export function attachWebSocketServer(server: Server): void {
       return;
     }
     const url = new URL(req.url ?? '', 'http://internal');
-    const containerMatch = url.pathname.match(/^\/ws\/containers\/([^/]+)\/(stats|logs|exec)$/);
-    const aiMatch = url.pathname.match(/^\/ws\/ai\/(diagnose\/([^/]+)|generate-stack|chat)$/);
+    const containerMatch = url.pathname.match(/^\/ws\/hosts\/([^/]+)\/containers\/([^/]+)\/(stats|logs|exec)$/);
+    const diagnoseMatch = url.pathname.match(/^\/ws\/hosts\/([^/]+)\/ai\/diagnose\/([^/]+)$/);
+    const aiMatch = url.pathname.match(/^\/ws\/ai\/(generate-stack|chat)$/);
     const eventsMatch = url.pathname === '/ws/events';
-    if (!containerMatch && !aiMatch && !eventsMatch) {
+    if (!containerMatch && !diagnoseMatch && !aiMatch && !eventsMatch) {
       socket.destroy();
       return;
     }
 
     authenticateUpgrade(req)
-      .then((user) => {
+      .then(async (user) => {
         if (!user) {
           socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
           socket.end();
           return;
         }
-        if (aiMatch && (!settingsService.get().featureFlags.aiAssistant || !hasPermission(user, 'useAi'))) {
+        if ((diagnoseMatch || aiMatch) && (!settingsService.get().featureFlags.aiAssistant || !hasPermission(user, 'useAi'))) {
           socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
           socket.end();
           return;
         }
         // A shell inside any container is as powerful as the Docker socket itself.
-        if (containerMatch && containerMatch[2] === 'exec' && !hasPermission(user, 'exec')) {
+        if (containerMatch && containerMatch[3] === 'exec' && !hasPermission(user, 'exec')) {
           socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
           socket.end();
           return;
         }
+
+        let dockerClient: Dockerode | null = null;
+        if (containerMatch) dockerClient = await hostManager.getClient(containerMatch[1]);
+        else if (diagnoseMatch) dockerClient = await hostManager.getClient(diagnoseMatch[1]);
+        if ((containerMatch || diagnoseMatch) && !dockerClient) {
+          socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+          socket.end();
+          return;
+        }
+
         wss.handleUpgrade(req, socket, head, (ws) => {
           if (containerMatch) {
-            const [, containerId, kind] = containerMatch;
-            if (kind === 'stats') handleStats(ws, containerId);
+            const [, , containerId, kind] = containerMatch;
+            if (kind === 'stats') handleStats(ws, dockerClient!, containerId);
             else if (kind === 'logs') {
               // Same 5000-line cap as the REST endpoint (routes/containers.ts). Without it
               // a client can ask for an unbounded backlog and force the whole thing into memory.
               const tail = Math.min(Number(url.searchParams.get('tail')) || 200, 5000);
-              handleLogs(ws, containerId, tail);
+              handleLogs(ws, dockerClient!, containerId, tail);
             }
-            else handleExec(ws, containerId, url.searchParams.get('shell'));
+            else handleExec(ws, dockerClient!, containerId, url.searchParams.get('shell'));
+          } else if (diagnoseMatch) {
+            handleDiagnose(ws, dockerClient!, diagnoseMatch[2]);
           } else if (aiMatch) {
-            if (aiMatch[1].startsWith('diagnose/')) handleDiagnose(ws, aiMatch[2]);
-            else if (aiMatch[1] === 'generate-stack') handleGenerateStack(ws);
+            if (aiMatch[1] === 'generate-stack') handleGenerateStack(ws);
             else handleChat(ws);
           } else if (eventsMatch) {
             dockerEventBroadcaster.subscribe(ws);
@@ -86,8 +99,8 @@ export function attachWebSocketServer(server: Server): void {
   });
 }
 
-function handleStats(ws: WebSocket, containerId: string): void {
-  const container = docker.getContainer(containerId);
+function handleStats(ws: WebSocket, client: Dockerode, containerId: string): void {
+  const container = client.getContainer(containerId);
   let stream: (NodeJS.ReadableStream & Destroyable) | null = null;
   let closed = false;
 
@@ -126,8 +139,8 @@ function handleStats(ws: WebSocket, containerId: string): void {
   });
 }
 
-function handleLogs(ws: WebSocket, containerId: string, tail: number): void {
-  const container = docker.getContainer(containerId);
+function handleLogs(ws: WebSocket, client: Dockerode, containerId: string, tail: number): void {
+  const container = client.getContainer(containerId);
   const demux = new LogDemuxer();
   let stream: (NodeJS.ReadableStream & Destroyable) | null = null;
   let closed = false;
@@ -156,11 +169,11 @@ function handleLogs(ws: WebSocket, containerId: string, tail: number): void {
   });
 }
 
-function handleExec(ws: WebSocket, containerId: string, requestedShell: string | null): void {
+function handleExec(ws: WebSocket, client: Dockerode, containerId: string, requestedShell: string | null): void {
   const shell = ALLOWED_SHELLS.includes(requestedShell as TerminalShell)
     ? (requestedShell as TerminalShell)
     : settingsService.get().defaultTerminalShell;
-  const container = docker.getContainer(containerId);
+  const container = client.getContainer(containerId);
   let exec: Dockerode.Exec | null = null;
   let stream: (NodeJS.ReadWriteStream & Destroyable) | null = null;
   let closed = false;
@@ -250,9 +263,9 @@ async function runOllamaStream(
   }
 }
 
-function handleDiagnose(ws: WebSocket, containerId: string): void {
+function handleDiagnose(ws: WebSocket, client: Dockerode, containerId: string): void {
   (async () => {
-    const container = docker.getContainer(containerId);
+    const container = client.getContainer(containerId);
     const info = await container.inspect();
     const raw = (await container.logs({
       follow: false,

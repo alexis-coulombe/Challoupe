@@ -48,7 +48,7 @@ describe('scanImage', () => {
 
     const result = await scanImage('nginx:alpine', 'aquasec/trivy:latest');
 
-    expect(mockPullImage).toHaveBeenCalledWith('aquasec/trivy:latest');
+    expect(mockPullImage).toHaveBeenCalledWith(expect.anything(), 'aquasec/trivy:latest');
     expect(result.image).toBe('nginx:alpine');
     expect(result.counts).toEqual({ CRITICAL: 1, HIGH: 0, MEDIUM: 0, LOW: 1, UNKNOWN: 0 });
     expect(result.vulnerabilities[0]).toEqual({

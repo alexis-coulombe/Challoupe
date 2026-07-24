@@ -1,4 +1,6 @@
-import { docker } from './docker.js';
+import type Docker from 'dockerode';
+import { hostManager } from './hostManager.js';
+import { allHostIds } from './hosts.js';
 import { notificationService } from './integrations/notifications/notifications.js';
 import { getRemoteDigest } from './integrations/registry/registry.js';
 import { settingsService } from './settings.js';
@@ -35,16 +37,23 @@ interface CheckAllResult {
  * refreshes them, replacing what used to be a module-level cache Map + timer variable.
  */
 export class ImageUpdateService {
+  // Keyed by `${hostId}:${reference}` since the same image reference can independently exist
+  // on different hosts, each with its own update status.
   private readonly statusCache = new Map<string, ImageUpdateStatus>();
   private schedulerTimer: NodeJS.Timeout | null = null;
 
+  private cacheKey(hostId: string, reference: string): string {
+    return `${hostId}:${reference}`;
+  }
+
   /**
    * Check local digest against remote digest
+   * @param hostId string
    * @param reference string
    * @param repoDigests string[] | undefined
    * @returns ImageUpdateStatus
    */
-  async checkOne(reference: string, repoDigests: string[] | undefined): Promise<ImageUpdateStatus> {
+  async checkOne(hostId: string, reference: string, repoDigests: string[] | undefined): Promise<ImageUpdateStatus> {
     const checkedAt = new Date().toISOString();
     const localDigest = localDigestFor(repoDigests, reference);
     if (!localDigest) {
@@ -53,7 +62,7 @@ export class ImageUpdateService {
         checkedAt,
         error: 'No recorded pull digest to compare (built locally, or never pulled from a registry)',
       };
-      this.statusCache.set(reference, status);
+      this.statusCache.set(this.cacheKey(hostId, reference), status);
       return status;
     }
 
@@ -66,21 +75,23 @@ export class ImageUpdateService {
     } catch (err) {
       status = { updateAvailable: null, checkedAt, error: (err as Error).message };
     }
-    this.statusCache.set(reference, status);
+    this.statusCache.set(this.cacheKey(hostId, reference), status);
     return status;
   }
 
-  getCachedStatus(reference: string): ImageUpdateStatus | undefined {
-    return this.statusCache.get(reference);
+  getCachedStatus(hostId: string, reference: string): ImageUpdateStatus | undefined {
+    return this.statusCache.get(this.cacheKey(hostId, reference));
   }
 
   /**
-   * Checks every locally tagged image in parallel and reports a summary
+   * Checks every tagged image on the given host in parallel and reports a summary
+   * @param hostId string
+   * @param client Docker
    * @param ids string[]
    * @returns CheckAllResult
    */
-  async checkAll(ids?: string[]): Promise<CheckAllResult> {
-    const images = await docker.listImages();
+  async checkAll(hostId: string, client: Docker, ids?: string[]): Promise<CheckAllResult> {
+    const images = await client.listImages();
     const idFilter = ids ? new Set(ids) : null;
     const targets = images
       .filter((i) => !idFilter || idFilter.has(i.Id))
@@ -91,7 +102,7 @@ export class ImageUpdateService {
       .filter((t): t is { reference: string; repoDigests: string[] | undefined } => !!t.reference);
 
     const results = await Promise.allSettled(
-      targets.map((t) => this.checkOne(t.reference, t.repoDigests))
+      targets.map((t) => this.checkOne(hostId, t.reference, t.repoDigests))
     );
 
     const errors: string[] = [];
@@ -105,6 +116,21 @@ export class ImageUpdateService {
       }
     }
     return { checked: targets.length, updatesAvailable, errors };
+  }
+
+  private async runScheduledCheck(): Promise<void> {
+    let totalUpdatesAvailable = 0;
+    for (const hostId of allHostIds()) {
+      try {
+        const client = await hostManager.getClient(hostId);
+        if (!client) continue;
+        const result = await this.checkAll(hostId, client);
+        totalUpdatesAvailable += result.updatesAvailable;
+      } catch (err) {
+        console.error(`Background image update check failed for host ${hostId}`, err);
+      }
+    }
+    if (totalUpdatesAvailable > 0) void notificationService.notifyImageUpdates(totalUpdatesAvailable);
   }
 
   /**
@@ -125,11 +151,7 @@ export class ImageUpdateService {
 
     const intervalMs = Math.max(1, imageUpdateCheck.intervalHours) * 60 * 60 * 1000;
     this.schedulerTimer = setInterval(() => {
-      this.checkAll()
-        .then((result) => {
-          if (result.updatesAvailable > 0) void notificationService.notifyImageUpdates(result.updatesAvailable);
-        })
-        .catch((err) => console.error('Background image update check failed', err));
+      void this.runScheduledCheck();
     }, intervalMs);
     this.schedulerTimer.unref?.();
   }

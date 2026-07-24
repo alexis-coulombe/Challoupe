@@ -6,6 +6,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { hasPermission, type NetworkSummary } from '../api';
 import { TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { useBulkAction } from '../hooks/useBulkAction';
 import { networksApi } from '../services/networksApi';
 import BulkBar from '../components/BulkBar';
@@ -18,20 +19,21 @@ export default function Networks() {
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageNetworks');
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [form] = Form.useForm<{ name: string; driver: string }>();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['networks'],
-    queryFn: () => networksApi.list(),
+    queryKey: ['networks', hostId],
+    queryFn: () => networksApi.list(hostId),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['networks'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['networks', hostId] });
 
   const createMutation = useMutation({
-    mutationFn: (values: { name: string; driver: string }) => networksApi.create(values),
+    mutationFn: (values: { name: string; driver: string }) => networksApi.create(hostId, values),
     onSuccess: () => {
       message.success('Network created');
       setCreateOpen(false);
@@ -42,7 +44,7 @@ export default function Networks() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (id: string) => networksApi.remove(id),
+    mutationFn: (id: string) => networksApi.remove(hostId, id),
     onSuccess: () => {
       message.success('Network deleted');
       invalidate();
@@ -51,8 +53,8 @@ export default function Networks() {
   });
 
   const bulkRemoveMutation = useBulkAction<string>({
-    queryKey: ['networks'],
-    run: (id) => networksApi.remove(id),
+    queryKey: ['networks', hostId],
+    run: (id) => networksApi.remove(hostId, id),
     successLabel: (count) => `${count} network(s) deleted`,
     onSettled: () => setSelectedKeys([]),
   });

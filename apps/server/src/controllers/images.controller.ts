@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { buildImageFromGit, docker, pullImage } from '../docker.js';
+import { buildImageFromGit, pullImage } from '../docker.js';
 import { imageUpdateService } from '../imageUpdates.js';
 import { GIT_REF_OR_PATH_RE, KEY_VALUE_RE, parseKeyValueList } from '../validators.js';
 
@@ -34,12 +34,12 @@ const buildFromGitSchema = z.object({
 const pullSchema = z.object({ reference: z.string().trim().min(1) });
 
 export class ImagesController {
-  list = async (_req: Request, res: Response): Promise<void> => {
-    const list = await docker.listImages();
+  list = async (req: Request, res: Response): Promise<void> => {
+    const list = await req.dockerClient!.listImages();
     res.json(
       list.map((i) => {
         const tags = i.RepoTags?.filter((t) => t !== '<none>:<none>') ?? [];
-        const cached = tags[0] ? imageUpdateService.getCachedStatus(tags[0]) : undefined;
+        const cached = tags[0] ? imageUpdateService.getCachedStatus(req.hostId!, tags[0]) : undefined;
         return {
           id: i.Id,
           tags,
@@ -59,18 +59,18 @@ export class ImagesController {
   // bar as pull/prune.
   checkUpdates = async (req: Request, res: Response): Promise<void> => {
     const body = checkUpdatesSchema.parse(req.body ?? {});
-    const result = await imageUpdateService.checkAll(body.ids);
+    const result = await imageUpdateService.checkAll(req.hostId!, req.dockerClient!, body.ids);
     res.json(result);
   };
 
   checkUpdate = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
-    const info = await docker.getImage(req.params.id).inspect();
+    const info = await req.dockerClient!.getImage(req.params.id).inspect();
     const reference = info.RepoTags?.find((t) => t !== '<none>:<none>');
     if (!reference) {
       res.status(400).json({ error: 'This image has no tag to check against a registry' });
       return;
     }
-    const status = await imageUpdateService.checkOne(reference, info.RepoDigests);
+    const status = await imageUpdateService.checkOne(req.hostId!, reference, info.RepoDigests);
     res.json({ reference, ...status });
   };
 
@@ -83,7 +83,7 @@ export class ImagesController {
     const body = buildFromGitSchema.parse(req.body);
     const buildArgs = parseKeyValueList(body.buildArgs);
 
-    const result = await buildImageFromGit(body.repoUrl, body.tag, {
+    const result = await buildImageFromGit(req.dockerClient!, body.repoUrl, body.tag, {
       ref: body.ref,
       subdir: body.subdir,
       dockerfile: body.dockerfile,
@@ -118,7 +118,7 @@ export class ImagesController {
 
   pull = async (req: Request, res: Response): Promise<void> => {
     const body = pullSchema.parse(req.body);
-    await pullImage(body.reference);
+    await pullImage(req.dockerClient!, body.reference);
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,
@@ -133,7 +133,7 @@ export class ImagesController {
   // The reference may contain slashes (registries): pass it as a query param.
   remove = async (req: Request, res: Response): Promise<void> => {
     const ref = z.string().min(1).parse(req.query.ref);
-    await docker.getImage(ref).remove({ force: req.query.force === 'true' });
+    await req.dockerClient!.getImage(ref).remove({ force: req.query.force === 'true' });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,
@@ -146,7 +146,7 @@ export class ImagesController {
   };
 
   prune = async (req: Request, res: Response): Promise<void> => {
-    const result = await docker.pruneImages({ filters: { dangling: { true: true } } });
+    const result = await req.dockerClient!.pruneImages({ filters: { dangling: { true: true } } });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

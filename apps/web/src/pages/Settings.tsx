@@ -111,7 +111,7 @@ export default function Settings() {
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
-    queryFn: () => systemApi.info(),
+    queryFn: () => systemApi.info('local'),
   });
 
   const { data: settings } = useAppSettings();
@@ -127,7 +127,7 @@ export default function Settings() {
   const [ssoProviderValues, setSsoProviderValues] = useState<Record<string, string>>({});
 
   const pullTrivyMutation = useMutation({
-    mutationFn: (reference: string) => imagesApi.pull(reference),
+    mutationFn: (reference: string) => imagesApi.pull('local', reference),
     onSuccess: () => message.success('Trivy image pulled and ready to scan'),
     onError: (err) => message.error(err.message),
   });
@@ -771,8 +771,13 @@ export default function Settings() {
                         <InputNumber min={1} max={24 * 60} disabled={!resourceAlertsEnabled} style={{ width: 200 }} />
                       </Form.Item>
                     </Space>
-                    <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
                       Host thresholds
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                      Only ever measures this Challoupe machine — CPU/memory/disk of a remote host
+                      isn't reachable this way, so these thresholds don't apply to hosts added under
+                      Hosts.
                     </Typography.Text>
                     <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
                       <Form.Item name={['resourceAlerts', 'hostCpuPercent']} label="CPU">
@@ -785,8 +790,11 @@ export default function Settings() {
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
                     </Space>
-                    <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
                       Per-container thresholds
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                      Applies across every host — local and every host added under Hosts.
                     </Typography.Text>
                     <Space size="large" wrap align="start">
                       <Form.Item name={['resourceAlerts', 'containerCpuPercent']} label="CPU">
