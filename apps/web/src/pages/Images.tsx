@@ -345,16 +345,30 @@ export default function Images() {
     {
       title: 'Tags',
       dataIndex: 'tags',
-      render: (tags: string[]) =>
-        tags.length ? (
+      render: (tags: string[], record) => {
+        const updateTag =
+          record.updateAvailable === true ? (
+            <Tag color="gold">Update available</Tag>
+          ) : record.updateAvailable === false ? (
+            <Tag color="green">Up to date</Tag>
+          ) : null;
+        const badge =
+          updateTag && record.updateCheckedAt ? (
+            <Tooltip title={`Checked ${fromISO(record.updateCheckedAt)}`}>{updateTag}</Tooltip>
+          ) : (
+            updateTag
+          );
+        return (
           <Space size={4} wrap>
-            {tags.map((t) => (
-              <Tag key={t}>{t}</Tag>
-            ))}
+            {badge}
+            {tags.length ? (
+              tags.map((t) => <Tag key={t}>{t}</Tag>)
+            ) : (
+              <Typography.Text type="secondary">&lt;untagged&gt;</Typography.Text>
+            )}
           </Space>
-        ) : (
-          <Typography.Text type="secondary">&lt;untagged&gt;</Typography.Text>
-        ),
+        );
+      },
     },
     {
       title: 'ID',
@@ -370,25 +384,6 @@ export default function Images() {
       sorter: (a, b) => a.size - b.size,
     },
     { title: 'Created', dataIndex: 'created', render: fromUnix },
-    {
-      title: 'Update',
-      dataIndex: 'updateAvailable',
-      render: (updateAvailable: boolean | null, record) => {
-        const tag =
-          updateAvailable === true ? (
-            <Tag color="gold">Update available</Tag>
-          ) : updateAvailable === false ? (
-            <Tag color="green">Up to date</Tag>
-          ) : (
-            <Typography.Text type="secondary">Not checked</Typography.Text>
-          );
-        return record.updateCheckedAt ? (
-          <Tooltip title={`Checked ${fromISO(record.updateCheckedAt)}`}>{tag}</Tooltip>
-        ) : (
-          tag
-        );
-      },
-    },
     {
       title: 'Actions',
       render: (_, record) => (
@@ -464,7 +459,9 @@ export default function Images() {
       <Table
         rowKey="id"
         columns={columns}
-        dataSource={data}
+        dataSource={[...(data ?? [])].sort((a, b) =>
+          (a.tags[0] ?? a.id).localeCompare(b.tags[0] ?? b.id)
+        )}
         loading={isLoading}
         size="middle"
         rowSelection={canManage ? { selectedRowKeys: selectedKeys, onChange: setSelectedKeys } : undefined}

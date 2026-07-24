@@ -108,7 +108,7 @@ export default function Networks() {
       <Table
         rowKey="id"
         columns={columns}
-        dataSource={data}
+        dataSource={[...(data ?? [])].sort((a, b) => a.name.localeCompare(b.name))}
         loading={isLoading}
         size="middle"
         rowSelection={

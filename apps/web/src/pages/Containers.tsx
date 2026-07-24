@@ -16,7 +16,6 @@ import {
   Table,
   Tag,
   Tooltip,
-  Typography,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -214,7 +213,9 @@ export default function Containers() {
       ellipsis: true,
       render: (image: string, record) => (
         <Space size={4}>
-          <Typography.Text ellipsis>{image}</Typography.Text>
+          <Link to="/images" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {image}
+          </Link>
           {record.updateAvailable === true && (
             <Tooltip title="A newer image is available for this container's image (check on the Images page)">
               <Tag color="gold">Update available</Tag>
@@ -231,6 +232,7 @@ export default function Containers() {
           ...new Set(
             ports
               .filter((p) => p.PublicPort)
+              .sort((a, b) => (a.PublicPort ?? 0) - (b.PublicPort ?? 0))
               .map((p) => `${p.PublicPort}→${p.PrivatePort}/${p.Type}`)
           ),
         ].join(', '),
@@ -306,7 +308,7 @@ export default function Containers() {
       <Table
         rowKey="id"
         columns={columns}
-        dataSource={data}
+        dataSource={[...(data ?? [])].sort((a, b) => a.name.localeCompare(b.name))}
         loading={isLoading}
         size="middle"
         rowSelection={{ selectedRowKeys: selectedKeys, onChange: setSelectedKeys }}

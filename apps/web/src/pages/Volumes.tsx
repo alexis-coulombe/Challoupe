@@ -126,7 +126,7 @@ export default function Volumes() {
       <Table
         rowKey="name"
         columns={columns}
-        dataSource={data}
+        dataSource={[...(data ?? [])].sort((a, b) => a.name.localeCompare(b.name))}
         loading={isLoading}
         size="middle"
         rowSelection={canManage ? { selectedRowKeys: selectedKeys, onChange: setSelectedKeys } : undefined}
