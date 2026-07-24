@@ -409,6 +409,7 @@ export default function Images() {
             <DeleteButton
               confirmTitle="Delete this image?"
               onConfirm={() => removeMutation.mutate(record.tags[0] ?? record.id)}
+              loading={removeMutation.isPending && removeMutation.variables === (record.tags[0] ?? record.id)}
             />
           )}
         </Space>

@@ -214,6 +214,7 @@ export default function Users() {
             <DeleteButton
               confirmTitle="Delete this user?"
               onConfirm={() => deleteMutation.mutate(record.id)}
+              loading={deleteMutation.isPending && deleteMutation.variables === record.id}
             />
           )}
         </Space>

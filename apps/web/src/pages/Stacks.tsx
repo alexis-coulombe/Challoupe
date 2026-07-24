@@ -169,6 +169,7 @@ export default function Stacks() {
             <DeleteButton
               confirmTitle="Delete this stack? Its containers will be stopped."
               onConfirm={() => deleteMutation.mutate(record.name)}
+              loading={deleteMutation.isPending && deleteMutation.variables === record.name}
             />
           )}
         </Space>
@@ -218,6 +219,7 @@ export default function Stacks() {
           <DeleteButton
             confirmTitle={`Delete ${selectedKeys.length} stack(s)? Their containers will be stopped.`}
             onConfirm={() => bulkMutation.mutate('delete')}
+            loading={bulkMutation.isPending && bulkMutation.variables === 'delete'}
             disabled={busy}
           >
             Delete

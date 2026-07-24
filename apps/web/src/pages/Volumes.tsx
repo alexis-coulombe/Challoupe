@@ -90,6 +90,7 @@ export default function Volumes() {
           <DeleteButton
             confirmTitle="Delete this volume? Its data will be lost."
             onConfirm={() => removeMutation.mutate(record.name)}
+            loading={removeMutation.isPending && removeMutation.variables === record.name}
           />
         ),
     },

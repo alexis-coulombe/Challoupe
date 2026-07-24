@@ -292,6 +292,7 @@ export default function StackEdit() {
                 size="middle"
                 confirmTitle="Delete this stack? Its containers will be stopped."
                 onConfirm={() => deleteMutation.mutate()}
+                loading={deleteMutation.isPending}
                 disabled={busy}
               >
                 Delete

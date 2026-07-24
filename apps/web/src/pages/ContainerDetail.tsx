@@ -247,7 +247,12 @@ export default function ContainerDetail() {
           </Button>
         )}
         {canManage && (
-          <DeleteButton size="middle" confirmTitle="Delete this container?" onConfirm={() => removeMutation.mutate()}>
+          <DeleteButton
+            size="middle"
+            confirmTitle="Delete this container?"
+            onConfirm={() => removeMutation.mutate()}
+            loading={removeMutation.isPending}
+          >
             Delete
           </DeleteButton>
         )}

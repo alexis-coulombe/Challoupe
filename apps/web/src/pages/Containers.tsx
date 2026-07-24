@@ -270,6 +270,7 @@ export default function Containers() {
               <DeleteButton
                 confirmTitle="Delete this container?"
                 onConfirm={() => removeMutation.mutate(record.id)}
+                loading={removeMutation.isPending && removeMutation.variables === record.id}
               />
             )}
           </Space>
@@ -295,6 +296,7 @@ export default function Containers() {
           <DeleteButton
             confirmTitle={`Delete ${selectedKeys.length} container(s)?`}
             onConfirm={() => bulkMutation.mutate('remove')}
+            loading={bulkMutation.isPending && bulkMutation.variables === 'remove'}
             disabled={bulkMutation.isPending}
           >
             Delete

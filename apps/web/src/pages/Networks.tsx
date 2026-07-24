@@ -79,6 +79,7 @@ export default function Networks() {
           <DeleteButton
             confirmTitle="Delete this network?"
             onConfirm={() => removeMutation.mutate(record.id)}
+            loading={removeMutation.isPending && removeMutation.variables === record.id}
           />
         ),
     },
