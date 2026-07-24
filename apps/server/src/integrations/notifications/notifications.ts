@@ -12,7 +12,12 @@ export interface NtfyTarget {
   password: string;
 }
 
-type NotificationKind = 'onContainerCrash' | 'onImageUpdate' | 'onBackupFailure' | 'onAuditAnomaly';
+type NotificationKind =
+  | 'onContainerCrash'
+  | 'onImageUpdate'
+  | 'onBackupFailure'
+  | 'onAuditAnomaly'
+  | 'onResourceThreshold';
 
 function buildPayload(format: NotificationFormat, message: string): unknown {
   if (format === 'discord') return { content: `**Challoupe** ${message}` };
@@ -93,6 +98,10 @@ export class NotificationService {
 
   notifyAuditAnomaly(summary: string): Promise<void> {
     return this.send('onAuditAnomaly', `Audit log watchdog: ${summary}.`);
+  }
+
+  notifyResourceThreshold(summary: string): Promise<void> {
+    return this.send('onResourceThreshold', `Resource alert: ${summary}.`);
   }
 
   // Bypasses the enabled/per-event settings so a value can be tested before it's saved;

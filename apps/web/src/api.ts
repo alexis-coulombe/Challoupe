@@ -250,6 +250,7 @@ export interface NotificationEvents {
   onImageUpdate: boolean;
   onBackupFailure: boolean;
   onAuditAnomaly: boolean;
+  onResourceThreshold: boolean;
 }
 
 // webhookUrl is always returned blank by the API
@@ -275,6 +276,16 @@ export interface AiWatchdogSettings {
   auditCheckIntervalMinutes: number;
 }
 
+export interface ResourceAlertSettings {
+  enabled: boolean;
+  checkIntervalMinutes: number;
+  hostCpuPercent: number;
+  hostMemoryPercent: number;
+  hostDiskPercent: number;
+  containerCpuPercent: number;
+  containerMemoryPercent: number;
+}
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -294,6 +305,7 @@ export interface AppSettings {
   notifications: NotificationSettings;
   ntfy: NtfySettings;
   aiWatchdog: AiWatchdogSettings;
+  resourceAlerts: ResourceAlertSettings;
 }
 
 export interface OidcLoginConfig {

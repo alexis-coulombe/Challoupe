@@ -8,6 +8,7 @@ import { scheduledBackupService } from '../scheduledBackups.js';
 import { userRepository } from '../auth.js';
 import { stackService } from '../stacks.js';
 import { auditWatchdogService } from '../auditWatchdog.js';
+import { resourceWatchdogService } from '../resourceWatchdog.js';
 
 // Both are write-only from the API's point of view: the settings form always shows a
 // blank field and treats blank-on-save as "leave unchanged".
@@ -70,6 +71,7 @@ const updateSchema = z
         onImageUpdate: z.boolean(),
         onBackupFailure: z.boolean(),
         onAuditAnomaly: z.boolean(),
+        onResourceThreshold: z.boolean(),
       })
       .partial(),
     notifications: z
@@ -94,6 +96,17 @@ const updateSchema = z
         checkContainerEvents: z.boolean(),
         checkAuditLog: z.boolean(),
         auditCheckIntervalMinutes: z.number().int().min(1).max(24 * 60),
+      })
+      .partial(),
+    resourceAlerts: z
+      .object({
+        enabled: z.boolean(),
+        checkIntervalMinutes: z.number().int().min(1).max(24 * 60),
+        hostCpuPercent: z.number().min(1).max(100),
+        hostMemoryPercent: z.number().min(1).max(100),
+        hostDiskPercent: z.number().min(1).max(100),
+        containerCpuPercent: z.number().min(1).max(100),
+        containerMemoryPercent: z.number().min(1).max(100),
       })
       .partial(),
   })
@@ -123,6 +136,7 @@ export class SettingsController {
     if (body.imageUpdateCheck) imageUpdateService.restartScheduler();
     if (body.scheduledBackup) scheduledBackupService.restartScheduler();
     if (body.aiWatchdog) auditWatchdogService.restartScheduler();
+    if (body.resourceAlerts) resourceWatchdogService.restartScheduler();
     res.json(redactSecrets(updated));
   };
 
@@ -137,6 +151,7 @@ export class SettingsController {
     imageUpdateService.restartScheduler();
     scheduledBackupService.restartScheduler();
     auditWatchdogService.restartScheduler();
+    resourceWatchdogService.restartScheduler();
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

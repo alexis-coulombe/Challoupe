@@ -26,6 +26,7 @@ import { imageUpdateService } from './imageUpdates.js';
 import { scheduledBackupService } from './scheduledBackups.js';
 import { dockerEventBroadcaster } from './dockerEvents.js';
 import { auditWatchdogService } from './auditWatchdog.js';
+import { resourceWatchdogService } from './resourceWatchdog.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -96,6 +97,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   imageUpdateService.restartScheduler();
   scheduledBackupService.restartScheduler();
   auditWatchdogService.restartScheduler();
+  resourceWatchdogService.restartScheduler();
   dockerEventBroadcaster.start();
   server.listen(PORT, HOST, () => {
     console.log(`Challoupe listening on ${tlsEnabled ? 'https' : 'http'}://${HOST}:${PORT}`);

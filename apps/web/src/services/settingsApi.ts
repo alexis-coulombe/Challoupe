@@ -8,6 +8,7 @@ import type {
   NotificationSettings,
   NtfySettings,
   OidcSettings,
+  ResourceAlertSettings,
   ScheduledBackupSettings,
   TerminalThemeSettings,
 } from '../api';
@@ -22,6 +23,7 @@ const NESTED_KEYS = [
   'notifications',
   'ntfy',
   'aiWatchdog',
+  'resourceAlerts',
 ] as const;
 
 // Mirrors the server's SettingsUpdate (routes/settings.ts): every field, including nested
@@ -36,6 +38,7 @@ export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[numb
   notifications?: Partial<NotificationSettings>;
   ntfy?: Partial<NtfySettings>;
   aiWatchdog?: Partial<AiWatchdogSettings>;
+  resourceAlerts?: Partial<ResourceAlertSettings>;
 };
 
 export class SettingsApi {

@@ -216,4 +216,28 @@ describe('NotificationService', () => {
       expect(body.message).toContain('Audit log watchdog: 5 failed login attempts for "admin".');
     });
   });
+
+  describe('notifyResourceThreshold', () => {
+    it('respects the onResourceThreshold toggle independently of the other event types', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+        notifyEvents: { onResourceThreshold: false },
+      });
+      await notificationService.notifyResourceThreshold('Host CPU usage at 95% (threshold 90%)');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('posts a message over the webhook and ntfy when enabled', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+        ntfy: { enabled: true, topic: 'challoupe' },
+      });
+      await notificationService.notifyResourceThreshold('Host CPU usage at 95% (threshold 90%)');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.message).toContain('Resource alert: Host CPU usage at 95% (threshold 90%).');
+    });
+  });
 });

@@ -29,6 +29,7 @@ const DEFAULTS = {
     onImageUpdate: true,
     onBackupFailure: true,
     onAuditAnomaly: true,
+    onResourceThreshold: true,
   },
   notifications: {
     enabled: false,
@@ -47,6 +48,15 @@ const DEFAULTS = {
     checkContainerEvents: true,
     checkAuditLog: true,
     auditCheckIntervalMinutes: 15,
+  },
+  resourceAlerts: {
+    enabled: false,
+    checkIntervalMinutes: 5,
+    hostCpuPercent: 90,
+    hostMemoryPercent: 90,
+    hostDiskPercent: 90,
+    containerCpuPercent: 90,
+    containerMemoryPercent: 90,
   },
 };
 
@@ -220,6 +230,7 @@ describe('settings', () => {
       onImageUpdate: true,
       onBackupFailure: false,
       onAuditAnomaly: true,
+      onResourceThreshold: true,
     });
   });
 
@@ -235,6 +246,21 @@ describe('settings', () => {
     });
   });
 
+  it('persists the resource alert settings independently of the other settings', () => {
+    settingsService.update({
+      resourceAlerts: { enabled: true, hostCpuPercent: 80, containerMemoryPercent: 75 },
+    });
+    expect(settingsService.get().resourceAlerts).toEqual({
+      enabled: true,
+      checkIntervalMinutes: 5,
+      hostCpuPercent: 80,
+      hostMemoryPercent: 90,
+      hostDiskPercent: 90,
+      containerCpuPercent: 90,
+      containerMemoryPercent: 75,
+    });
+  });
+
   it('reset() clears every stored setting back to its default', () => {
     settingsService.update({
       defaultRestartPolicy: 'always',
@@ -243,6 +269,7 @@ describe('settings', () => {
       notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
       ntfy: { enabled: true, topic: 'challoupe', password: 'shh' },
       aiWatchdog: { enabled: true, checkAuditLog: false },
+      resourceAlerts: { enabled: true, hostCpuPercent: 80 },
     });
     expect(settingsService.reset()).toEqual(DEFAULTS);
     const rows = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };

@@ -91,6 +91,7 @@ export interface NotificationEvents {
   onImageUpdate: boolean;
   onBackupFailure: boolean;
   onAuditAnomaly: boolean;
+  onResourceThreshold: boolean;
 }
 
 const NOTIFICATION_EVENTS_DEFAULTS: NotificationEvents = {
@@ -98,6 +99,7 @@ const NOTIFICATION_EVENTS_DEFAULTS: NotificationEvents = {
   onImageUpdate: true,
   onBackupFailure: true,
   onAuditAnomaly: true,
+  onResourceThreshold: true,
 };
 
 /**
@@ -154,6 +156,26 @@ const AI_WATCHDOG_DEFAULTS: AiWatchdogSettings = {
   auditCheckIntervalMinutes: 15,
 };
 
+export interface ResourceAlertSettings {
+  enabled: boolean;
+  checkIntervalMinutes: number;
+  hostCpuPercent: number;
+  hostMemoryPercent: number;
+  hostDiskPercent: number;
+  containerCpuPercent: number;
+  containerMemoryPercent: number;
+}
+
+const RESOURCE_ALERT_DEFAULTS: ResourceAlertSettings = {
+  enabled: false,
+  checkIntervalMinutes: 5,
+  hostCpuPercent: 90,
+  hostMemoryPercent: 90,
+  hostDiskPercent: 90,
+  containerCpuPercent: 90,
+  containerMemoryPercent: 90,
+};
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -175,6 +197,7 @@ export interface AppSettings {
   notifications: NotificationSettings;
   ntfy: NtfySettings;
   aiWatchdog: AiWatchdogSettings;
+  resourceAlerts: ResourceAlertSettings;
 }
 
 const NESTED_KEYS = [
@@ -187,6 +210,7 @@ const NESTED_KEYS = [
   'notifications',
   'ntfy',
   'aiWatchdog',
+  'resourceAlerts',
 ] as const;
 
 const DEFAULTS: Omit<AppSettings, (typeof NESTED_KEYS)[number]> = {
@@ -211,6 +235,7 @@ export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[numb
   notifications?: Partial<NotificationSettings>;
   ntfy?: Partial<NtfySettings>;
   aiWatchdog?: Partial<AiWatchdogSettings>;
+  resourceAlerts?: Partial<ResourceAlertSettings>;
 };
 
 /**
@@ -306,6 +331,14 @@ export class SettingsService {
       aiWatchdog.auditCheckIntervalMinutes = Number(stored['aiWatchdog.auditCheckIntervalMinutes']);
     }
 
+    const resourceAlerts = { ...RESOURCE_ALERT_DEFAULTS };
+    for (const field of Object.keys(resourceAlerts) as Array<keyof ResourceAlertSettings>) {
+      const raw = stored[`resourceAlerts.${field}`];
+      if (raw === undefined) continue;
+      if (field === 'enabled') resourceAlerts.enabled = raw === 'true';
+      else resourceAlerts[field] = Number(raw);
+    }
+
     return {
       defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
       refreshIntervalMs: stored.refreshIntervalMs
@@ -327,6 +360,7 @@ export class SettingsService {
       notifications,
       ntfy,
       aiWatchdog,
+      resourceAlerts,
     };
   }
 
@@ -399,6 +433,13 @@ export class SettingsService {
         for (const [field, val] of Object.entries(value as Partial<AiWatchdogSettings>)) {
           if (val === undefined) continue;
           upsert.run(`aiWatchdog.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'resourceAlerts') {
+        for (const [field, val] of Object.entries(value as Partial<ResourceAlertSettings>)) {
+          if (val === undefined) continue;
+          upsert.run(`resourceAlerts.${field}`, String(val));
         }
         continue;
       }

@@ -152,7 +152,7 @@ interface RawCpuUsage {
   percpu_usage?: number[];
 }
 
-interface RawStats {
+export interface RawStats {
   read: string;
   cpu_stats: { cpu_usage: RawCpuUsage; system_cpu_usage?: number; online_cpus?: number };
   precpu_stats: { cpu_usage: RawCpuUsage; system_cpu_usage?: number };

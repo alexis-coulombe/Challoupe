@@ -25,6 +25,7 @@ import {
 } from 'antd';
 import type { Color } from 'antd/es/color-picker';
 import {
+  AlertOutlined,
   ApiOutlined,
   BellOutlined,
   ClockCircleOutlined,
@@ -331,6 +332,7 @@ export default function Settings() {
   const ntfyEnabled = Form.useWatch(['ntfy', 'enabled'], form) ?? false;
   const watchdogEnabled = Form.useWatch(['aiWatchdog', 'enabled'], form) ?? false;
   const watchdogAuditEnabled = Form.useWatch(['aiWatchdog', 'checkAuditLog'], form) ?? false;
+  const resourceAlertsEnabled = Form.useWatch(['resourceAlerts', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
   const integrationsTabLabel = (
@@ -740,7 +742,58 @@ export default function Settings() {
                         <Checkbox>A scheduled backup fails</Checkbox>
                       </Form.Item>
                       <Form.Item name={['notifyEvents', 'onAuditAnomaly']} valuePropName="checked" noStyle>
-                        <Checkbox>The AI watchdog flags suspicious audit log activity</Checkbox>
+                        <Checkbox>When AI watchdog flags suspicious activity</Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['notifyEvents', 'onResourceThreshold']} valuePropName="checked" noStyle>
+                        <Checkbox>A container or host resource (CPU, memory, disk) crosses its configured threshold</Checkbox>
+                      </Form.Item>
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <AlertOutlined style={{ marginRight: 8 }} />
+                      Resource Alerts
+                    </Typography.Title>
+                    <Space align="center" style={{ marginBottom: 16 }}>
+                      <Form.Item name={['resourceAlerts', 'enabled']} valuePropName="checked" noStyle>
+                        <Switch />
+                      </Form.Item>
+                      <Typography.Text strong>Enable resource alerts</Typography.Text>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Periodically checks host and per-container CPU, memory, and disk usage
+                      against the thresholds below, and sends a notification over the channels
+                      below when one is crossed.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
+                      <Form.Item name={['resourceAlerts', 'checkIntervalMinutes']} label="Check interval (minutes)">
+                        <InputNumber min={1} max={24 * 60} disabled={!resourceAlertsEnabled} style={{ width: 200 }} />
+                      </Form.Item>
+                    </Space>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                      Host thresholds
+                    </Typography.Text>
+                    <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
+                      <Form.Item name={['resourceAlerts', 'hostCpuPercent']} label="CPU">
+                        <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
+                      </Form.Item>
+                      <Form.Item name={['resourceAlerts', 'hostMemoryPercent']} label="Memory">
+                        <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
+                      </Form.Item>
+                      <Form.Item name={['resourceAlerts', 'hostDiskPercent']} label="Disk">
+                        <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
+                      </Form.Item>
+                    </Space>
+                    <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                      Per-container thresholds
+                    </Typography.Text>
+                    <Space size="large" wrap align="start">
+                      <Form.Item name={['resourceAlerts', 'containerCpuPercent']} label="CPU">
+                        <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
+                      </Form.Item>
+                      <Form.Item name={['resourceAlerts', 'containerMemoryPercent']} label="Memory">
+                        <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
                     </Space>
                   </Card>

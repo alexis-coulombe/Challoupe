@@ -31,6 +31,7 @@ const DEFAULTS = {
     onImageUpdate: true,
     onBackupFailure: true,
     onAuditAnomaly: true,
+    onResourceThreshold: true,
   },
   notifications: {
     enabled: false,
@@ -49,6 +50,15 @@ const DEFAULTS = {
     checkContainerEvents: true,
     checkAuditLog: true,
     auditCheckIntervalMinutes: 15,
+  },
+  resourceAlerts: {
+    enabled: false,
+    checkIntervalMinutes: 5,
+    hostCpuPercent: 90,
+    hostMemoryPercent: 90,
+    hostDiskPercent: 90,
+    containerCpuPercent: 90,
+    containerMemoryPercent: 90,
   },
 };
 
@@ -120,6 +130,7 @@ describe('PUT /api/settings', () => {
         onImageUpdate: false,
         onBackupFailure: true,
         onAuditAnomaly: false,
+        onResourceThreshold: false,
       },
       notifications: {
         enabled: true,
@@ -138,6 +149,15 @@ describe('PUT /api/settings', () => {
         checkContainerEvents: false,
         checkAuditLog: true,
         auditCheckIntervalMinutes: 30,
+      },
+      resourceAlerts: {
+        enabled: true,
+        checkIntervalMinutes: 10,
+        hostCpuPercent: 80,
+        hostMemoryPercent: 80,
+        hostDiskPercent: 85,
+        containerCpuPercent: 85,
+        containerMemoryPercent: 85,
       },
     });
     expect(res.status).toBe(200);
@@ -169,6 +189,7 @@ describe('PUT /api/settings', () => {
         onImageUpdate: false,
         onBackupFailure: true,
         onAuditAnomaly: false,
+        onResourceThreshold: false,
       },
       // Same write-only treatment as the OIDC client secret above.
       notifications: {
@@ -189,6 +210,15 @@ describe('PUT /api/settings', () => {
         checkContainerEvents: false,
         checkAuditLog: true,
         auditCheckIntervalMinutes: 30,
+      },
+      resourceAlerts: {
+        enabled: true,
+        checkIntervalMinutes: 10,
+        hostCpuPercent: 80,
+        hostMemoryPercent: 80,
+        hostDiskPercent: 85,
+        containerCpuPercent: 85,
+        containerMemoryPercent: 85,
       },
     });
   });
@@ -368,6 +398,7 @@ describe('PUT /api/settings', () => {
       onImageUpdate: true,
       onBackupFailure: true,
       onAuditAnomaly: true,
+      onResourceThreshold: true,
     });
   });
 
@@ -388,6 +419,29 @@ describe('PUT /api/settings', () => {
   it('rejects an audit scan interval outside the allowed range', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.put('/api/settings').send({ aiWatchdog: { auditCheckIntervalMinutes: 0 } });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets an admin turn on resource alerts with custom thresholds', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin
+      .put('/api/settings')
+      .send({ resourceAlerts: { enabled: true, hostCpuPercent: 75, containerMemoryPercent: 80 } });
+    expect(res.status).toBe(200);
+    expect(res.body.resourceAlerts).toEqual({
+      enabled: true,
+      checkIntervalMinutes: 5,
+      hostCpuPercent: 75,
+      hostMemoryPercent: 90,
+      hostDiskPercent: 90,
+      containerCpuPercent: 90,
+      containerMemoryPercent: 80,
+    });
+  });
+
+  it('rejects a resource alert threshold outside the 1-100 percent range', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ resourceAlerts: { hostCpuPercent: 150 } });
     expect(res.status).toBe(400);
   });
 
