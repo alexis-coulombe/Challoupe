@@ -25,6 +25,7 @@ import notificationsRoutes from './integrations/notifications/notifications.rout
 import { imageUpdateService } from './imageUpdates.js';
 import { scheduledBackupService } from './scheduledBackups.js';
 import { dockerEventBroadcaster } from './dockerEvents.js';
+import { auditWatchdogService } from './auditWatchdog.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -94,6 +95,7 @@ export { app, server };
 if (import.meta.url === `file://${process.argv[1]}`) {
   imageUpdateService.restartScheduler();
   scheduledBackupService.restartScheduler();
+  auditWatchdogService.restartScheduler();
   dockerEventBroadcaster.start();
   server.listen(PORT, HOST, () => {
     console.log(`Challoupe listening on ${tlsEnabled ? 'https' : 'http'}://${HOST}:${PORT}`);

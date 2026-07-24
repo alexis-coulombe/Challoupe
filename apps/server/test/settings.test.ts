@@ -24,13 +24,16 @@ const DEFAULTS = {
   imageUpdateCheck: { enabled: false, intervalHours: 24 },
   scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
   terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
+  notifyEvents: {
+    onContainerCrash: true,
+    onImageUpdate: true,
+    onBackupFailure: true,
+    onAuditAnomaly: true,
+  },
   notifications: {
     enabled: false,
     webhookUrl: '',
     format: 'generic',
-    onContainerCrash: true,
-    onImageUpdate: true,
-    onBackupFailure: true,
   },
   ntfy: {
     enabled: false,
@@ -38,9 +41,12 @@ const DEFAULTS = {
     topic: '',
     username: '',
     password: '',
-    onContainerCrash: true,
-    onImageUpdate: true,
-    onBackupFailure: true,
+  },
+  aiWatchdog: {
+    enabled: false,
+    checkContainerEvents: true,
+    checkAuditLog: true,
+    auditCheckIntervalMinutes: 15,
   },
 };
 
@@ -179,17 +185,13 @@ describe('settings', () => {
       enabled: true,
       webhookUrl: 'https://hooks.example.com/x',
       format: 'slack',
-      onContainerCrash: true,
-      onImageUpdate: true,
-      onBackupFailure: true,
     });
   });
 
   it('leaves a stored webhook URL unchanged when a later update sends a blank one', () => {
     settingsService.update({ notifications: { webhookUrl: 'https://hooks.example.com/x' } });
-    settingsService.update({ notifications: { webhookUrl: '', onBackupFailure: false } });
+    settingsService.update({ notifications: { webhookUrl: '' } });
     expect(settingsService.get().notifications.webhookUrl).toBe('https://hooks.example.com/x');
-    expect(settingsService.get().notifications.onBackupFailure).toBe(false);
   });
 
   it('persists the ntfy settings, including the password when read directly', () => {
@@ -202,25 +204,45 @@ describe('settings', () => {
       topic: 'challoupe',
       username: 'admin',
       password: 'shh',
-      onContainerCrash: true,
-      onImageUpdate: true,
-      onBackupFailure: true,
     });
   });
 
   it('leaves a stored ntfy password unchanged when a later update sends a blank one', () => {
     settingsService.update({ ntfy: { password: 'first-password' } });
-    settingsService.update({ ntfy: { password: '', onBackupFailure: false } });
+    settingsService.update({ ntfy: { password: '' } });
     expect(settingsService.get().ntfy.password).toBe('first-password');
-    expect(settingsService.get().ntfy.onBackupFailure).toBe(false);
+  });
+
+  it('persists which events to notify about, shared by every channel', () => {
+    settingsService.update({ notifyEvents: { onBackupFailure: false } });
+    expect(settingsService.get().notifyEvents).toEqual({
+      onContainerCrash: true,
+      onImageUpdate: true,
+      onBackupFailure: false,
+      onAuditAnomaly: true,
+    });
+  });
+
+  it('persists the AI watchdog settings independently of the other settings', () => {
+    settingsService.update({
+      aiWatchdog: { enabled: true, checkContainerEvents: false, auditCheckIntervalMinutes: 60 },
+    });
+    expect(settingsService.get().aiWatchdog).toEqual({
+      enabled: true,
+      checkContainerEvents: false,
+      checkAuditLog: true,
+      auditCheckIntervalMinutes: 60,
+    });
   });
 
   it('reset() clears every stored setting back to its default', () => {
     settingsService.update({
       defaultRestartPolicy: 'always',
       oidc: { enabled: true, clientSecret: 'shh' },
+      notifyEvents: { onBackupFailure: false },
       notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
       ntfy: { enabled: true, topic: 'challoupe', password: 'shh' },
+      aiWatchdog: { enabled: true, checkAuditLog: false },
     });
     expect(settingsService.reset()).toEqual(DEFAULTS);
     const rows = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };

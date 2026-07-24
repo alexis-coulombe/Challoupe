@@ -1,6 +1,8 @@
 import type { WebSocket } from 'ws';
 import { docker } from './docker.js';
 import { notificationService } from './integrations/notifications/notifications.js';
+import { settingsService } from './settings.js';
+import { containerWatchdog } from './containerWatchdog.js';
 
 const EVENT_DETAIL: Record<DockerEventAction, (notification: DockerNotification) => string> = {
   crashed: (n) => `crashed (exit code ${n.exitCode})`,
@@ -60,14 +62,31 @@ export class DockerEventBroadcaster {
   private streamStarted = false;
 
   private broadcast(notification: DockerNotification): void {
-    void notificationService.notifyContainerEvent(
-      notification.containerName,
-      EVENT_DETAIL[notification.action](notification)
-    );
+    void this.notify(notification);
     const payload = JSON.stringify(notification);
     for (const ws of this.subscribers) {
       if (ws.readyState === ws.OPEN) ws.send(payload);
     }
+  }
+
+  // Runs separately from the instant WS fan-out above, since an AI diagnosis can take a
+  // few seconds and shouldn't delay the live toast in the UI.
+  private async notify(notification: DockerNotification): Promise<void> {
+    const baseDetail = EVENT_DETAIL[notification.action](notification);
+    const { aiWatchdog, featureFlags } = settingsService.get();
+    if (aiWatchdog.enabled && aiWatchdog.checkContainerEvents && featureFlags.aiAssistant) {
+      const diagnosis = await containerWatchdog.diagnose(
+        notification.containerId,
+        notification.containerName,
+        baseDetail
+      );
+      if (diagnosis) {
+        await notificationService.notifyContainerEvent(notification.containerName, `${baseDetail} AI diagnosis: ${diagnosis}`);
+        return;
+      }
+    }
+    
+    await notificationService.notifyContainerEvent(notification.containerName, baseDetail);
   }
 
   private scheduleRetry(): void {

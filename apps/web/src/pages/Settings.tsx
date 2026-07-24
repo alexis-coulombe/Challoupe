@@ -37,6 +37,7 @@ import {
   GoogleOutlined,
   BgColorsOutlined,
   DashboardOutlined,
+  EyeOutlined,
   NotificationOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
@@ -328,12 +329,21 @@ export default function Settings() {
   const scheduledBackupEnabled = Form.useWatch(['scheduledBackup', 'enabled'], form) ?? false;
   const notificationsEnabled = Form.useWatch(['notifications', 'enabled'], form) ?? false;
   const ntfyEnabled = Form.useWatch(['ntfy', 'enabled'], form) ?? false;
+  const watchdogEnabled = Form.useWatch(['aiWatchdog', 'enabled'], form) ?? false;
+  const watchdogAuditEnabled = Form.useWatch(['aiWatchdog', 'checkAuditLog'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
   const integrationsTabLabel = (
     <Space size={6}>
       <ApiOutlined />
       Integrations
+    </Space>
+  );
+
+  const notificationsTabLabel = (
+    <Space size={6}>
+      <BellOutlined />
+      Notifications
     </Space>
   );
 
@@ -576,7 +586,11 @@ export default function Settings() {
                       <Form.Item name="ollamaBaseUrl" label="Base URL">
                         <Input style={{ width: 260 }} placeholder="http://localhost:11434" disabled={!aiEnabled} />
                       </Form.Item>
-                      <Form.Item name="ollamaModel" label="Model">
+                      <Form.Item
+                        name="ollamaModel"
+                        label="Model"
+                        tooltip="Also used by the AI watchdog below: a 20B+ parameter, non-reasoning model is recommended there to avoid false positives and slow responses"
+                      >
                         <AutoComplete
                           style={{ width: 200 }}
                           options={modelOptions}
@@ -601,6 +615,54 @@ export default function Settings() {
                         style={{ marginBottom: 0, maxWidth: 600 }}
                       />
                     )}
+
+                    <Divider />
+
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <EyeOutlined style={{ marginRight: 8 }} />
+                      AI Watchdog
+                    </Typography.Title>
+                    <Space align="center" style={{ marginBottom: 16 }}>
+                      <Form.Item name={['aiWatchdog', 'enabled']} valuePropName="checked" noStyle>
+                        <Switch />
+                      </Form.Item>
+                      <Typography.Text strong>Enable AI watchdog</Typography.Text>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Watches for problems in the background and sends a finding over the
+                      notification channels below.
+                    </Typography.Paragraph>
+                    <Space direction="vertical">
+                      <Form.Item name={['aiWatchdog', 'checkContainerEvents']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!watchdogEnabled || !aiEnabled}>
+                          Diagnose containers that crash, are OOM-killed, or fail their health
+                          check with the model above (needs AI features enabled)
+                        </Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['aiWatchdog', 'checkAuditLog']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!watchdogEnabled}>
+                          Scan the audit log for repeated failed logins or permission denials
+                        </Checkbox>
+                      </Form.Item>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640, marginTop: 8 }}>
+                      For reliable container diagnosis, use a model with at least 20B parameters
+                      and no extended "thinking"/reasoning step: smaller or reasoning models are
+                      more prone to false positives and hallucinations, and are slower to respond.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="start">
+                      <Form.Item
+                        name={['aiWatchdog', 'auditCheckIntervalMinutes']}
+                        label="Audit scan interval (minutes)"
+                      >
+                        <InputNumber
+                          min={1}
+                          max={24 * 60}
+                          disabled={!watchdogEnabled || !watchdogAuditEnabled}
+                          style={{ width: 200 }}
+                        />
+                      </Form.Item>
+                    </Space>
                   </Card>
 
                   <Card style={{ border: `1px solid ${SECURITY_COLOR_BORDER}` }}>
@@ -649,11 +711,44 @@ export default function Settings() {
                       )}
                     </Space>
                   </Card>
-
+                </Space>
+              ),
+            },
+            {
+              key: 'notifications',
+              label: notificationsTabLabel,
+              forceRender: true,
+              children: (
+                <Space direction="vertical" size="large" style={{ width: '100%' }}>
                   <Card>
                     <Typography.Title level={5} style={{ marginTop: 0 }}>
                       <BellOutlined style={{ marginRight: 8 }} />
                       Notifications
+                    </Typography.Title>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Which background events are worth being notified about. Shared by every
+                      channel below, so both send the same set of events, whichever is enabled.
+                    </Typography.Paragraph>
+                    <Space direction="vertical">
+                      <Form.Item name={['notifyEvents', 'onContainerCrash']} valuePropName="checked" noStyle>
+                        <Checkbox>A container crashes, is OOM-killed, or fails its health check</Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['notifyEvents', 'onImageUpdate']} valuePropName="checked" noStyle>
+                        <Checkbox>A scheduled image update check finds something new</Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['notifyEvents', 'onBackupFailure']} valuePropName="checked" noStyle>
+                        <Checkbox>A scheduled backup fails</Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['notifyEvents', 'onAuditAnomaly']} valuePropName="checked" noStyle>
+                        <Checkbox>The AI watchdog flags suspicious audit log activity</Checkbox>
+                      </Form.Item>
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <ApiOutlined style={{ marginRight: 8 }} />
+                      Webhook
                     </Typography.Title>
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item name={['notifications', 'enabled']} valuePropName="checked" noStyle>
@@ -662,9 +757,7 @@ export default function Settings() {
                       <Typography.Text strong>Send webhook notifications</Typography.Text>
                     </Space>
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                      Posts a message to a Discord, Slack, or generic JSON webhook for things that
-                      happen in the background: a container crash, a scheduled image update check
-                      finding something new, or a scheduled backup failing.
+                      Posts a message to a Discord, Slack, or generic JSON webhook.
                     </Typography.Paragraph>
                     <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
                       <Form.Item
@@ -709,27 +802,9 @@ export default function Settings() {
                         showIcon
                         message="Could not reach the webhook"
                         description={notifTestError}
-                        style={{ marginBottom: 16, maxWidth: 600 }}
+                        style={{ marginBottom: 0, maxWidth: 600 }}
                       />
                     )}
-                    <Typography.Title level={5} style={{ marginTop: 8 }}>
-                      Notify me when
-                    </Typography.Title>
-                    <Space direction="vertical">
-                      <Form.Item name={['notifications', 'onContainerCrash']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!notificationsEnabled}>
-                          A container crashes, is OOM-killed, or fails its health check
-                        </Checkbox>
-                      </Form.Item>
-                      <Form.Item name={['notifications', 'onImageUpdate']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!notificationsEnabled}>
-                          A scheduled image update check finds something new
-                        </Checkbox>
-                      </Form.Item>
-                      <Form.Item name={['notifications', 'onBackupFailure']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!notificationsEnabled}>A scheduled backup fails</Checkbox>
-                      </Form.Item>
-                    </Space>
                   </Card>
 
                   <Card>
@@ -748,7 +823,7 @@ export default function Settings() {
                       <a href="https://ntfy.sh" target="_blank" rel="noreferrer">
                         ntfy
                       </a>{' '}
-                      (public or a self-hosted server) for Challoupe events.
+                      (public or a self-hosted server).
                     </Typography.Paragraph>
                     <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
                       <Space size="large" wrap align="start">
@@ -794,27 +869,9 @@ export default function Settings() {
                         showIcon
                         message="Could not reach ntfy"
                         description={ntfyTestError}
-                        style={{ marginBottom: 16, maxWidth: 600 }}
+                        style={{ marginBottom: 0, maxWidth: 600 }}
                       />
                     )}
-                    <Typography.Title level={5} style={{ marginTop: 8 }}>
-                      Notify me when
-                    </Typography.Title>
-                    <Space direction="vertical">
-                      <Form.Item name={['ntfy', 'onContainerCrash']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!ntfyEnabled}>
-                          A container crashes, is OOM-killed, or fails its health check
-                        </Checkbox>
-                      </Form.Item>
-                      <Form.Item name={['ntfy', 'onImageUpdate']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!ntfyEnabled}>
-                          A scheduled image update check finds something new
-                        </Checkbox>
-                      </Form.Item>
-                      <Form.Item name={['ntfy', 'onBackupFailure']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!ntfyEnabled}>A scheduled backup fails</Checkbox>
-                      </Form.Item>
-                    </Space>
                   </Card>
                 </Space>
               ),

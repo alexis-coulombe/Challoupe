@@ -1,8 +1,10 @@
 import { api } from '../api';
 import type {
+  AiWatchdogSettings,
   AppSettings,
   FeatureFlags,
   ImageUpdateCheckSettings,
+  NotificationEvents,
   NotificationSettings,
   NtfySettings,
   OidcSettings,
@@ -16,8 +18,10 @@ const NESTED_KEYS = [
   'imageUpdateCheck',
   'scheduledBackup',
   'terminalTheme',
+  'notifyEvents',
   'notifications',
   'ntfy',
+  'aiWatchdog',
 ] as const;
 
 // Mirrors the server's SettingsUpdate (routes/settings.ts): every field, including nested
@@ -28,8 +32,10 @@ export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[numb
   imageUpdateCheck?: Partial<ImageUpdateCheckSettings>;
   scheduledBackup?: Partial<ScheduledBackupSettings>;
   terminalTheme?: Partial<TerminalThemeSettings>;
+  notifyEvents?: Partial<NotificationEvents>;
   notifications?: Partial<NotificationSettings>;
   ntfy?: Partial<NtfySettings>;
+  aiWatchdog?: Partial<AiWatchdogSettings>;
 };
 
 export class SettingsApi {

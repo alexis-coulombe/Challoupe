@@ -7,6 +7,7 @@ import { imageUpdateService } from '../imageUpdates.js';
 import { scheduledBackupService } from '../scheduledBackups.js';
 import { userRepository } from '../auth.js';
 import { stackService } from '../stacks.js';
+import { auditWatchdogService } from '../auditWatchdog.js';
 
 // Both are write-only from the API's point of view: the settings form always shows a
 // blank field and treats blank-on-save as "leave unchanged".
@@ -63,14 +64,19 @@ const updateSchema = z
         cursor: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Must be a hex color'),
       })
       .partial(),
+    notifyEvents: z
+      .object({
+        onContainerCrash: z.boolean(),
+        onImageUpdate: z.boolean(),
+        onBackupFailure: z.boolean(),
+        onAuditAnomaly: z.boolean(),
+      })
+      .partial(),
     notifications: z
       .object({
         enabled: z.boolean(),
         webhookUrl: z.string().max(500).refine((v) => v === '' || /^https?:\/\//.test(v), 'Must be a valid URL'),
         format: z.enum(['generic', 'discord', 'slack']),
-        onContainerCrash: z.boolean(),
-        onImageUpdate: z.boolean(),
-        onBackupFailure: z.boolean(),
       })
       .partial(),
     ntfy: z
@@ -80,9 +86,14 @@ const updateSchema = z
         topic: z.string().max(100),
         username: z.string().max(200),
         password: z.string().max(500),
-        onContainerCrash: z.boolean(),
-        onImageUpdate: z.boolean(),
-        onBackupFailure: z.boolean(),
+      })
+      .partial(),
+    aiWatchdog: z
+      .object({
+        enabled: z.boolean(),
+        checkContainerEvents: z.boolean(),
+        checkAuditLog: z.boolean(),
+        auditCheckIntervalMinutes: z.number().int().min(1).max(24 * 60),
       })
       .partial(),
   })
@@ -111,6 +122,7 @@ export class SettingsController {
     if (body.oidc) oidcConfigProvider.resetCache();
     if (body.imageUpdateCheck) imageUpdateService.restartScheduler();
     if (body.scheduledBackup) scheduledBackupService.restartScheduler();
+    if (body.aiWatchdog) auditWatchdogService.restartScheduler();
     res.json(redactSecrets(updated));
   };
 
@@ -124,6 +136,7 @@ export class SettingsController {
     oidcConfigProvider.resetCache();
     imageUpdateService.restartScheduler();
     scheduledBackupService.restartScheduler();
+    auditWatchdogService.restartScheduler();
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

@@ -34,10 +34,11 @@ describe('NotificationService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('respects the per-event toggle even when enabled with a URL', async () => {
+  it('respects the shared per-event toggle even when enabled with a URL', async () => {
     const fetchMock = mockFetchOk();
     settingsService.update({
-      notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x', onContainerCrash: false },
+      notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+      notifyEvents: { onContainerCrash: false },
     });
     await notificationService.notifyContainerEvent('app', 'crashed (exit code 1)');
     expect(fetchMock).not.toHaveBeenCalled();
@@ -108,9 +109,12 @@ describe('NotificationService', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('respects its own per-event toggle', async () => {
+    it('respects the same shared per-event toggle as the webhook', async () => {
       const fetchMock = mockFetchOk();
-      settingsService.update({ ntfy: { enabled: true, topic: 'challoupe', onContainerCrash: false } });
+      settingsService.update({
+        ntfy: { enabled: true, topic: 'challoupe' },
+        notifyEvents: { onContainerCrash: false },
+      });
       await notificationService.notifyContainerEvent('app', 'crashed (exit code 1)');
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -151,6 +155,17 @@ describe('NotificationService', () => {
       expect(fetchMock).toHaveBeenCalledWith('https://ntfy.sh/challoupe', expect.anything());
     });
 
+    it('turning an event off applies to both channels at once, since they share one settings', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+        ntfy: { enabled: true, topic: 'challoupe' },
+        notifyEvents: { onContainerCrash: false },
+      });
+      await notificationService.notifyContainerEvent('app', 'crashed');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('swallows an ntfy failure instead of throwing, independently of the webhook', async () => {
       globalThis.fetch = vi.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
       settingsService.update({ ntfy: { enabled: true, topic: 'challoupe' } });
@@ -175,6 +190,30 @@ describe('NotificationService', () => {
           notificationService.sendNtfyTest({ serverUrl: 'https://ntfy.sh', topic: 'challoupe', username: '', password: '' })
         ).rejects.toThrow('ntfy responded with 500');
       });
+    });
+  });
+
+  describe('notifyAuditAnomaly', () => {
+    it('respects the onAuditAnomaly toggle independently of the other event types', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+        notifyEvents: { onAuditAnomaly: false },
+      });
+      await notificationService.notifyAuditAnomaly('5 failed login attempts for "admin"');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('posts a message over the webhook and ntfy when enabled', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+        ntfy: { enabled: true, topic: 'challoupe' },
+      });
+      await notificationService.notifyAuditAnomaly('5 failed login attempts for "admin"');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      expect(body.message).toContain('Audit log watchdog: 5 failed login attempts for "admin".');
     });
   });
 });

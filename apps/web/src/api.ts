@@ -244,14 +244,19 @@ export interface TerminalThemeSettings {
 
 export type NotificationFormat = 'generic' | 'discord' | 'slack';
 
+// Which background events are worth notifying about, shared by every channel below.
+export interface NotificationEvents {
+  onContainerCrash: boolean;
+  onImageUpdate: boolean;
+  onBackupFailure: boolean;
+  onAuditAnomaly: boolean;
+}
+
 // webhookUrl is always returned blank by the API
 export interface NotificationSettings {
   enabled: boolean;
   webhookUrl: string;
   format: NotificationFormat;
-  onContainerCrash: boolean;
-  onImageUpdate: boolean;
-  onBackupFailure: boolean;
 }
 
 // password is always returned blank by the API
@@ -261,9 +266,13 @@ export interface NtfySettings {
   topic: string;
   username: string;
   password: string;
-  onContainerCrash: boolean;
-  onImageUpdate: boolean;
-  onBackupFailure: boolean;
+}
+
+export interface AiWatchdogSettings {
+  enabled: boolean;
+  checkContainerEvents: boolean;
+  checkAuditLog: boolean;
+  auditCheckIntervalMinutes: number;
 }
 
 export interface AppSettings {
@@ -281,8 +290,10 @@ export interface AppSettings {
   imageUpdateCheck: ImageUpdateCheckSettings;
   scheduledBackup: ScheduledBackupSettings;
   terminalTheme: TerminalThemeSettings;
+  notifyEvents: NotificationEvents;
   notifications: NotificationSettings;
   ntfy: NtfySettings;
+  aiWatchdog: AiWatchdogSettings;
 }
 
 export interface OidcLoginConfig {

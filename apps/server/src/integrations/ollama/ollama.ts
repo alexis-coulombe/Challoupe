@@ -26,6 +26,30 @@ export async function listOllamaModels(baseUrl: string): Promise<string[]> {
 const CHAT_STREAM_TIMEOUT_MS = 5 * 60 * 1000;
 
 /**
+ * Send Ollama prompt
+ * @param baseUrl string
+ * @param model string
+ * @param messages string
+ * @returns string
+ */
+export async function ollamaChat(baseUrl: string, model: string, messages: OllamaChatMessage[]): Promise<string> {
+  const res = await fetch(`${trimBaseUrl(baseUrl)}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages, stream: false }),
+    signal: AbortSignal.timeout(CHAT_STREAM_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`Ollama responded with ${res.status}`);
+  }
+  const data = (await res.json()) as { message?: { content?: string }; error?: string };
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  return data.message?.content ?? '';
+}
+
+/**
  * Streams assistant tokens as they arrive from Ollama's newline-delimited-JSON chat endpoint.
  * @param baseUrl string
  * @param model string

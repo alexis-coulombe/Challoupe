@@ -16,8 +16,20 @@ vi.mock('../src/integrations/notifications/notifications.js', () => ({
   notificationService: { notifyContainerEvent: mockNotifyContainerEvent },
 }));
 
+const mockDiagnose = vi.fn();
+vi.mock('../src/containerWatchdog.js', () => ({
+  containerWatchdog: { diagnose: mockDiagnose },
+}));
+
 const { app, server } = await import('../src/index.js');
 const { db } = await import('../src/db.js');
+const { settingsService } = await import('../src/settings.js');
+
+// The broadcaster only ever calls docker.getEvents() once (its "streamStarted" guard is a
+// module-level singleton that outlives any single test), so every test in this file must
+// push onto this same stream rather than handing the mock a fresh one each time.
+const eventStream = new Readable({ read() {} });
+mockDocker.getEvents.mockResolvedValue(eventStream);
 
 let port: number;
 
@@ -59,8 +71,6 @@ describe('WS /events', () => {
 
   it('broadcasts a crash notification but filters out a clean exit and unrelated events', async () => {
     const cookie = await loginCookie();
-    const stream = new Readable({ read() {} });
-    mockDocker.getEvents.mockResolvedValue(stream);
 
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/events`, { headers: { Cookie: cookie } });
     await new Promise<void>((resolve, reject) => {
@@ -86,7 +96,7 @@ describe('WS /events', () => {
         time: 3,
       },
     ];
-    for (const event of events) stream.push(JSON.stringify(event) + '\n');
+    for (const event of events) eventStream.push(JSON.stringify(event) + '\n');
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     await closeAndWait(ws);
@@ -96,6 +106,69 @@ describe('WS /events', () => {
     ]);
     // Only the crash reaches the notification service, same filtering as the WS broadcast.
     expect(mockNotifyContainerEvent).toHaveBeenCalledOnce();
+    expect(mockNotifyContainerEvent).toHaveBeenCalledWith('db', 'crashed (exit code 137)');
+  });
+
+  it('enriches the notification with the AI watchdog diagnosis when it flags something', async () => {
+    settingsService.update({
+      featureFlags: { aiAssistant: true },
+      aiWatchdog: { enabled: true, checkContainerEvents: true },
+    });
+    mockDiagnose.mockResolvedValue('the app is missing a required environment variable');
+
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/events`, { headers: { Cookie: cookie } });
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+
+    eventStream.push(
+      JSON.stringify({
+        Type: 'container',
+        Action: 'die',
+        Actor: { ID: 'ccc', Attributes: { name: 'db', exitCode: '137' } },
+        time: 3,
+      }) + '\n'
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await closeAndWait(ws);
+
+    expect(mockDiagnose).toHaveBeenCalledWith('ccc', 'db', 'crashed (exit code 137)');
+    expect(mockNotifyContainerEvent).toHaveBeenCalledWith(
+      'db',
+      'crashed (exit code 137) AI diagnosis: the app is missing a required environment variable'
+    );
+  });
+
+  it('falls back to the plain notification when the watchdog is enabled but finds nothing notable', async () => {
+    settingsService.update({
+      featureFlags: { aiAssistant: true },
+      aiWatchdog: { enabled: true, checkContainerEvents: true },
+    });
+    mockDiagnose.mockResolvedValue(null);
+
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/events`, { headers: { Cookie: cookie } });
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+
+    eventStream.push(
+      JSON.stringify({
+        Type: 'container',
+        Action: 'die',
+        Actor: { ID: 'ccc', Attributes: { name: 'db', exitCode: '137' } },
+        time: 3,
+      }) + '\n'
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await closeAndWait(ws);
+
+    expect(mockDiagnose).toHaveBeenCalledOnce();
     expect(mockNotifyContainerEvent).toHaveBeenCalledWith('db', 'crashed (exit code 137)');
   });
 });

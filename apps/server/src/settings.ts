@@ -86,6 +86,20 @@ const TERMINAL_THEME_DEFAULTS: TerminalThemeSettings = {
 
 export type NotificationFormat = 'generic' | 'discord' | 'slack';
 
+export interface NotificationEvents {
+  onContainerCrash: boolean;
+  onImageUpdate: boolean;
+  onBackupFailure: boolean;
+  onAuditAnomaly: boolean;
+}
+
+const NOTIFICATION_EVENTS_DEFAULTS: NotificationEvents = {
+  onContainerCrash: true,
+  onImageUpdate: true,
+  onBackupFailure: true,
+  onAuditAnomaly: true,
+};
+
 /**
  * A webhook that gets posted to for background events
  */
@@ -93,18 +107,12 @@ export interface NotificationSettings {
   enabled: boolean;
   webhookUrl: string;
   format: NotificationFormat;
-  onContainerCrash: boolean;
-  onImageUpdate: boolean;
-  onBackupFailure: boolean;
 }
 
 const NOTIFICATION_DEFAULTS: NotificationSettings = {
   enabled: false,
   webhookUrl: '',
   format: 'generic',
-  onContainerCrash: true,
-  onImageUpdate: true,
-  onBackupFailure: true,
 };
 
 /**
@@ -116,9 +124,6 @@ export interface NtfySettings {
   topic: string;
   username: string;
   password: string;
-  onContainerCrash: boolean;
-  onImageUpdate: boolean;
-  onBackupFailure: boolean;
 }
 
 const NTFY_DEFAULTS: NtfySettings = {
@@ -127,9 +132,26 @@ const NTFY_DEFAULTS: NtfySettings = {
   topic: '',
   username: '',
   password: '',
-  onContainerCrash: true,
-  onImageUpdate: true,
-  onBackupFailure: true,
+};
+
+/**
+ * Uses the local Ollama model to look at containers that just crashed or restarted, and a
+ * scheduled rule-based scan of the audit log, to flag things worth a human's attention.
+ * Requires featureFlags.aiAssistant for the container check (it calls Ollama); the audit
+ * check is plain SQL and doesn't.
+ */
+export interface AiWatchdogSettings {
+  enabled: boolean;
+  checkContainerEvents: boolean;
+  checkAuditLog: boolean;
+  auditCheckIntervalMinutes: number;
+}
+
+const AI_WATCHDOG_DEFAULTS: AiWatchdogSettings = {
+  enabled: false,
+  checkContainerEvents: true,
+  checkAuditLog: true,
+  auditCheckIntervalMinutes: 15,
 };
 
 export interface AppSettings {
@@ -149,8 +171,10 @@ export interface AppSettings {
   imageUpdateCheck: ImageUpdateCheckSettings;
   scheduledBackup: ScheduledBackupSettings;
   terminalTheme: TerminalThemeSettings;
+  notifyEvents: NotificationEvents;
   notifications: NotificationSettings;
   ntfy: NtfySettings;
+  aiWatchdog: AiWatchdogSettings;
 }
 
 const NESTED_KEYS = [
@@ -159,8 +183,10 @@ const NESTED_KEYS = [
   'imageUpdateCheck',
   'scheduledBackup',
   'terminalTheme',
+  'notifyEvents',
   'notifications',
   'ntfy',
+  'aiWatchdog',
 ] as const;
 
 const DEFAULTS: Omit<AppSettings, (typeof NESTED_KEYS)[number]> = {
@@ -181,8 +207,10 @@ export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[numb
   imageUpdateCheck?: Partial<ImageUpdateCheckSettings>;
   scheduledBackup?: Partial<ScheduledBackupSettings>;
   terminalTheme?: Partial<TerminalThemeSettings>;
+  notifyEvents?: Partial<NotificationEvents>;
   notifications?: Partial<NotificationSettings>;
   ntfy?: Partial<NtfySettings>;
+  aiWatchdog?: Partial<AiWatchdogSettings>;
 };
 
 /**
@@ -238,6 +266,12 @@ export class SettingsService {
       if (raw !== undefined) terminalTheme[field] = raw;
     }
 
+    const notifyEvents = { ...NOTIFICATION_EVENTS_DEFAULTS };
+    for (const field of Object.keys(notifyEvents) as Array<keyof NotificationEvents>) {
+      const raw = stored[`notifyEvents.${field}`];
+      if (raw !== undefined) notifyEvents[field] = raw === 'true';
+    }
+
     const notifications = { ...NOTIFICATION_DEFAULTS };
     for (const field of Object.keys(notifications) as Array<keyof NotificationSettings>) {
       const raw = stored[`notifications.${field}`];
@@ -258,6 +292,20 @@ export class SettingsService {
       }
     }
 
+    const aiWatchdog = { ...AI_WATCHDOG_DEFAULTS };
+    if (stored['aiWatchdog.enabled'] !== undefined) {
+      aiWatchdog.enabled = stored['aiWatchdog.enabled'] === 'true';
+    }
+    if (stored['aiWatchdog.checkContainerEvents'] !== undefined) {
+      aiWatchdog.checkContainerEvents = stored['aiWatchdog.checkContainerEvents'] === 'true';
+    }
+    if (stored['aiWatchdog.checkAuditLog'] !== undefined) {
+      aiWatchdog.checkAuditLog = stored['aiWatchdog.checkAuditLog'] === 'true';
+    }
+    if (stored['aiWatchdog.auditCheckIntervalMinutes'] !== undefined) {
+      aiWatchdog.auditCheckIntervalMinutes = Number(stored['aiWatchdog.auditCheckIntervalMinutes']);
+    }
+
     return {
       defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
       refreshIntervalMs: stored.refreshIntervalMs
@@ -275,8 +323,10 @@ export class SettingsService {
       imageUpdateCheck,
       scheduledBackup,
       terminalTheme,
+      notifyEvents,
       notifications,
       ntfy,
+      aiWatchdog,
     };
   }
 
@@ -322,6 +372,13 @@ export class SettingsService {
         }
         continue;
       }
+      if (key === 'notifyEvents') {
+        for (const [field, val] of Object.entries(value as Partial<NotificationEvents>)) {
+          if (val === undefined) continue;
+          upsert.run(`notifyEvents.${field}`, String(val));
+        }
+        continue;
+      }
       if (key === 'notifications') {
         for (const [field, val] of Object.entries(value as Partial<NotificationSettings>)) {
           if (val === undefined) continue;
@@ -335,6 +392,13 @@ export class SettingsService {
           if (val === undefined) continue;
           if (field === 'password' && val === '') continue; // blank = leave the stored password unchanged
           upsert.run(`ntfy.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'aiWatchdog') {
+        for (const [field, val] of Object.entries(value as Partial<AiWatchdogSettings>)) {
+          if (val === undefined) continue;
+          upsert.run(`aiWatchdog.${field}`, String(val));
         }
         continue;
       }

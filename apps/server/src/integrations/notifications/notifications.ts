@@ -12,7 +12,7 @@ export interface NtfyTarget {
   password: string;
 }
 
-type NotificationKind = 'onContainerCrash' | 'onImageUpdate' | 'onBackupFailure';
+type NotificationKind = 'onContainerCrash' | 'onImageUpdate' | 'onBackupFailure' | 'onAuditAnomaly';
 
 function buildPayload(format: NotificationFormat, message: string): unknown {
   if (format === 'discord') return { content: `**Challoupe** ${message}` };
@@ -48,14 +48,14 @@ export class NotificationService {
   }
 
   private targetFor(kind: NotificationKind): WebhookTarget | null {
-    const { notifications } = this.settings.get();
-    if (!notifications.enabled || !notifications.webhookUrl || !notifications[kind]) return null;
+    const { notifications, notifyEvents } = this.settings.get();
+    if (!notifications.enabled || !notifications.webhookUrl || !notifyEvents[kind]) return null;
     return { webhookUrl: notifications.webhookUrl, format: notifications.format };
   }
 
   private ntfyTargetFor(kind: NotificationKind): NtfyTarget | null {
-    const { ntfy } = this.settings.get();
-    if (!ntfy.enabled || !ntfy.topic || !ntfy[kind]) return null;
+    const { ntfy, notifyEvents } = this.settings.get();
+    if (!ntfy.enabled || !ntfy.topic || !notifyEvents[kind]) return null;
     return { serverUrl: ntfy.serverUrl, topic: ntfy.topic, username: ntfy.username, password: ntfy.password };
   }
 
@@ -89,6 +89,10 @@ export class NotificationService {
 
   notifyBackupFailure(error: string): Promise<void> {
     return this.send('onBackupFailure', `Scheduled backup failed: ${error}`);
+  }
+
+  notifyAuditAnomaly(summary: string): Promise<void> {
+    return this.send('onAuditAnomaly', `Audit log watchdog: ${summary}.`);
   }
 
   // Bypasses the enabled/per-event settings so a value can be tested before it's saved;

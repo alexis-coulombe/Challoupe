@@ -26,13 +26,16 @@ const DEFAULTS = {
   imageUpdateCheck: { enabled: false, intervalHours: 24 },
   scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
   terminalTheme: { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' },
+  notifyEvents: {
+    onContainerCrash: true,
+    onImageUpdate: true,
+    onBackupFailure: true,
+    onAuditAnomaly: true,
+  },
   notifications: {
     enabled: false,
     webhookUrl: '',
     format: 'generic',
-    onContainerCrash: true,
-    onImageUpdate: true,
-    onBackupFailure: true,
   },
   ntfy: {
     enabled: false,
@@ -40,9 +43,12 @@ const DEFAULTS = {
     topic: '',
     username: '',
     password: '',
-    onContainerCrash: true,
-    onImageUpdate: true,
-    onBackupFailure: true,
+  },
+  aiWatchdog: {
+    enabled: false,
+    checkContainerEvents: true,
+    checkAuditLog: true,
+    auditCheckIntervalMinutes: 15,
   },
 };
 
@@ -109,13 +115,16 @@ describe('PUT /api/settings', () => {
       },
       imageUpdateCheck: { enabled: true, intervalHours: 6 },
       terminalTheme: { background: '#ffffff', foreground: '#111111', cursor: '#ff0000' },
+      notifyEvents: {
+        onContainerCrash: true,
+        onImageUpdate: false,
+        onBackupFailure: true,
+        onAuditAnomaly: false,
+      },
       notifications: {
         enabled: true,
         webhookUrl: 'https://discord.com/api/webhooks/x/y',
         format: 'discord',
-        onContainerCrash: true,
-        onImageUpdate: false,
-        onBackupFailure: true,
       },
       ntfy: {
         enabled: true,
@@ -123,9 +132,12 @@ describe('PUT /api/settings', () => {
         topic: 'challoupe',
         username: 'admin',
         password: 'shh',
-        onContainerCrash: true,
-        onImageUpdate: false,
-        onBackupFailure: true,
+      },
+      aiWatchdog: {
+        enabled: true,
+        checkContainerEvents: false,
+        checkAuditLog: true,
+        auditCheckIntervalMinutes: 30,
       },
     });
     expect(res.status).toBe(200);
@@ -152,14 +164,17 @@ describe('PUT /api/settings', () => {
       imageUpdateCheck: { enabled: true, intervalHours: 6 },
       scheduledBackup: { enabled: false, intervalHours: 24, keepCount: 7 },
       terminalTheme: { background: '#ffffff', foreground: '#111111', cursor: '#ff0000' },
+      notifyEvents: {
+        onContainerCrash: true,
+        onImageUpdate: false,
+        onBackupFailure: true,
+        onAuditAnomaly: false,
+      },
       // Same write-only treatment as the OIDC client secret above.
       notifications: {
         enabled: true,
         webhookUrl: '',
         format: 'discord',
-        onContainerCrash: true,
-        onImageUpdate: false,
-        onBackupFailure: true,
       },
       // Same write-only treatment for the ntfy password.
       ntfy: {
@@ -168,9 +183,12 @@ describe('PUT /api/settings', () => {
         topic: 'challoupe',
         username: 'admin',
         password: '',
-        onContainerCrash: true,
-        onImageUpdate: false,
-        onBackupFailure: true,
+      },
+      aiWatchdog: {
+        enabled: true,
+        checkContainerEvents: false,
+        checkAuditLog: true,
+        auditCheckIntervalMinutes: 30,
       },
     });
   });
@@ -273,9 +291,6 @@ describe('PUT /api/settings', () => {
       enabled: true,
       webhookUrl: '',
       format: 'discord',
-      onContainerCrash: true,
-      onImageUpdate: true,
-      onBackupFailure: true,
     });
   });
 
@@ -287,9 +302,9 @@ describe('PUT /api/settings', () => {
 
     const res = await admin
       .put('/api/settings')
-      .send({ notifications: { webhookUrl: '', onImageUpdate: false } });
+      .send({ notifications: { webhookUrl: '' }, notifyEvents: { onImageUpdate: false } });
     expect(res.status).toBe(200);
-    expect(res.body.notifications.onImageUpdate).toBe(false);
+    expect(res.body.notifyEvents.onImageUpdate).toBe(false);
     expect(res.body.notifications.webhookUrl).toBe(''); // never echoed back
 
     // Not readable back over the API by design, so check the stored value directly.
@@ -317,9 +332,6 @@ describe('PUT /api/settings', () => {
       topic: 'challoupe',
       username: 'admin',
       password: '',
-      onContainerCrash: true,
-      onImageUpdate: true,
-      onBackupFailure: true,
     });
   });
 
@@ -327,9 +339,11 @@ describe('PUT /api/settings', () => {
     const { agent: admin } = await createAdminAgent(app);
     await admin.put('/api/settings').send({ ntfy: { password: 'first-password' } });
 
-    const res = await admin.put('/api/settings').send({ ntfy: { password: '', onImageUpdate: false } });
+    const res = await admin
+      .put('/api/settings')
+      .send({ ntfy: { password: '' }, notifyEvents: { onImageUpdate: false } });
     expect(res.status).toBe(200);
-    expect(res.body.ntfy.onImageUpdate).toBe(false);
+    expect(res.body.notifyEvents.onImageUpdate).toBe(false);
     expect(res.body.ntfy.password).toBe(''); // never echoed back
 
     // Not readable back over the API by design, so check the stored value directly.
@@ -342,6 +356,38 @@ describe('PUT /api/settings', () => {
   it('rejects an invalid ntfy server URL', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.put('/api/settings').send({ ntfy: { serverUrl: 'not-a-url' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets an admin change which events to notify about, shared by both channels at once', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ notifyEvents: { onContainerCrash: false } });
+    expect(res.status).toBe(200);
+    expect(res.body.notifyEvents).toEqual({
+      onContainerCrash: false,
+      onImageUpdate: true,
+      onBackupFailure: true,
+      onAuditAnomaly: true,
+    });
+  });
+
+  it('lets an admin turn on the AI watchdog independently of the other settings', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin
+      .put('/api/settings')
+      .send({ aiWatchdog: { enabled: true, checkContainerEvents: false } });
+    expect(res.status).toBe(200);
+    expect(res.body.aiWatchdog).toEqual({
+      enabled: true,
+      checkContainerEvents: false,
+      checkAuditLog: true,
+      auditCheckIntervalMinutes: 15,
+    });
+  });
+
+  it('rejects an audit scan interval outside the allowed range', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ aiWatchdog: { auditCheckIntervalMinutes: 0 } });
     expect(res.status).toBe(400);
   });
 
