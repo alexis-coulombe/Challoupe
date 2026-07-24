@@ -33,7 +33,7 @@ describe('GET /api/audit-log', () => {
   it('records a permission-denied attempt from a non-admin', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const agent = await createUserAgent(app, admin, 'viewer');
-    await agent.post('/api/containers').send({ image: 'alpine:latest' });
+    await agent.post('/api/hosts/local/containers').send({ image: 'alpine:latest' });
 
     const res = await admin.get('/api/audit-log');
     const denied = res.body.find((e: { action: string }) => e.action === 'permission.denied');

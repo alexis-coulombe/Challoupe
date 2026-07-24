@@ -7,6 +7,7 @@ import { MemoryRouter } from 'react-router-dom';
 import Containers from '../../src/pages/Containers';
 import { api } from '../../src/api';
 import { AuthProvider } from '../../src/auth';
+import { HostProvider } from '../../src/hosts';
 
 vi.mock('../../src/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../src/api')>();
@@ -28,7 +29,9 @@ function renderContainers() {
       <AntApp>
         <MemoryRouter>
           <AuthProvider>
-            <Containers />
+            <HostProvider>
+              <Containers />
+            </HostProvider>
           </AuthProvider>
         </MemoryRouter>
       </AntApp>
@@ -39,8 +42,9 @@ function renderContainers() {
 describe('Containers create form', () => {
   beforeEach(() => {
     vi.mocked(api.get).mockImplementation(async (path: string) => {
-      if (path === '/containers') return [];
-      if (path === '/networks') return [];
+      if (path === '/hosts/local/containers') return [];
+      if (path === '/hosts/local/networks') return [];
+      if (path === '/hosts') return [];
       if (path === '/settings') return { defaultRestartPolicy: 'no' };
       if (path === '/auth/status') {
         return { setupRequired: false, user: { id: 1, username: 'admin', role: 'admin', created_at: '' } };
@@ -60,7 +64,7 @@ describe('Containers create form', () => {
 
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith(
-        '/containers',
+        '/hosts/local/containers',
         expect.objectContaining({
           image: 'alpine:latest',
           command: [],
@@ -91,7 +95,7 @@ describe('Containers create form', () => {
 
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith(
-        '/containers',
+        '/hosts/local/containers',
         expect.objectContaining({
           image: 'myapp:latest',
           command: ['npm', 'run', 'start'],

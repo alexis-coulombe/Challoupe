@@ -1,7 +1,7 @@
 import { useState, type Key } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App as AntApp, Button, Space, Table, Tag, Tooltip } from 'antd';
+import { Alert, App as AntApp, Button, Space, Table, Tag, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CaretRightOutlined,
@@ -15,6 +15,7 @@ import { hasPermission, type ComposeResult, type StackSummary } from '../api';
 import { runBulk, STACK_STATUS, TABLE_PAGINATION } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { stacksApi } from '../services/stacksApi';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
@@ -27,6 +28,7 @@ export default function Stacks() {
   const queryClient = useQueryClient();
   const { message, modal } = AntApp.useApp();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageStacks');
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [importOpen, setImportOpen] = useState(false);
@@ -191,6 +193,15 @@ export default function Stacks() {
           </Space>
         )}
       </ListPageHeader>
+      {hostId !== 'local' && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Stacks always run on the local Docker host"
+          description="Compose deployments shell out to the docker compose CLI directly, which can't ride the SSH connection used for remote hosts yet. This list and its actions only ever affect stacks on Local, regardless of the host selected above."
+        />
+      )}
       {canManage && <ImportFromPortainerModal open={importOpen} onClose={() => setImportOpen(false)} />}
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
         {canManage && (

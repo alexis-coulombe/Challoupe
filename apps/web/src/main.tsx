@@ -8,6 +8,7 @@ import 'antd/dist/reset.css';
 import './index.css';
 import App from './App';
 import { AuthProvider } from './auth';
+import { HostProvider } from './hosts';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,7 +57,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <AntApp>
           <BrowserRouter>
             <AuthProvider>
-              <App />
+              <HostProvider>
+                <App />
+              </HostProvider>
             </AuthProvider>
           </BrowserRouter>
         </AntApp>

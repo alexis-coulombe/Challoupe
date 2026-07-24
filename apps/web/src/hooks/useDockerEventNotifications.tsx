@@ -12,6 +12,7 @@ interface DockerEventMessage {
   containerName: string;
   exitCode?: number;
   time: number;
+  hostId: string;
 }
 
 const DESCRIPTION: Record<DockerEventAction, (m: DockerEventMessage) => string> = {

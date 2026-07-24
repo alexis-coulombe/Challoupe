@@ -24,8 +24,16 @@ function StatTile({ label, value, color, children }: StatTileProps) {
   );
 }
 
-export default function ContainerStats({ containerId, running }: { containerId: string; running: boolean }) {
-  const stats = useContainerStats(containerId, running);
+export default function ContainerStats({
+  hostId,
+  containerId,
+  running,
+}: {
+  hostId: string;
+  containerId: string;
+  running: boolean;
+}) {
+  const stats = useContainerStats(hostId, containerId, running);
 
   if (!running) {
     return (

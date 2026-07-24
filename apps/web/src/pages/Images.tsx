@@ -35,6 +35,7 @@ import {
 } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { useBulkAction } from '../hooks/useBulkAction';
 import { imagesApi } from '../services/imagesApi';
 import { trivyApi } from '../services/trivyApi';
@@ -149,14 +150,14 @@ interface GitBuildForm {
   buildArgs?: Array<{ value: string }>;
 }
 
-function BuildFromGitButton({ onBuilt }: { onBuilt: () => void }) {
+function BuildFromGitButton({ hostId, onBuilt }: { hostId: string; onBuilt: () => void }) {
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm<GitBuildForm>();
   const { message } = AntApp.useApp();
 
   const buildMutation = useMutation({
     mutationFn: (values: GitBuildForm) =>
-      imagesApi.buildFromGit({
+      imagesApi.buildFromGit(hostId, {
         repoUrl: values.repoUrl,
         ref: values.ref || undefined,
         subdir: values.subdir || undefined,
@@ -267,6 +268,7 @@ export default function Images() {
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageImages');
   const [pullRef, setPullRef] = useState('');
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
@@ -275,14 +277,14 @@ export default function Images() {
     settings?.featureFlags.vulnerabilityScanner !== false && hasPermission(user, 'useSecurityScanner');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['images'],
-    queryFn: () => imagesApi.list(),
+    queryKey: ['images', hostId],
+    queryFn: () => imagesApi.list(hostId),
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['images'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['images', hostId] });
 
   const pullMutation = useMutation({
-    mutationFn: (reference: string) => imagesApi.pull(reference),
+    mutationFn: (reference: string) => imagesApi.pull(hostId, reference),
     onSuccess: () => {
       message.success('Image pulled');
       setPullRef('');
@@ -292,7 +294,7 @@ export default function Images() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (ref: string) => imagesApi.remove(ref),
+    mutationFn: (ref: string) => imagesApi.remove(hostId, ref),
     onSuccess: () => {
       message.success('Image deleted');
       invalidate();
@@ -301,7 +303,7 @@ export default function Images() {
   });
 
   const pruneMutation = useMutation({
-    mutationFn: () => imagesApi.prune(),
+    mutationFn: () => imagesApi.prune(hostId),
     onSuccess: (result) => {
       message.success(`Prune complete: ${formatBytes(result.spaceReclaimed)} reclaimed`);
       invalidate();
@@ -310,7 +312,7 @@ export default function Images() {
   });
 
   const checkUpdateMutation = useMutation({
-    mutationFn: (id: string) => imagesApi.checkUpdate(id),
+    mutationFn: (id: string) => imagesApi.checkUpdate(hostId, id),
     onSuccess: (result) => {
       if (result.updateAvailable === true) message.info(`Update available for ${result.reference}`);
       else if (result.updateAvailable === false) message.success(`${result.reference} is up to date`);
@@ -321,7 +323,7 @@ export default function Images() {
   });
 
   const checkAllUpdatesMutation = useMutation({
-    mutationFn: () => imagesApi.checkUpdates(),
+    mutationFn: () => imagesApi.checkUpdates(hostId),
     onSuccess: (result) => {
       message.success(`Checked ${result.checked} image(s) : ${result.updatesAvailable} update(s) available`);
       if (result.errors.length) message.warning(`${result.errors.length} check(s) could not be completed`);
@@ -332,10 +334,10 @@ export default function Images() {
 
   const byId = new Map((data ?? []).map((i) => [i.id, i]));
   const bulkRemoveMutation = useBulkAction<string>({
-    queryKey: ['images'],
+    queryKey: ['images', hostId],
     run: (id) => {
       const ref = byId.get(id)?.tags[0] ?? id;
-      return imagesApi.remove(ref);
+      return imagesApi.remove(hostId, ref);
     },
     successLabel: (count) => `${count} image(s) deleted`,
     onSettled: () => setSelectedKeys([]),
@@ -433,7 +435,7 @@ export default function Images() {
             >
               Check for updates
             </Button>
-            <BuildFromGitButton onBuilt={invalidate} />
+            <BuildFromGitButton hostId={hostId} onBuilt={invalidate} />
             <Popconfirm
               title="Remove unused (dangling) images?"
               onConfirm={() => pruneMutation.mutate()}

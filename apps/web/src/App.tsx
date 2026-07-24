@@ -14,6 +14,7 @@ import Networks from './pages/Networks';
 import Stacks from './pages/Stacks';
 import StackEdit from './pages/StackEdit';
 import Users from './pages/Users';
+import Hosts from './pages/Hosts';
 import AuditLog from './pages/AuditLog';
 import Settings from './pages/Settings';
 
@@ -70,6 +71,14 @@ export default function App() {
           element={
             <AdminOnly>
               <Users />
+            </AdminOnly>
+          }
+        />
+        <Route
+          path="/hosts"
+          element={
+            <AdminOnly>
+              <Hosts />
             </AdminOnly>
           }
         />

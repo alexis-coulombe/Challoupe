@@ -38,9 +38,9 @@ function baseInfo(dockerRootDir: string) {
   };
 }
 
-describe('GET /api/system/info', () => {
+describe('GET /api/hosts/local/system/info', () => {
   it('requires authentication', async () => {
-    const res = await request(app).get('/api/system/info');
+    const res = await request(app).get('/api/hosts/local/system/info');
     expect(res.status).toBe(401);
   });
 
@@ -48,7 +48,7 @@ describe('GET /api/system/info', () => {
     mockDocker.info.mockResolvedValue(baseInfo('/'));
     const { agent } = await createAdminAgent(app);
 
-    const res = await agent.get('/api/system/info');
+    const res = await agent.get('/api/hosts/local/system/info');
     expect(res.status).toBe(200);
     expect(res.body.storageTotal).toBeGreaterThan(0);
   });
@@ -57,7 +57,7 @@ describe('GET /api/system/info', () => {
     mockDocker.info.mockResolvedValue(baseInfo('/no/such/path/on/this/fs'));
     const { agent } = await createAdminAgent(app);
 
-    const res = await agent.get('/api/system/info');
+    const res = await agent.get('/api/hosts/local/system/info');
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ storageTotal: 0, storageUsed: 0, storagePercent: 0 });
     // Every other stat still comes through untouched.

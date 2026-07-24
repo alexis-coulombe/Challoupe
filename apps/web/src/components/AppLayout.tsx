@@ -14,6 +14,7 @@ import {
   Layout,
   Menu,
   Modal,
+  Select,
   Space,
   Tooltip,
   Typography,
@@ -22,6 +23,7 @@ import {
   ApartmentOutlined,
   AppstoreOutlined,
   BlockOutlined,
+  CloudServerOutlined,
   ClusterOutlined,
   ContainerOutlined,
   DashboardOutlined,
@@ -42,6 +44,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { hasPermission } from '../api';
 import { authApi } from '../services/authApi';
 import { systemApi } from '../services/systemApi';
@@ -164,6 +167,7 @@ function AiChatDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
+  const { hostId, setHostId, hosts } = useHost();
   const location = useLocation();
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
@@ -190,7 +194,7 @@ export default function AppLayout() {
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
-    queryFn: () => systemApi.info(),
+    queryFn: () => systemApi.info('local'),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
@@ -210,6 +214,7 @@ export default function AppLayout() {
     ...(user?.role === 'admin'
       ? [
           { key: '/users', icon: <TeamOutlined />, label: <Link to="/users">Users</Link> },
+          { key: '/hosts', icon: <CloudServerOutlined />, label: <Link to="/hosts">Hosts</Link> },
           { key: '/audit-log', icon: <HistoryOutlined />, label: <Link to="/audit-log">Audit Log</Link> },
         ]
       : []),
@@ -288,15 +293,15 @@ export default function AppLayout() {
               <UsageStat
                 icon={<ThunderboltOutlined />}
                 label="CPU"
-                percent={info?.cpuPercent}
-                detail={info ? `${info.cpuPercent.toFixed(1)}% across ${info.cpus} cores` : undefined}
+                percent={info?.cpuPercent ?? undefined}
+                detail={info?.cpuPercent != null ? `${info.cpuPercent.toFixed(1)}% across ${info.cpus} cores` : undefined}
               />
               <UsageStat
                 icon={<ClusterOutlined />}
                 label="RAM"
-                percent={info?.memoryPercent}
+                percent={info?.memoryPercent ?? undefined}
                 detail={
-                  info
+                  info?.memoryUsed != null
                     ? `${formatBytes(info.memoryUsed)} / ${formatBytes(info.memory)} used`
                     : undefined
                 }
@@ -304,52 +309,69 @@ export default function AppLayout() {
               <UsageStat
                 icon={<HddOutlined />}
                 label="Storage"
-                percent={info?.storagePercent}
+                percent={info?.storagePercent ?? undefined}
                 detail={
-                  info
+                  info?.storageUsed != null && info?.storageTotal != null
                     ? `${formatBytes(info.storageUsed)} / ${formatBytes(info.storageTotal)} used`
                     : undefined
                 }
               />
             </Space>
           </Space>
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: 'password',
-                  icon: <KeyOutlined />,
-                  label: 'Change my password',
-                  onClick: () => setPasswordOpen(true),
-                },
-                ...(user?.authProvider === 'local'
-                  ? [
-                      {
-                        key: 'totp',
-                        icon: <SafetyOutlined />,
-                        label: user.totpEnabled ? 'Two-factor authentication (on)' : 'Enable two-factor authentication',
-                        onClick: () => setTotpOpen(true),
-                      },
-                    ]
-                  : []),
-                { type: 'divider' as const },
-                {
-                  key: 'logout',
-                  icon: <LogoutOutlined />,
-                  label: 'Sign out',
-                  onClick: async () => {
-                    await logout();
-                    navigate('/login');
+          <Space size={20}>
+            {hosts.length > 0 && (
+              <Tooltip title="Which Docker host to manage">
+                <Select
+                  variant="borderless"
+                  value={hostId}
+                  onChange={setHostId}
+                  suffixIcon={<CloudServerOutlined />}
+                  style={{ minWidth: 140 }}
+                  options={[
+                    { value: 'local', label: 'Local' },
+                    ...hosts.map((h) => ({ value: String(h.id), label: h.name })),
+                  ]}
+                />
+              </Tooltip>
+            )}
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'password',
+                    icon: <KeyOutlined />,
+                    label: 'Change my password',
+                    onClick: () => setPasswordOpen(true),
                   },
-                },
-              ],
-            }}
-          >
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar size="small" icon={<UserOutlined />} />
-              <span className="header-username">{user?.username}</span>
-            </Space>
-          </Dropdown>
+                  ...(user?.authProvider === 'local'
+                    ? [
+                        {
+                          key: 'totp',
+                          icon: <SafetyOutlined />,
+                          label: user.totpEnabled ? 'Two-factor authentication (on)' : 'Enable two-factor authentication',
+                          onClick: () => setTotpOpen(true),
+                        },
+                      ]
+                    : []),
+                  { type: 'divider' as const },
+                  {
+                    key: 'logout',
+                    icon: <LogoutOutlined />,
+                    label: 'Sign out',
+                    onClick: async () => {
+                      await logout();
+                      navigate('/login');
+                    },
+                  },
+                ],
+              }}
+            >
+              <Space style={{ cursor: 'pointer' }}>
+                <Avatar size="small" icon={<UserOutlined />} />
+                <span className="header-username">{user?.username}</span>
+              </Space>
+            </Dropdown>
+          </Space>
         </Header>
         <Content style={{ padding: 24 }}>
           <Outlet />

@@ -1,27 +1,12 @@
 import type { Request, Response } from 'express';
-import { docker } from '../docker.js';
 import { DATA_DIR, DOCKER_SOCK } from '../config.js';
 import { cpuUsagePercent, diskUsage, ramUsage } from '../hostStats.js';
 
 export class SystemController {
-  info = async (_req: Request, res: Response): Promise<void> => {
-    const [info, version, cpuPercent] = await Promise.all([
-      docker.info(),
-      docker.version(),
-      cpuUsagePercent(),
-    ]);
-    const ram = ramUsage();
-    // Reading the Docker root's disk usage requires that path to exist in *this* process's
-    // filesystem view. True on a bare-metal/host install, but not when Challoupe itself runs
-    // containerized without also bind-mounting the host's Docker root dir in (see README).
-    // Degrade to zeroed storage stats rather than failing the whole endpoint over one
-    // non-critical stat.
-    const disk = await diskUsage(info.DockerRootDir as string).catch(() => ({
-      total: 0,
-      used: 0,
-      percent: 0,
-    }));
-    res.json({
+  info = async (req: Request, res: Response): Promise<void> => {
+    const [info, version] = await Promise.all([req.dockerClient!.info(), req.dockerClient!.version()]);
+
+    const base = {
       name: info.Name,
       containers: info.Containers,
       containersRunning: info.ContainersRunning,
@@ -35,6 +20,34 @@ export class SystemController {
       arch: info.Architecture,
       cpus: info.NCPU,
       memory: info.MemTotal,
+    };
+
+    // Host-level CPU/memory/disk utilization comes from Challoupe's own OS via node:os/
+    if (req.hostId !== 'local') {
+      res.json({
+        ...base,
+        cpuPercent: null,
+        memoryUsed: null,
+        memoryPercent: null,
+        storageUsed: null,
+        storageTotal: null,
+        storagePercent: null,
+        dockerSock: null,
+        dataDir: null,
+      });
+      return;
+    }
+
+    const cpuPercent = await cpuUsagePercent();
+    const ram = ramUsage();
+
+    const disk = await diskUsage(info.DockerRootDir as string).catch(() => ({
+      total: 0,
+      used: 0,
+      percent: 0,
+    }));
+    res.json({
+      ...base,
       cpuPercent,
       memoryUsed: ram.used,
       memoryPercent: ram.percent,

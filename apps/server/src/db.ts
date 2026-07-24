@@ -41,6 +41,18 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
+
+CREATE TABLE IF NOT EXISTS hosts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  ssh_host TEXT NOT NULL,
+  ssh_port INTEGER NOT NULL DEFAULT 22,
+  ssh_username TEXT NOT NULL,
+  ssh_private_key TEXT NOT NULL,
+  ssh_passphrase TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by INTEGER
+);
 `);
 
 // Added after the initial release: bring existing databases up to date one column at a

@@ -19,6 +19,7 @@ import { STACK_TEMPLATES } from '../data/stackTemplates';
 import { AI_COLOR, AI_COLOR_BORDER, CONSOLE_BG, CONSOLE_BORDER, CONSOLE_TEXT, stripCodeFence } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
+import { useHost } from '../hosts';
 import { useOllamaStream } from '../hooks/useOllamaStream';
 import { stacksApi } from '../services/stacksApi';
 import AiButton from '../components/AiButton';
@@ -64,6 +65,7 @@ export default function StackEdit() {
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
+  const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageStacks');
   const { data: settings } = useAppSettings();
   const aiEnabled = settings?.featureFlags.aiAssistant !== false && hasPermission(user, 'useAi');
@@ -199,6 +201,16 @@ export default function StackEdit() {
           </Button>
           {aiEnabled && <AiButton onClick={() => setAiOpen(true)}>Generate with AI</AiButton>}
         </Space>
+      )}
+
+      {hostId !== 'local' && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Stacks always run on the local Docker host"
+          description="Deploying or stopping this stack affects Local regardless of the host selected above — compose deployments can't ride the SSH connection used for remote hosts yet."
+        />
       )}
 
       {!isNew && !canManage && (

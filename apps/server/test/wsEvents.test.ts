@@ -24,6 +24,8 @@ vi.mock('../src/containerWatchdog.js', () => ({
 const { app, server } = await import('../src/index.js');
 const { db } = await import('../src/db.js');
 const { settingsService } = await import('../src/settings.js');
+const { hostManager } = await import('../src/hostManager.js');
+const { hostRepository } = await import('../src/hosts.js');
 
 // The broadcaster only ever calls docker.getEvents() once (its "streamStarted" guard is a
 // module-level singleton that outlives any single test), so every test in this file must
@@ -102,7 +104,15 @@ describe('WS /events', () => {
     await closeAndWait(ws);
 
     expect(messages).toEqual([
-      { type: 'container_event', action: 'crashed', containerId: 'ccc', containerName: 'db', exitCode: 137, time: 3 },
+      {
+        type: 'container_event',
+        action: 'crashed',
+        containerId: 'ccc',
+        containerName: 'db',
+        exitCode: 137,
+        time: 3,
+        hostId: 'local',
+      },
     ]);
     // Only the crash reaches the notification service, same filtering as the WS broadcast.
     expect(mockNotifyContainerEvent).toHaveBeenCalledOnce();
@@ -135,7 +145,7 @@ describe('WS /events', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     await closeAndWait(ws);
 
-    expect(mockDiagnose).toHaveBeenCalledWith('ccc', 'db', 'crashed (exit code 137)');
+    expect(mockDiagnose).toHaveBeenCalledWith('local', 'ccc', 'db', 'crashed (exit code 137)');
     expect(mockNotifyContainerEvent).toHaveBeenCalledWith(
       'db',
       'crashed (exit code 137) AI diagnosis: the app is missing a required environment variable'
@@ -170,5 +180,68 @@ describe('WS /events', () => {
 
     expect(mockDiagnose).toHaveBeenCalledOnce();
     expect(mockNotifyContainerEvent).toHaveBeenCalledWith('db', 'crashed (exit code 137)');
+  });
+});
+
+describe('WS /events — multi-host', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    db.exec('DELETE FROM hosts');
+  });
+
+  it('opens a separate event stream per registered host and tags each notification with its hostId', async () => {
+    const host = hostRepository.create({
+      name: 'remote-1',
+      sshHost: '10.0.0.9',
+      sshPort: 22,
+      sshUsername: 'deploy',
+      sshPrivateKey: 'key',
+      createdBy: 1,
+    });
+
+    const remoteEventStream = new Readable({ read() {} });
+    const remoteDocker = { getEvents: vi.fn().mockResolvedValue(remoteEventStream) };
+    vi.spyOn(hostManager, 'getClient').mockImplementation(async (hostId: string) => {
+      if (hostId === 'local') return mockDocker as never;
+      if (hostId === String(host.id)) return remoteDocker as never;
+      return null;
+    });
+
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/events`, { headers: { Cookie: cookie } });
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+    // Lets subscribe()'s start() loop finish resolving hostManager.getClient() for the new host
+    // and attach its getEvents() stream before pushing an event onto it below.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const messages: Array<Record<string, unknown>> = [];
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())));
+
+    remoteEventStream.push(
+      JSON.stringify({
+        Type: 'container',
+        Action: 'die',
+        Actor: { ID: 'rrr', Attributes: { name: 'remote-app', exitCode: '1' } },
+        time: 9,
+      }) + '\n'
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await closeAndWait(ws);
+
+    expect(messages).toEqual([
+      {
+        type: 'container_event',
+        action: 'crashed',
+        containerId: 'rrr',
+        containerName: 'remote-app',
+        exitCode: 1,
+        time: 9,
+        hostId: String(host.id),
+      },
+    ]);
   });
 });

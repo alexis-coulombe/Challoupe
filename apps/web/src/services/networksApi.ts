@@ -2,16 +2,16 @@ import { api } from '../api';
 import type { NetworkSummary } from '../api';
 
 export class NetworksApi {
-  list() {
-    return api.get<NetworkSummary[]>('/networks');
+  list(hostId: string) {
+    return api.get<NetworkSummary[]>(`/hosts/${hostId}/networks`);
   }
 
-  create(values: { name: string; driver: string }) {
-    return api.post('/networks', values);
+  create(hostId: string, values: { name: string; driver: string }) {
+    return api.post(`/hosts/${hostId}/networks`, values);
   }
 
-  remove(id: string) {
-    return api.delete(`/networks/${id}`);
+  remove(hostId: string, id: string) {
+    return api.delete(`/hosts/${hostId}/networks/${id}`);
   }
 }
 

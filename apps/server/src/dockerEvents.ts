@@ -1,5 +1,6 @@
 import type { WebSocket } from 'ws';
-import { docker } from './docker.js';
+import { hostManager } from './hostManager.js';
+import { allHostIds } from './hosts.js';
 import { notificationService } from './integrations/notifications/notifications.js';
 import { settingsService } from './settings.js';
 import { containerWatchdog } from './containerWatchdog.js';
@@ -19,6 +20,7 @@ export interface DockerNotification {
   containerName: string;
   exitCode?: number;
   time: number;
+  hostId: string;
 }
 
 interface RawDockerEvent {
@@ -31,9 +33,10 @@ interface RawDockerEvent {
 /**
  * Turns a raw Docker event into a user-facing notification
  * @param event RawDockerEvent
+ * @param hostId string
  * @returns DockerNotification | null
  */
-export function classifyEvent(event: RawDockerEvent): DockerNotification | null {
+export function classifyEvent(event: RawDockerEvent, hostId: string): DockerNotification | null {
   if (event.Type !== 'container' || !event.Action || !event.Actor?.ID) return null;
   const containerId = event.Actor.ID;
   const containerName = event.Actor.Attributes?.name ?? containerId.slice(0, 12);
@@ -42,24 +45,24 @@ export function classifyEvent(event: RawDockerEvent): DockerNotification | null 
   if (event.Action === 'die') {
     const exitCode = Number(event.Actor.Attributes?.exitCode ?? '0');
     if (exitCode === 0) return null;
-    return { type: 'container_event', action: 'crashed', containerId, containerName, exitCode, time };
+    return { type: 'container_event', action: 'crashed', containerId, containerName, exitCode, time, hostId };
   }
   if (event.Action === 'oom') {
-    return { type: 'container_event', action: 'oom', containerId, containerName, time };
+    return { type: 'container_event', action: 'oom', containerId, containerName, time, hostId };
   }
   if (event.Action === 'health_status: unhealthy') {
-    return { type: 'container_event', action: 'unhealthy', containerId, containerName, time };
+    return { type: 'container_event', action: 'unhealthy', containerId, containerName, time, hostId };
   }
   return null;
 }
 
 /**
- * Fans a single upstream Docker event stream out to every subscribed WebSocket client,
- * replacing what used to be a module-level subscribers Set + streamStarted flag.
+ * Fans out to every subscribed WebSocket client, from one upstream Docker event stream per
+ * registered host — replacing what used to be a single global stream + streamStarted flag.
  */
 export class DockerEventBroadcaster {
   private readonly subscribers = new Set<WebSocket>();
-  private streamStarted = false;
+  private readonly activeHosts = new Set<string>();
 
   private broadcast(notification: DockerNotification): void {
     void this.notify(notification);
@@ -76,6 +79,7 @@ export class DockerEventBroadcaster {
     const { aiWatchdog, featureFlags } = settingsService.get();
     if (aiWatchdog.enabled && aiWatchdog.checkContainerEvents && featureFlags.aiAssistant) {
       const diagnosis = await containerWatchdog.diagnose(
+        notification.hostId,
         notification.containerId,
         notification.containerName,
         baseDetail
@@ -85,18 +89,24 @@ export class DockerEventBroadcaster {
         return;
       }
     }
-    
+
     await notificationService.notifyContainerEvent(notification.containerName, baseDetail);
   }
 
-  private scheduleRetry(): void {
-    this.streamStarted = false;
-    setTimeout(() => this.start(), 5000).unref?.();
+  private scheduleRetry(hostId: string): void {
+    this.activeHosts.delete(hostId);
+    setTimeout(() => this.startHost(hostId), 5000).unref?.();
   }
 
-  private async startEventStream(): Promise<void> {
+  private async startEventStream(hostId: string): Promise<void> {
     try {
-      const stream = await docker.getEvents({ filters: { type: ['container'] } });
+      const client = await hostManager.getClient(hostId);
+      if (!client) {
+        // The host was removed (or never existed) — don't keep retrying a dead id.
+        this.activeHosts.delete(hostId);
+        return;
+      }
+      const stream = await client.getEvents({ filters: { type: ['container'] } });
       let buffer = '';
       stream.on('data', (chunk: Buffer) => {
         buffer += chunk.toString('utf8');
@@ -108,7 +118,7 @@ export class DockerEventBroadcaster {
           }
 
           try {
-            const notification = classifyEvent(JSON.parse(line));
+            const notification = classifyEvent(JSON.parse(line), hostId);
             if (notification) {
               this.broadcast(notification);
             }
@@ -118,27 +128,36 @@ export class DockerEventBroadcaster {
         }
       });
       stream.on('error', () => {
-        console.error('Docker event stream error, reconnecting shortly');
-        this.scheduleRetry();
+        console.error(`Docker event stream error for host ${hostId}, reconnecting shortly`);
+        this.scheduleRetry(hostId);
       });
       stream.on('end', () => {
-        this.scheduleRetry();
+        this.scheduleRetry(hostId);
       });
     } catch (err) {
-      console.error('Failed to attach to the Docker event stream:', err);
-      this.scheduleRetry();
+      console.error(`Failed to attach to the Docker event stream for host ${hostId}:`, err);
+      this.scheduleRetry(hostId);
     }
   }
 
   /**
-   * Starts consuming the Docker event stream if it isn't already running, independent of
-   * whether any WebSocket client is subscribed, so background notifications keep working
-   * with no browser tab open.
+   * Starts consuming the given host's event stream if it isn't already running. Idempotent,
+   * so it's safe to call both from `start()` (every registered host) and right after a new
+   * host is created, without double-subscribing.
+   */
+  startHost(hostId: string): void {
+    if (this.activeHosts.has(hostId)) return;
+    this.activeHosts.add(hostId);
+    void this.startEventStream(hostId);
+  }
+
+  /**
+   * Starts consuming every registered host's event stream that isn't already running,
+   * independent of whether any WebSocket client is subscribed, so background notifications
+   * keep working with no browser tab open.
    */
   start(): void {
-    if (this.streamStarted) return;
-    this.streamStarted = true;
-    void this.startEventStream();
+    for (const hostId of allHostIds()) this.startHost(hostId);
   }
 
   /**

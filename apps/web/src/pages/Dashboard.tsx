@@ -96,7 +96,7 @@ export default function Dashboard() {
 
   const { data: info } = useQuery({
     queryKey: ['system-info'],
-    queryFn: () => systemApi.info(),
+    queryFn: () => systemApi.info('local'),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
   const { data: stacks } = useQuery({
@@ -104,8 +104,8 @@ export default function Dashboard() {
     queryFn: () => stacksApi.list(),
   });
   const { data: containers } = useQuery({
-    queryKey: ['containers'],
-    queryFn: () => containersApi.list(),
+    queryKey: ['containers', 'local'],
+    queryFn: () => containersApi.list('local'),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
@@ -113,8 +113,8 @@ export default function Dashboard() {
   const [memHistory, setMemHistory] = useState<number[]>([]);
   useEffect(() => {
     if (!info) return;
-    setCpuHistory((h) => [...h, info.cpuPercent].slice(-HISTORY_LENGTH));
-    setMemHistory((h) => [...h, info.memoryPercent].slice(-HISTORY_LENGTH));
+    setCpuHistory((h) => [...h, info.cpuPercent ?? 0].slice(-HISTORY_LENGTH));
+    setMemHistory((h) => [...h, info.memoryPercent ?? 0].slice(-HISTORY_LENGTH));
   }, [info]);
 
   const attention = (containers ?? []).filter(needsAttention);
@@ -191,13 +191,13 @@ export default function Dashboard() {
           <Card title="Resource usage">
             <Trend
               label="CPU"
-              value={info ? `${info.cpuPercent.toFixed(1)}%` : '—'}
+              value={info?.cpuPercent != null ? `${info.cpuPercent.toFixed(1)}%` : '—'}
               color={usageColor(info?.cpuPercent ?? 0)}
               points={cpuHistory}
             />
             <Trend
               label="Memory"
-              value={info ? `${info.memoryPercent.toFixed(1)}%` : '—'}
+              value={info?.memoryPercent != null ? `${info.memoryPercent.toFixed(1)}%` : '—'}
               color={usageColor(info?.memoryPercent ?? 0)}
               points={memHistory}
             />

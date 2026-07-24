@@ -1,5 +1,7 @@
 import { docker, summarizeStats, type RawStats } from './docker.js';
 import { cpuUsagePercent, diskUsage, ramUsage } from './hostStats.js';
+import { hostManager } from './hostManager.js';
+import { allHostIds } from './hosts.js';
 import { settingsService, type ResourceAlertSettings } from './settings.js';
 import { notificationService } from './integrations/notifications/notifications.js';
 
@@ -73,6 +75,8 @@ export class ResourceWatchdogService {
   private timer: ReturnType<typeof setInterval> | null = null;
   private readonly lastNotifiedAt = new Map<string, number>();
 
+  // Reads Challoupe's own machine via os/fs (hostStats.ts) — categorically local-only, since a
+  // remote host's CPU/RAM/disk aren't reachable through the SSH-tunneled Docker Engine API.
   private async sampleHost(): Promise<HostSample> {
     const [info, cpuPercent] = await Promise.all([docker.info(), cpuUsagePercent()]);
     const ram = ramUsage();
@@ -84,12 +88,16 @@ export class ResourceWatchdogService {
     return { cpuPercent, memoryPercent: ram.percent, diskPercent: disk.percent };
   }
 
-  private async sampleContainers(): Promise<ContainerSample[]> {
-    const list = await docker.listContainers({ filters: { status: ['running'] } });
+  // Container-level checks generalize across every registered host — unlike sampleHost() above,
+  // this is a plain Engine-API call that rides the same SSH-tunneled client as everything else.
+  private async sampleContainers(hostId: string): Promise<ContainerSample[]> {
+    const client = await hostManager.getClient(hostId);
+    if (!client) return [];
+    const list = await client.listContainers({ filters: { status: ['running'] } });
     const samples = await Promise.all(
       list.map(async (c): Promise<ContainerSample | null> => {
         try {
-          const raw = (await docker.getContainer(c.Id).stats({ stream: false })) as RawStats;
+          const raw = (await client.getContainer(c.Id).stats({ stream: false })) as RawStats;
           const stats = summarizeStats(raw);
           return {
             id: c.Id,
@@ -110,7 +118,11 @@ export class ResourceWatchdogService {
     if (!resourceAlerts.enabled) return;
 
     const now = Date.now();
-    const [host, containers] = await Promise.all([this.sampleHost(), this.sampleContainers()]);
+    const [host, containerLists] = await Promise.all([
+      this.sampleHost(),
+      Promise.all(allHostIds().map((hostId) => this.sampleContainers(hostId))),
+    ]);
+    const containers = containerLists.flat();
     const fresh = detectResourceAlerts(host, containers, resourceAlerts).filter((f) => {
       const last = this.lastNotifiedAt.get(f.signature);
       return last === undefined || now - last >= ALERT_NOTIFY_COOLDOWN_MS;
