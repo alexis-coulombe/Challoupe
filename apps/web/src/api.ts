@@ -254,6 +254,18 @@ export interface NotificationSettings {
   onBackupFailure: boolean;
 }
 
+// password is always returned blank by the API
+export interface NtfySettings {
+  enabled: boolean;
+  serverUrl: string;
+  topic: string;
+  username: string;
+  password: string;
+  onContainerCrash: boolean;
+  onImageUpdate: boolean;
+  onBackupFailure: boolean;
+}
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -270,6 +282,7 @@ export interface AppSettings {
   scheduledBackup: ScheduledBackupSettings;
   terminalTheme: TerminalThemeSettings;
   notifications: NotificationSettings;
+  ntfy: NtfySettings;
 }
 
 export interface OidcLoginConfig {

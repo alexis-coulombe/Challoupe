@@ -99,4 +99,82 @@ describe('NotificationService', () => {
       ).rejects.toThrow('Webhook responded with 500');
     });
   });
+
+  describe('ntfy channel', () => {
+    it('does nothing when no topic is configured', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({ ntfy: { enabled: true } });
+      await notificationService.notifyContainerEvent('app', 'crashed (exit code 1)');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('respects its own per-event toggle', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({ ntfy: { enabled: true, topic: 'challoupe', onContainerCrash: false } });
+      await notificationService.notifyContainerEvent('app', 'crashed (exit code 1)');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('posts the plain-text message to <serverUrl>/<topic>, without auth when no username is set', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({ ntfy: { enabled: true, serverUrl: 'https://ntfy.example.com', topic: 'challoupe' } });
+      await notificationService.notifyBackupFailure('disk full');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://ntfy.example.com/challoupe',
+        expect.objectContaining({
+          method: 'POST',
+          body: 'Scheduled backup failed: disk full',
+          headers: { Title: 'Challoupe' },
+        })
+      );
+    });
+
+    it('adds a Basic auth header when a username is configured', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        ntfy: { enabled: true, serverUrl: 'https://ntfy.example.com', topic: 'challoupe', username: 'admin', password: 'shh' },
+      });
+      await notificationService.notifyImageUpdates(1);
+      const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
+      expect(headers.Authorization).toBe(`Basic ${Buffer.from('admin:shh').toString('base64')}`);
+    });
+
+    it('fires independently of the webhook channel: both, either, or neither', async () => {
+      const fetchMock = mockFetchOk();
+      settingsService.update({
+        notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+        ntfy: { enabled: true, topic: 'challoupe' },
+      });
+      await notificationService.notifyContainerEvent('app', 'crashed');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledWith('https://hooks.example.com/x', expect.anything());
+      expect(fetchMock).toHaveBeenCalledWith('https://ntfy.sh/challoupe', expect.anything());
+    });
+
+    it('swallows an ntfy failure instead of throwing, independently of the webhook', async () => {
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
+      settingsService.update({ ntfy: { enabled: true, topic: 'challoupe' } });
+      await expect(notificationService.notifyContainerEvent('app', 'crashed')).resolves.toBeUndefined();
+    });
+
+    describe('sendNtfyTest', () => {
+      it('posts regardless of the enabled/per-event settings', async () => {
+        const fetchMock = mockFetchOk();
+        await notificationService.sendNtfyTest({
+          serverUrl: 'https://ntfy.sh',
+          topic: 'challoupe',
+          username: '',
+          password: '',
+        });
+        expect(fetchMock).toHaveBeenCalledOnce();
+      });
+
+      it('propagates a failure to the caller instead of swallowing it', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue(new Response('nope', { status: 500 })) as unknown as typeof fetch;
+        await expect(
+          notificationService.sendNtfyTest({ serverUrl: 'https://ntfy.sh', topic: 'challoupe', username: '', password: '' })
+        ).rejects.toThrow('ntfy responded with 500');
+      });
+    });
+  });
 });

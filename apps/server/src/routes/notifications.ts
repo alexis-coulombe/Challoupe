@@ -4,5 +4,6 @@ import { notificationsController as c } from '../controllers/notifications.contr
 const router = Router();
 
 router.post('/test', c.test);
+router.post('/test-ntfy', c.testNtfy);
 
 export default router;

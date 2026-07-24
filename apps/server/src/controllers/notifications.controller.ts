@@ -7,6 +7,13 @@ const testSchema = z.object({
   format: z.enum(['generic', 'discord', 'slack']),
 });
 
+const testNtfySchema = z.object({
+  serverUrl: z.string().url(),
+  topic: z.string().min(1),
+  username: z.string(),
+  password: z.string(),
+});
+
 export class NotificationsController {
   // Tests the webhook URL/format currently typed in the form, before it's saved, same
   // pattern as the AI "test connection" endpoint.
@@ -17,6 +24,16 @@ export class NotificationsController {
       res.json({ ok: true });
     } catch (err) {
       res.status(502).json({ error: `Could not reach the webhook: ${(err as Error).message}` });
+    }
+  };
+
+  testNtfy = async (req: Request, res: Response): Promise<void> => {
+    const body = testNtfySchema.parse(req.body);
+    try {
+      await notificationService.sendNtfyTest(body);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(502).json({ error: `Could not reach ntfy: ${(err as Error).message}` });
     }
   };
 }

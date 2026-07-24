@@ -15,6 +15,7 @@ function redactSecrets(settings: AppSettings): AppSettings {
     ...settings,
     oidc: { ...settings.oidc, clientSecret: '' },
     notifications: { ...settings.notifications, webhookUrl: '' },
+    ntfy: { ...settings.ntfy, password: '' },
   };
 }
 
@@ -67,6 +68,18 @@ const updateSchema = z
         enabled: z.boolean(),
         webhookUrl: z.string().max(500).refine((v) => v === '' || /^https?:\/\//.test(v), 'Must be a valid URL'),
         format: z.enum(['generic', 'discord', 'slack']),
+        onContainerCrash: z.boolean(),
+        onImageUpdate: z.boolean(),
+        onBackupFailure: z.boolean(),
+      })
+      .partial(),
+    ntfy: z
+      .object({
+        enabled: z.boolean(),
+        serverUrl: z.string().url().max(300),
+        topic: z.string().max(100),
+        username: z.string().max(200),
+        password: z.string().max(500),
         onContainerCrash: z.boolean(),
         onImageUpdate: z.boolean(),
         onBackupFailure: z.boolean(),

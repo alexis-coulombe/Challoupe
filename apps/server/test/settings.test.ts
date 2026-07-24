@@ -32,6 +32,16 @@ const DEFAULTS = {
     onImageUpdate: true,
     onBackupFailure: true,
   },
+  ntfy: {
+    enabled: false,
+    serverUrl: 'https://ntfy.sh',
+    topic: '',
+    username: '',
+    password: '',
+    onContainerCrash: true,
+    onImageUpdate: true,
+    onBackupFailure: true,
+  },
 };
 
 beforeEach(() => {
@@ -182,11 +192,35 @@ describe('settings', () => {
     expect(settingsService.get().notifications.onBackupFailure).toBe(false);
   });
 
+  it('persists the ntfy settings, including the password when read directly', () => {
+    settingsService.update({
+      ntfy: { enabled: true, serverUrl: 'https://ntfy.example.com', topic: 'challoupe', username: 'admin', password: 'shh' },
+    });
+    expect(settingsService.get().ntfy).toEqual({
+      enabled: true,
+      serverUrl: 'https://ntfy.example.com',
+      topic: 'challoupe',
+      username: 'admin',
+      password: 'shh',
+      onContainerCrash: true,
+      onImageUpdate: true,
+      onBackupFailure: true,
+    });
+  });
+
+  it('leaves a stored ntfy password unchanged when a later update sends a blank one', () => {
+    settingsService.update({ ntfy: { password: 'first-password' } });
+    settingsService.update({ ntfy: { password: '', onBackupFailure: false } });
+    expect(settingsService.get().ntfy.password).toBe('first-password');
+    expect(settingsService.get().ntfy.onBackupFailure).toBe(false);
+  });
+
   it('reset() clears every stored setting back to its default', () => {
     settingsService.update({
       defaultRestartPolicy: 'always',
       oidc: { enabled: true, clientSecret: 'shh' },
       notifications: { enabled: true, webhookUrl: 'https://hooks.example.com/x' },
+      ntfy: { enabled: true, topic: 'challoupe', password: 'shh' },
     });
     expect(settingsService.reset()).toEqual(DEFAULTS);
     const rows = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };

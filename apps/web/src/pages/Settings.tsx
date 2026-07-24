@@ -35,10 +35,14 @@ import {
   GithubOutlined,
   GitlabOutlined,
   GoogleOutlined,
+  BgColorsOutlined,
+  DashboardOutlined,
+  NotificationOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
   SecurityScanOutlined,
   SettingOutlined,
+  SyncOutlined,
   UploadOutlined,
   WarningOutlined,
   WindowsOutlined,
@@ -115,6 +119,8 @@ export default function Settings() {
   const [testError, setTestError] = useState('');
   const [notifTestStatus, setNotifTestStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
   const [notifTestError, setNotifTestError] = useState('');
+  const [ntfyTestStatus, setNtfyTestStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
+  const [ntfyTestError, setNtfyTestError] = useState('');
   const [ssoProvider, setSsoProvider] = useState('custom');
   const [ssoProviderValues, setSsoProviderValues] = useState<Record<string, string>>({});
 
@@ -291,6 +297,24 @@ export default function Settings() {
     }
   };
 
+  const testNtfy = async () => {
+    setNtfyTestStatus('testing');
+    setNtfyTestError('');
+    try {
+      // Tests the values currently typed in the form, not whatever was last saved.
+      const serverUrl = form.getFieldValue(['ntfy', 'serverUrl']) as string;
+      const topic = form.getFieldValue(['ntfy', 'topic']) as string;
+      const username = form.getFieldValue(['ntfy', 'username']) as string;
+      const password = form.getFieldValue(['ntfy', 'password']) as string;
+      await notificationsApi.testNtfy(serverUrl, topic, username, password);
+      setNtfyTestStatus('ok');
+      message.success('Test notification sent.');
+    } catch (err) {
+      setNtfyTestStatus('error');
+      setNtfyTestError(err instanceof ApiError ? err.message : 'Could not reach ntfy');
+    }
+  };
+
   const currentModel = Form.useWatch('ollamaModel', form);
   const modelOptions = Array.from(new Set([...models, ...(currentModel ? [currentModel] : [])])).map((m) => ({
     value: m,
@@ -303,6 +327,7 @@ export default function Settings() {
   const terminalTheme = Form.useWatch('terminalTheme', form) ?? DEFAULT_TERMINAL_THEME;
   const scheduledBackupEnabled = Form.useWatch(['scheduledBackup', 'enabled'], form) ?? false;
   const notificationsEnabled = Form.useWatch(['notifications', 'enabled'], form) ?? false;
+  const ntfyEnabled = Form.useWatch(['ntfy', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
   const integrationsTabLabel = (
@@ -349,146 +374,172 @@ export default function Settings() {
               ),
               forceRender: true,
               children: (
-                <Card>
-                  <Typography.Title level={5} style={{ marginTop: 0 }}>
-                    <DesktopOutlined style={{ marginRight: 8 }} />
-                    Environment
-                  </Typography.Title>
-                  <Descriptions column={{ xs: 1, md: 2 }} bordered size="small" style={{ marginBottom: 24 }}>
-                    <Descriptions.Item label="Host">{info?.name}</Descriptions.Item>
-                    <Descriptions.Item label="Docker version">{info?.serverVersion}</Descriptions.Item>
-                    <Descriptions.Item label="API version">{info?.apiVersion}</Descriptions.Item>
-                    <Descriptions.Item label="Operating system">{info?.os}</Descriptions.Item>
-                    <Descriptions.Item label="Kernel">{info?.kernel}</Descriptions.Item>
-                    <Descriptions.Item label="Architecture">{info?.arch}</Descriptions.Item>
-                    <Descriptions.Item label="CPU / Memory">
-                      {info ? `${info.cpus} CPU · ${formatBytes(info.memory)}` : ''}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Docker socket">{info?.dockerSock}</Descriptions.Item>
-                    <Descriptions.Item label="Data directory">{info?.dataDir}</Descriptions.Item>
-                  </Descriptions>
-                  <Typography.Title level={5} style={{ marginTop: 0 }}>
-                    Defaults
-                  </Typography.Title>
-                  <Space size="large" wrap align="start">
-                    <Form.Item
-                      name="refreshIntervalMs"
-                      label="Refresh interval"
-                      tooltip="How often container lists, stacks, and the header stats poll for updates"
+                <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <DesktopOutlined style={{ marginRight: 8 }} />
+                      Environment
+                    </Typography.Title>
+                    <Descriptions column={{ xs: 1, md: 2 }} bordered size="small">
+                      <Descriptions.Item label="Host">{info?.name}</Descriptions.Item>
+                      <Descriptions.Item label="Docker version">{info?.serverVersion}</Descriptions.Item>
+                      <Descriptions.Item label="API version">{info?.apiVersion}</Descriptions.Item>
+                      <Descriptions.Item label="Operating system">{info?.os}</Descriptions.Item>
+                      <Descriptions.Item label="Kernel">{info?.kernel}</Descriptions.Item>
+                      <Descriptions.Item label="Architecture">{info?.arch}</Descriptions.Item>
+                      <Descriptions.Item label="CPU / Memory">
+                        {info ? `${info.cpus} CPU · ${formatBytes(info.memory)}` : ''}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Docker socket">{info?.dockerSock}</Descriptions.Item>
+                      <Descriptions.Item label="Data directory">{info?.dataDir}</Descriptions.Item>
+                    </Descriptions>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <SettingOutlined style={{ marginRight: 8 }} />
+                      Defaults
+                    </Typography.Title>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Applied when browsing containers and creating new ones.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="start">
+                      <Form.Item
+                        name="refreshIntervalMs"
+                        label="Refresh interval"
+                        tooltip="How often container lists, stacks, and the header stats poll for updates"
+                      >
+                        <Select style={{ width: 200 }} options={REFRESH_INTERVAL_OPTIONS} />
+                      </Form.Item>
+                      <Form.Item
+                        name="defaultLogTail"
+                        label="Default log backlog"
+                        tooltip="How many lines a container's Logs tab requests when first opened"
+                      >
+                        <Select style={{ width: 200 }} options={LOG_TAIL_OPTIONS} />
+                      </Form.Item>
+                    </Space>
+                    <Space size="large" wrap align="start">
+                      <Form.Item name="defaultRestartPolicy" label="Default restart policy for new containers">
+                        <Select
+                          style={{ width: 200 }}
+                          options={[
+                            { value: 'no', label: 'Never' },
+                            { value: 'always', label: 'Always' },
+                            { value: 'unless-stopped', label: 'Unless stopped' },
+                            { value: 'on-failure', label: 'On failure' },
+                          ]}
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        name="defaultTerminalShell"
+                        label="Default terminal shell"
+                        tooltip="Shell used when opening a container's Terminal tab"
+                      >
+                        <Select style={{ width: 200 }} options={SHELL_OPTIONS} />
+                      </Form.Item>
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <DashboardOutlined style={{ marginRight: 8 }} />
+                      Resource quotas
+                    </Typography.Title>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Caps applied when a non-admin user creates a container. Administrators are
+                      never limited. Leave blank for unlimited.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="start">
+                      <Form.Item name="maxContainerMemoryMb" label="Max memory for non-admins (MB)">
+                        <InputNumber min={1} placeholder="Unlimited" style={{ width: 200 }} />
+                      </Form.Item>
+                      <Form.Item name="maxContainerCpus" label="Max CPU cores for non-admins">
+                        <InputNumber min={0.1} step={0.1} placeholder="Unlimited" style={{ width: 200 }} />
+                      </Form.Item>
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <SyncOutlined style={{ marginRight: 8 }} />
+                      Image update checks
+                    </Typography.Title>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      A manual "Check for updates" is always available on the Images page. Turning
+                      this on also checks every pulled image against its registry on a timer.
+                    </Typography.Paragraph>
+                    <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
+                      <Form.Item name={['imageUpdateCheck', 'enabled']} valuePropName="checked" noStyle>
+                        <Switch />
+                      </Form.Item>
+                      <Typography.Text strong>Check for image updates automatically</Typography.Text>
+                    </Space>
+                    <Space size="large" wrap align="start">
+                      <Form.Item name={['imageUpdateCheck', 'intervalHours']} label="Check interval (hours)">
+                        <InputNumber
+                          min={1}
+                          max={24 * 30}
+                          disabled={!imageUpdateCheckEnabled}
+                          style={{ width: 200 }}
+                        />
+                      </Form.Item>
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <BgColorsOutlined style={{ marginRight: 8 }} />
+                      Terminal appearance
+                    </Typography.Title>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Colors used by every container's Terminal tab.
+                    </Typography.Paragraph>
+                    <Space size="large" wrap align="end">
+                      <Form.Item
+                        name={['terminalTheme', 'background']}
+                        label="Background"
+                        getValueFromEvent={(color: Color) => color.toHexString()}
+                      >
+                        <ColorPicker disabledAlpha />
+                      </Form.Item>
+                      <Form.Item
+                        name={['terminalTheme', 'foreground']}
+                        label="Text"
+                        getValueFromEvent={(color: Color) => color.toHexString()}
+                      >
+                        <ColorPicker disabledAlpha />
+                      </Form.Item>
+                      <Form.Item
+                        name={['terminalTheme', 'cursor']}
+                        label="Cursor"
+                        getValueFromEvent={(color: Color) => color.toHexString()}
+                      >
+                        <ColorPicker disabledAlpha />
+                      </Form.Item>
+                      <Form.Item label=" ">
+                        <Button onClick={() => form.setFieldValue('terminalTheme', DEFAULT_TERMINAL_THEME)}>
+                          Reset to default
+                        </Button>
+                      </Form.Item>
+                    </Space>
+                    <div
+                      style={{
+                        maxWidth: 360,
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                        background: terminalTheme.background,
+                        color: terminalTheme.foreground,
+                      }}
                     >
-                      <Select style={{ width: 200 }} options={REFRESH_INTERVAL_OPTIONS} />
-                    </Form.Item>
-                    <Form.Item
-                      name="defaultLogTail"
-                      label="Default log backlog"
-                      tooltip="How many lines a container's Logs tab requests when first opened"
-                    >
-                      <Select style={{ width: 200 }} options={LOG_TAIL_OPTIONS} />
-                    </Form.Item>
-                  </Space>
-                  <Space size="large" wrap align="start">
-                    <Form.Item name="defaultRestartPolicy" label="Default restart policy for new containers">
-                      <Select
-                        style={{ width: 200 }}
-                        options={[
-                          { value: 'no', label: 'Never' },
-                          { value: 'always', label: 'Always' },
-                          { value: 'unless-stopped', label: 'Unless stopped' },
-                          { value: 'on-failure', label: 'On failure' },
-                        ]}
-                      />
-                    </Form.Item>
-                    <Form.Item
-                      name="defaultTerminalShell"
-                      label="Default terminal shell"
-                      tooltip="Shell used when opening a container's Terminal tab"
-                    >
-                      <Select style={{ width: 200 }} options={SHELL_OPTIONS} />
-                    </Form.Item>
-                  </Space>
-                  <Typography.Title level={5} style={{ marginTop: 8 }}>
-                    Resource quotas
-                  </Typography.Title>
-                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    Caps applied when a non-admin user creates a container. Administrators are
-                    never limited. Leave blank for unlimited.
-                  </Typography.Paragraph>
-                  <Space size="large" wrap align="start">
-                    <Form.Item name="maxContainerMemoryMb" label="Max memory for non-admins (MB)">
-                      <InputNumber min={1} placeholder="Unlimited" style={{ width: 200 }} />
-                    </Form.Item>
-                    <Form.Item name="maxContainerCpus" label="Max CPU cores for non-admins">
-                      <InputNumber min={0.1} step={0.1} placeholder="Unlimited" style={{ width: 200 }} />
-                    </Form.Item>
-                  </Space>
-                  <Typography.Title level={5} style={{ marginTop: 8 }}>
-                    Image update checks
-                  </Typography.Title>
-                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    A manual "Check for updates" is always available on the Images page. Turning
-                    this on also checks every pulled image against its registry on a timer.
-                  </Typography.Paragraph>
-                  <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
-                    <Form.Item name={['imageUpdateCheck', 'enabled']} valuePropName="checked" noStyle>
-                      <Switch />
-                    </Form.Item>
-                    <Typography.Text strong>Check for image updates automatically</Typography.Text>
-                  </Space>
-                  <Space size="large" wrap align="start">
-                    <Form.Item name={['imageUpdateCheck', 'intervalHours']} label="Check interval (hours)">
-                      <InputNumber min={1} max={24 * 30} disabled={!imageUpdateCheckEnabled} style={{ width: 200 }} />
-                    </Form.Item>
-                  </Space>
-                  <Typography.Title level={5} style={{ marginTop: 8 }}>
-                    Terminal appearance
-                  </Typography.Title>
-                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    Colors used by every container's Terminal tab.
-                  </Typography.Paragraph>
-                  <Space size="large" wrap align="end">
-                    <Form.Item
-                      name={['terminalTheme', 'background']}
-                      label="Background"
-                      getValueFromEvent={(color: Color) => color.toHexString()}
-                    >
-                      <ColorPicker disabledAlpha />
-                    </Form.Item>
-                    <Form.Item
-                      name={['terminalTheme', 'foreground']}
-                      label="Text"
-                      getValueFromEvent={(color: Color) => color.toHexString()}
-                    >
-                      <ColorPicker disabledAlpha />
-                    </Form.Item>
-                    <Form.Item
-                      name={['terminalTheme', 'cursor']}
-                      label="Cursor"
-                      getValueFromEvent={(color: Color) => color.toHexString()}
-                    >
-                      <ColorPicker disabledAlpha />
-                    </Form.Item>
-                    <Form.Item label=" ">
-                      <Button onClick={() => form.setFieldValue('terminalTheme', DEFAULT_TERMINAL_THEME)}>
-                        Reset to default
-                      </Button>
-                    </Form.Item>
-                  </Space>
-                  <div
-                    style={{
-                      maxWidth: 360,
-                      padding: '8px 12px',
-                      borderRadius: 6,
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                      background: terminalTheme.background,
-                      color: terminalTheme.foreground,
-                    }}
-                  >
-                    <span style={{ borderLeft: `2px solid ${terminalTheme.cursor}` }}>
-                      user@challoupe:~$ echo hello
-                    </span>
-                  </div>
-                </Card>
+                      <span style={{ borderLeft: `2px solid ${terminalTheme.cursor}` }}>
+                        user@challoupe:~$ echo hello
+                      </span>
+                    </div>
+                  </Card>
+                </Space>
               ),
             },
             {
@@ -677,6 +728,91 @@ export default function Settings() {
                       </Form.Item>
                       <Form.Item name={['notifications', 'onBackupFailure']} valuePropName="checked" noStyle>
                         <Checkbox disabled={!notificationsEnabled}>A scheduled backup fails</Checkbox>
+                      </Form.Item>
+                    </Space>
+                  </Card>
+
+                  <Card>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      <NotificationOutlined style={{ marginRight: 8 }} />
+                      ntfy
+                    </Typography.Title>
+                    <Space align="center" style={{ marginBottom: 16 }}>
+                      <Form.Item name={['ntfy', 'enabled']} valuePropName="checked" noStyle>
+                        <Switch />
+                      </Form.Item>
+                      <Typography.Text strong>Send ntfy notifications</Typography.Text>
+                    </Space>
+                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                      Publishes to a topic on{' '}
+                      <a href="https://ntfy.sh" target="_blank" rel="noreferrer">
+                        ntfy
+                      </a>{' '}
+                      (public or a self-hosted server) for Challoupe events.
+                    </Typography.Paragraph>
+                    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
+                      <Space size="large" wrap align="start">
+                        <Form.Item name={['ntfy', 'serverUrl']} label="Server URL">
+                          <Input style={{ width: 220 }} placeholder="https://ntfy.sh" disabled={!ntfyEnabled} />
+                        </Form.Item>
+                        <Form.Item name={['ntfy', 'topic']} label="Topic">
+                          <Input style={{ width: 200 }} placeholder="challoupe-alerts" disabled={!ntfyEnabled} />
+                        </Form.Item>
+                      </Space>
+                      <Space size="large" wrap align="start">
+                        <Form.Item name={['ntfy', 'username']} label="Username (optional)">
+                          <Input style={{ width: 200 }} disabled={!ntfyEnabled} />
+                        </Form.Item>
+                        <Form.Item
+                          name={['ntfy', 'password']}
+                          label="Password (optional)"
+                          tooltip="Never sent back to the browser, leave blank to keep the currently stored password"
+                        >
+                          <Input.Password
+                            style={{ width: 200 }}
+                            placeholder="Leave blank to keep current"
+                            disabled={!ntfyEnabled}
+                          />
+                        </Form.Item>
+                        {isAdmin && (
+                          <Form.Item label=" ">
+                            <Button
+                              icon={<NotificationOutlined />}
+                              loading={ntfyTestStatus === 'testing'}
+                              onClick={testNtfy}
+                              disabled={!ntfyEnabled}
+                            >
+                              Send test notification
+                            </Button>
+                          </Form.Item>
+                        )}
+                      </Space>
+                    </Space>
+                    {ntfyTestStatus === 'error' && (
+                      <Alert
+                        type="error"
+                        showIcon
+                        message="Could not reach ntfy"
+                        description={ntfyTestError}
+                        style={{ marginBottom: 16, maxWidth: 600 }}
+                      />
+                    )}
+                    <Typography.Title level={5} style={{ marginTop: 8 }}>
+                      Notify me when
+                    </Typography.Title>
+                    <Space direction="vertical">
+                      <Form.Item name={['ntfy', 'onContainerCrash']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!ntfyEnabled}>
+                          A container crashes, is OOM-killed, or fails its health check
+                        </Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['ntfy', 'onImageUpdate']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!ntfyEnabled}>
+                          A scheduled image update check finds something new
+                        </Checkbox>
+                      </Form.Item>
+                      <Form.Item name={['ntfy', 'onBackupFailure']} valuePropName="checked" noStyle>
+                        <Checkbox disabled={!ntfyEnabled}>A scheduled backup fails</Checkbox>
                       </Form.Item>
                     </Space>
                   </Card>

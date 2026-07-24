@@ -34,6 +34,16 @@ const DEFAULTS = {
     onImageUpdate: true,
     onBackupFailure: true,
   },
+  ntfy: {
+    enabled: false,
+    serverUrl: 'https://ntfy.sh',
+    topic: '',
+    username: '',
+    password: '',
+    onContainerCrash: true,
+    onImageUpdate: true,
+    onBackupFailure: true,
+  },
 };
 
 beforeEach(() => {
@@ -107,6 +117,16 @@ describe('PUT /api/settings', () => {
         onImageUpdate: false,
         onBackupFailure: true,
       },
+      ntfy: {
+        enabled: true,
+        serverUrl: 'https://ntfy.example.com',
+        topic: 'challoupe',
+        username: 'admin',
+        password: 'shh',
+        onContainerCrash: true,
+        onImageUpdate: false,
+        onBackupFailure: true,
+      },
     });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
@@ -137,6 +157,17 @@ describe('PUT /api/settings', () => {
         enabled: true,
         webhookUrl: '',
         format: 'discord',
+        onContainerCrash: true,
+        onImageUpdate: false,
+        onBackupFailure: true,
+      },
+      // Same write-only treatment for the ntfy password.
+      ntfy: {
+        enabled: true,
+        serverUrl: 'https://ntfy.example.com',
+        topic: 'challoupe',
+        username: 'admin',
+        password: '',
         onContainerCrash: true,
         onImageUpdate: false,
         onBackupFailure: true,
@@ -271,6 +302,46 @@ describe('PUT /api/settings', () => {
   it('rejects an invalid webhook URL', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.put('/api/settings').send({ notifications: { webhookUrl: 'not-a-url' } });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets an admin turn on ntfy notifications, never echoing the password back', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({
+      ntfy: { enabled: true, serverUrl: 'https://ntfy.example.com', topic: 'challoupe', username: 'admin', password: 'shh' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.ntfy).toEqual({
+      enabled: true,
+      serverUrl: 'https://ntfy.example.com',
+      topic: 'challoupe',
+      username: 'admin',
+      password: '',
+      onContainerCrash: true,
+      onImageUpdate: true,
+      onBackupFailure: true,
+    });
+  });
+
+  it('leaves the stored ntfy password unchanged when sent blank', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    await admin.put('/api/settings').send({ ntfy: { password: 'first-password' } });
+
+    const res = await admin.put('/api/settings').send({ ntfy: { password: '', onImageUpdate: false } });
+    expect(res.status).toBe(200);
+    expect(res.body.ntfy.onImageUpdate).toBe(false);
+    expect(res.body.ntfy.password).toBe(''); // never echoed back
+
+    // Not readable back over the API by design, so check the stored value directly.
+    const stored = db.prepare("SELECT value FROM settings WHERE key = 'ntfy.password'").get() as {
+      value: string;
+    };
+    expect(stored.value).toBe('first-password');
+  });
+
+  it('rejects an invalid ntfy server URL', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ ntfy: { serverUrl: 'not-a-url' } });
     expect(res.status).toBe(400);
   });
 

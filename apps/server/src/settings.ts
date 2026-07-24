@@ -107,6 +107,31 @@ const NOTIFICATION_DEFAULTS: NotificationSettings = {
   onBackupFailure: true,
 };
 
+/**
+ * A ntfy (https://ntfy.sh) topic that gets posted to for background events
+ */
+export interface NtfySettings {
+  enabled: boolean;
+  serverUrl: string;
+  topic: string;
+  username: string;
+  password: string;
+  onContainerCrash: boolean;
+  onImageUpdate: boolean;
+  onBackupFailure: boolean;
+}
+
+const NTFY_DEFAULTS: NtfySettings = {
+  enabled: false,
+  serverUrl: 'https://ntfy.sh',
+  topic: '',
+  username: '',
+  password: '',
+  onContainerCrash: true,
+  onImageUpdate: true,
+  onBackupFailure: true,
+};
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -125,6 +150,7 @@ export interface AppSettings {
   scheduledBackup: ScheduledBackupSettings;
   terminalTheme: TerminalThemeSettings;
   notifications: NotificationSettings;
+  ntfy: NtfySettings;
 }
 
 const NESTED_KEYS = [
@@ -134,6 +160,7 @@ const NESTED_KEYS = [
   'scheduledBackup',
   'terminalTheme',
   'notifications',
+  'ntfy',
 ] as const;
 
 const DEFAULTS: Omit<AppSettings, (typeof NESTED_KEYS)[number]> = {
@@ -155,6 +182,7 @@ export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[numb
   scheduledBackup?: Partial<ScheduledBackupSettings>;
   terminalTheme?: Partial<TerminalThemeSettings>;
   notifications?: Partial<NotificationSettings>;
+  ntfy?: Partial<NtfySettings>;
 };
 
 /**
@@ -219,6 +247,17 @@ export class SettingsService {
       else notifications[field] = raw === 'true';
     }
 
+    const ntfy = { ...NTFY_DEFAULTS };
+    for (const field of Object.keys(ntfy) as Array<keyof NtfySettings>) {
+      const raw = stored[`ntfy.${field}`];
+      if (raw === undefined) continue;
+      if (field === 'serverUrl' || field === 'topic' || field === 'username' || field === 'password') {
+        ntfy[field] = raw;
+      } else {
+        ntfy[field] = raw === 'true';
+      }
+    }
+
     return {
       defaultRestartPolicy: (stored.defaultRestartPolicy as RestartPolicy) ?? DEFAULTS.defaultRestartPolicy,
       refreshIntervalMs: stored.refreshIntervalMs
@@ -237,6 +276,7 @@ export class SettingsService {
       scheduledBackup,
       terminalTheme,
       notifications,
+      ntfy,
     };
   }
 
@@ -287,6 +327,14 @@ export class SettingsService {
           if (val === undefined) continue;
           if (field === 'webhookUrl' && val === '') continue; // blank = leave the stored URL unchanged
           upsert.run(`notifications.${field}`, String(val));
+        }
+        continue;
+      }
+      if (key === 'ntfy') {
+        for (const [field, val] of Object.entries(value as Partial<NtfySettings>)) {
+          if (val === undefined) continue;
+          if (field === 'password' && val === '') continue; // blank = leave the stored password unchanged
+          upsert.run(`ntfy.${field}`, String(val));
         }
         continue;
       }
