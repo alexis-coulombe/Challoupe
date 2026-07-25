@@ -17,6 +17,8 @@ A self-hosted Docker manager: containers, images, volumes, networks, compose sta
 
 - **Stacks**: each stack is a `docker-compose.yml` under `data/stacks/<name>/`, deployed with the real `docker compose -p <name> up -d`.
 
+- **Deploy webhooks**: each stack can generate a one-time deploy token (a stack's page, "Deploy webhook") that lets a CI pipeline trigger `docker compose pull && up -d` with a plain unauthenticated `POST` request.
+
 - **Users**: SQLite (`data/challoupe.db`), bcrypt password hashes, httpOnly cookie sessions. Two roles: `admin` (manages users and settings, has every permission) and `user`. First run prompts you to create the admin account.
 
 - **Two-factor authentication**: any local account can enable TOTP (Google Authenticator, Authy, etc.) from the user menu: QR code, confirmation code, then single-use backup codes shown once. Not available for SSO accounts. Admins can reset a user's 2FA from the Users page.

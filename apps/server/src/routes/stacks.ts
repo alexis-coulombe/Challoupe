@@ -35,5 +35,8 @@ router.put('/:name', requireStack, requirePermission('manageStacks'), c.update);
 router.post('/:name/deploy', requireStack, requirePermission('manageStacks'), c.deploy);
 router.post('/:name/down', requireStack, requirePermission('manageStacks'), c.down);
 router.delete('/:name', requireStack, requirePermission('manageStacks'), c.remove);
+router.get('/:name/webhook', requireStack, requirePermission('manageStacks'), c.getWebhook);
+router.post('/:name/webhook', requireStack, requirePermission('manageStacks'), c.regenerateWebhook);
+router.delete('/:name/webhook', requireStack, requirePermission('manageStacks'), c.revokeWebhook);
 
 export default router;

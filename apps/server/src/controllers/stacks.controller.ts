@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { auditLog } from '../audit.js';
 import { getPortainerStackFile, listPortainerStacks } from '../integrations/portainer/portainer.js';
 import { STACK_NAME_RE, stackService } from '../stacks.js';
+import { stackWebhookRepository } from '../stackWebhooks.js';
 
 const createSchema = z.object({
   name: z.string().regex(STACK_NAME_RE, 'Lowercase letters, digits, - and _ only'),
@@ -139,10 +140,43 @@ export class StacksController {
 
   remove = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     await stackService.delete(req.params.name);
+    stackWebhookRepository.revoke(req.params.name);
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,
       action: 'stack.delete',
+      target: req.params.name,
+      status: 'success',
+      ip: req.ip,
+    });
+    res.json({ ok: true });
+  };
+
+  getWebhook = (req: Request<{ name: string }>, res: Response): void => {
+    res.json(stackWebhookRepository.status(req.params.name));
+  };
+
+  // Returns the plaintext token exactly once — only its hash is ever persisted, so this is
+  // the only chance to see or copy it. Calling this again invalidates the previous token.
+  regenerateWebhook = (req: Request<{ name: string }>, res: Response): void => {
+    const token = stackWebhookRepository.regenerate(req.params.name);
+    auditLog.record({
+      userId: req.user!.id,
+      username: req.user!.username,
+      action: 'stack.webhook-regenerate',
+      target: req.params.name,
+      status: 'success',
+      ip: req.ip,
+    });
+    res.json({ token });
+  };
+
+  revokeWebhook = (req: Request<{ name: string }>, res: Response): void => {
+    stackWebhookRepository.revoke(req.params.name);
+    auditLog.record({
+      userId: req.user!.id,
+      username: req.user!.username,
+      action: 'stack.webhook-revoke',
       target: req.params.name,
       status: 'success',
       ip: req.ip,

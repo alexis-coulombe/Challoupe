@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS hosts (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   created_by INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS stack_webhooks (
+  stack_name TEXT PRIMARY KEY,
+  token_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 // Added after the initial release: bring existing databases up to date one column at a

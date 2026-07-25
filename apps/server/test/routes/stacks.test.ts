@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import request from 'supertest';
 import { app } from '../../src/index.js';
 import { db } from '../../src/db.js';
 import { docker } from '../../src/docker.js';
@@ -6,6 +7,7 @@ import { createAdminAgent, createUserAgent } from '../helpers.js';
 
 beforeEach(() => {
   db.exec('DELETE FROM users');
+  db.exec('DELETE FROM stack_webhooks');
 });
 
 const VALID_COMPOSE = 'services:\n  web:\n    image: nginx:alpine\n';
@@ -153,6 +155,83 @@ describe('DELETE /api/stacks/:name', () => {
 
     const res = await agent.delete('/api/stacks/protected-stack');
     expect(res.status).toBe(403);
+  });
+
+  it('revokes any deploy webhook the stack had', async () => {
+    const { agent } = await createAdminAgent(app);
+    await agent.post('/api/stacks').send({ name: 'webhook-cleanup', compose: VALID_COMPOSE });
+    await agent.post('/api/stacks/webhook-cleanup/webhook');
+
+    await agent.delete('/api/stacks/webhook-cleanup');
+
+    await agent.post('/api/stacks').send({ name: 'webhook-cleanup', compose: VALID_COMPOSE });
+    const status = await agent.get('/api/stacks/webhook-cleanup/webhook');
+    expect(status.body).toEqual({ configured: false });
+  });
+});
+
+describe('GET/POST/DELETE /api/stacks/:name/webhook', () => {
+  it('reports not configured until a token is generated', async () => {
+    const { agent } = await createAdminAgent(app);
+    await agent.post('/api/stacks').send({ name: 'hook-stack', compose: VALID_COMPOSE });
+
+    const before = await agent.get('/api/stacks/hook-stack/webhook');
+    expect(before.body).toEqual({ configured: false });
+
+    const generate = await agent.post('/api/stacks/hook-stack/webhook');
+    expect(generate.status).toBe(200);
+    expect(generate.body.token).toMatch(/^[0-9a-f]{64}$/);
+
+    const after = await agent.get('/api/stacks/hook-stack/webhook');
+    expect(after.body).toMatchObject({ configured: true });
+  });
+
+  it('returns a fresh token on regeneration and invalidates the previous one', async () => {
+    const { agent } = await createAdminAgent(app);
+    await agent.post('/api/stacks').send({ name: 'hook-regen', compose: VALID_COMPOSE });
+
+    const first = await agent.post('/api/stacks/hook-regen/webhook');
+    const second = await agent.post('/api/stacks/hook-regen/webhook');
+    expect(second.body.token).not.toBe(first.body.token);
+
+    const oldTokenTrigger = await request(app).post(`/api/webhooks/deploy/hook-regen/${first.body.token}`);
+    expect(oldTokenTrigger.status).toBe(404);
+  });
+
+  it('revokes a webhook, after which its token no longer triggers a deploy', async () => {
+    const { agent } = await createAdminAgent(app);
+    await agent.post('/api/stacks').send({ name: 'hook-revoke', compose: VALID_COMPOSE });
+    const generate = await agent.post('/api/stacks/hook-revoke/webhook');
+
+    const revoke = await agent.delete('/api/stacks/hook-revoke/webhook');
+    expect(revoke.status).toBe(200);
+    expect((await agent.get('/api/stacks/hook-revoke/webhook')).body).toEqual({ configured: false });
+
+    const trigger = await request(app).post(`/api/webhooks/deploy/hook-revoke/${generate.body.token}`);
+    expect(trigger.status).toBe(404);
+  });
+
+  it('rejects a non-admin user without manageStacks from generating or revoking a token', async () => {
+    const { agent: adminAgent } = await createAdminAgent(app);
+    await adminAgent.post('/api/stacks').send({ name: 'hook-guarded', compose: VALID_COMPOSE });
+    const agent = await createUserAgent(app, adminAgent, 'viewer');
+
+    const generate = await agent.post('/api/stacks/hook-guarded/webhook');
+    expect(generate.status).toBe(403);
+
+    const revoke = await agent.delete('/api/stacks/hook-guarded/webhook');
+    expect(revoke.status).toBe(403);
+  });
+
+  it('allows a non-admin with the manageStacks permission to generate a token', async () => {
+    const { agent: adminAgent } = await createAdminAgent(app);
+    await adminAgent.post('/api/stacks').send({ name: 'hook-granted', compose: VALID_COMPOSE });
+    const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', {
+      manageStacks: true,
+    });
+
+    const generate = await agent.post('/api/stacks/hook-granted/webhook');
+    expect(generate.status).toBe(200);
   });
 });
 

@@ -142,6 +142,10 @@ export class StackService {
     return this.compose(name, ['up', '-d', '--remove-orphans']);
   }
 
+  deployWithPull(name: string): Promise<ComposeResult> {
+    return this.compose(name, ['up', '-d', '--remove-orphans', '--pull', 'always']);
+  }
+
   down(name: string): Promise<ComposeResult> {
     return this.compose(name, ['down']);
   }

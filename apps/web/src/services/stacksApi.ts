@@ -40,6 +40,18 @@ export class StacksApi {
     return api.delete(`/stacks/${name}`);
   }
 
+  getWebhook(name: string) {
+    return api.get<{ configured: boolean; createdAt?: string }>(`/stacks/${name}/webhook`);
+  }
+
+  regenerateWebhook(name: string) {
+    return api.post<{ token: string }>(`/stacks/${name}/webhook`);
+  }
+
+  revokeWebhook(name: string) {
+    return api.delete(`/stacks/${name}/webhook`);
+  }
+
   listPortainer(creds: PortainerCredentials) {
     return api.post<PortainerStackRef[]>('/stacks/portainer/list', creds);
   }

@@ -6,7 +6,9 @@ import {
   AppstoreOutlined,
   ArrowLeftOutlined,
   CaretRightOutlined,
+  LinkOutlined,
   LoadingOutlined,
+  ReloadOutlined,
   RobotOutlined,
   SaveOutlined,
   StopOutlined,
@@ -57,6 +59,91 @@ const DIFF_STYLE: Record<DiffLine['type'], { background: string; color: string; 
   remove: { background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', prefix: '- ' },
   context: { background: 'transparent', color: '#c9d1d9', prefix: '  ' },
 };
+
+function DeployWebhookCard({ name }: { name: string }) {
+  const { message } = AntApp.useApp();
+  const queryClient = useQueryClient();
+  const [newToken, setNewToken] = useState<string | null>(null);
+
+  const { data: webhook } = useQuery({
+    queryKey: ['stack-webhook', name],
+    queryFn: () => stacksApi.getWebhook(name),
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['stack-webhook', name] });
+
+  const regenerateMutation = useMutation({
+    mutationFn: () => stacksApi.regenerateWebhook(name),
+    onSuccess: ({ token }) => {
+      setNewToken(token);
+      invalidate();
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: () => stacksApi.revokeWebhook(name),
+    onSuccess: () => {
+      message.success('Deploy webhook revoked');
+      invalidate();
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const url = newToken ? `${window.location.origin}/api/webhooks/deploy/${name}/${newToken}` : '';
+
+  return (
+    <Card size="small" title="Deploy webhook" style={{ marginBottom: 16 }}>
+      <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+        Lets a CI pipeline redeploy this stack with a plain <code>POST</code> request. 
+      </Typography.Paragraph>
+      <Space wrap>
+        <Button
+          icon={<ReloadOutlined />}
+          loading={regenerateMutation.isPending}
+          onClick={() => regenerateMutation.mutate()}
+        >
+          {webhook?.configured ? 'Regenerate' : 'Generate'} webhook URL
+        </Button>
+        {webhook?.configured && (
+          <DeleteButton
+            confirmTitle="Revoke this deploy webhook? Any CI pipeline using it will start failing."
+            onConfirm={() => revokeMutation.mutate()}
+            loading={revokeMutation.isPending}
+          >
+            Revoke
+          </DeleteButton>
+        )}
+      </Space>
+
+      <Modal
+        title={
+          <Space size={8}>
+            <LinkOutlined />
+            Deploy webhook URL
+          </Space>
+        }
+        open={newToken !== null}
+        onCancel={() => setNewToken(null)}
+        footer={
+          <Button type="primary" onClick={() => setNewToken(null)}>
+            Done
+          </Button>
+        }
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="This key is only shown once. Make sure to save it now."
+        />
+        <Typography.Text code copyable={{ text: url }} style={{ wordBreak: 'break-all' }}>
+          {url}
+        </Typography.Text>
+      </Modal>
+    </Card>
+  );
+}
 
 export default function StackEdit() {
   const { name: routeName } = useParams<{ name: string }>();
@@ -313,6 +400,8 @@ export default function StackEdit() {
           </>
         )}
       </Space>
+
+      {!isNew && canManage && <DeployWebhookCard name={routeName!} />}
 
       {result && (
         <Alert
