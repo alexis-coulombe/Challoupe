@@ -28,6 +28,25 @@ import { resourceWatchdogService } from './resourceWatchdog.js';
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', TRUST_PROXY);
+
+// Baseline hardening headers on every response (the API and the served SPA). The management
+// UI must never be framed (clickjacking on stop/kill/delete controls), browsers must not
+// MIME-sniff responses, and the URL must not leak in a Referer to third-party targets.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  next();
+});
+// API responses carry session-scoped data (settings, container inspects, the audit log);
+// keep them out of shared/browser caches.
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
 app.use('/api/backup', express.json({ limit: '20mb' }));
 app.use(express.json({ limit: '1mb' }));
 app.use(sessionMiddleware);
