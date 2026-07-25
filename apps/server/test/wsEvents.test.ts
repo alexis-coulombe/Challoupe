@@ -181,6 +181,42 @@ describe('WS /events', () => {
     expect(mockDiagnose).toHaveBeenCalledOnce();
     expect(mockNotifyContainerEvent).toHaveBeenCalledWith('db', 'crashed (exit code 137)');
   });
+
+  // The watchdog is an independent background consumer of the Ollama connection: an admin
+  // can run it with the manual/user-facing AI Assistant entry points (chat, per-container
+  // diagnose button, generate-stack) turned off.
+  it('still runs the watchdog diagnosis when featureFlags.aiAssistant is disabled', async () => {
+    settingsService.update({
+      featureFlags: { aiAssistant: false },
+      aiWatchdog: { enabled: true, checkContainerEvents: true },
+    });
+    mockDiagnose.mockResolvedValue('the app is missing a required environment variable');
+
+    const cookie = await loginCookie();
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/events`, { headers: { Cookie: cookie } });
+    await new Promise<void>((resolve, reject) => {
+      ws.on('open', () => resolve());
+      ws.on('error', reject);
+    });
+
+    eventStream.push(
+      JSON.stringify({
+        Type: 'container',
+        Action: 'die',
+        Actor: { ID: 'ccc', Attributes: { name: 'db', exitCode: '137' } },
+        time: 3,
+      }) + '\n'
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await closeAndWait(ws);
+
+    expect(mockDiagnose).toHaveBeenCalledWith('local', 'ccc', 'db', 'crashed (exit code 137)');
+    expect(mockNotifyContainerEvent).toHaveBeenCalledWith(
+      'db',
+      'crashed (exit code 137) AI diagnosis: the app is missing a required environment variable'
+    );
+  });
 });
 
 describe('WS /events — multi-host', () => {

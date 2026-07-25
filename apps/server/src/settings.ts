@@ -139,8 +139,9 @@ const NTFY_DEFAULTS: NtfySettings = {
 /**
  * Uses the local Ollama model to look at containers that just crashed or restarted, and a
  * scheduled rule-based scan of the audit log, to flag things worth a human's attention.
- * Requires featureFlags.aiAssistant for the container check (it calls Ollama); the audit
- * check is plain SQL and doesn't.
+ * The container check needs ollamaModel set (see ollamaBaseUrl/ollamaModel below), but is
+ * independent of featureFlags.aiAssistant, which only gates the manual/user-facing AI entry
+ * points; the audit check is plain SQL and needs neither.
  */
 export interface AiWatchdogSettings {
   enabled: boolean;

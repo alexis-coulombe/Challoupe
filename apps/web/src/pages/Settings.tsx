@@ -332,6 +332,9 @@ export default function Settings() {
   const ntfyEnabled = Form.useWatch(['ntfy', 'enabled'], form) ?? false;
   const watchdogEnabled = Form.useWatch(['aiWatchdog', 'enabled'], form) ?? false;
   const watchdogAuditEnabled = Form.useWatch(['aiWatchdog', 'checkAuditLog'], form) ?? false;
+  // The Ollama connection is shared by the manual AI Assistant and the background AI
+  // Watchdog; either one needing it should unlock the fields, not just the Assistant.
+  const ollamaConfigEnabled = aiEnabled || watchdogEnabled;
   const resourceAlertsEnabled = Form.useWatch(['resourceAlerts', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
 
@@ -581,12 +584,17 @@ export default function Settings() {
                         Ollama
                       </a>{' '}
                       server to unlock log diagnosis, AI stack generation, and the chat assistant.
-                      Nothing leaves this address. Turning this off hides every AI entry point in the
-                      app and disables it on the server too.
+                      Nothing leaves this address. Turning this off hides those entry points from
+                      every user; the AI Watchdog below is separate and keeps working off the same
+                      connection if you enable it.
                     </Typography.Paragraph>
                     <Space size="large" wrap align="start">
                       <Form.Item name="ollamaBaseUrl" label="Base URL">
-                        <Input style={{ width: 260 }} placeholder="http://localhost:11434" disabled={!aiEnabled} />
+                        <Input
+                          style={{ width: 260 }}
+                          placeholder="http://localhost:11434"
+                          disabled={!ollamaConfigEnabled}
+                        />
                       </Form.Item>
                       <Form.Item
                         name="ollamaModel"
@@ -597,12 +605,16 @@ export default function Settings() {
                           style={{ width: 200 }}
                           options={modelOptions}
                           placeholder="e.g. llama3.1"
-                          disabled={!aiEnabled}
+                          disabled={!ollamaConfigEnabled}
                         />
                       </Form.Item>
                       {isAdmin && (
                         <Form.Item label=" ">
-                          <AiButton loading={testStatus === 'testing'} onClick={testOllama} disabled={!aiEnabled}>
+                          <AiButton
+                            loading={testStatus === 'testing'}
+                            onClick={testOllama}
+                            disabled={!ollamaConfigEnabled}
+                          >
                             Test connection
                           </AiButton>
                         </Form.Item>
@@ -636,9 +648,10 @@ export default function Settings() {
                     </Typography.Paragraph>
                     <Space direction="vertical">
                       <Form.Item name={['aiWatchdog', 'checkContainerEvents']} valuePropName="checked" noStyle>
-                        <Checkbox disabled={!watchdogEnabled || !aiEnabled}>
+                        <Checkbox disabled={!watchdogEnabled}>
                           Diagnose containers that crash, are OOM-killed, or fail their health
-                          check with the model above (needs AI features enabled)
+                          check with the model above (needs a model configured, independent of
+                          the AI Assistant toggle)
                         </Checkbox>
                       </Form.Item>
                       <Form.Item name={['aiWatchdog', 'checkAuditLog']} valuePropName="checked" noStyle>

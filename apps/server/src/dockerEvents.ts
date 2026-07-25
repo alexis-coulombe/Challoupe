@@ -76,8 +76,12 @@ export class DockerEventBroadcaster {
   // few seconds and shouldn't delay the live toast in the UI.
   private async notify(notification: DockerNotification): Promise<void> {
     const baseDetail = EVENT_DETAIL[notification.action](notification);
-    const { aiWatchdog, featureFlags } = settingsService.get();
-    if (aiWatchdog.enabled && aiWatchdog.checkContainerEvents && featureFlags.aiAssistant) {
+    const { aiWatchdog } = settingsService.get();
+    // Independent of featureFlags.aiAssistant on purpose: that flag only controls the
+    // manual/user-facing AI entry points (chat, per-container diagnose button, generate-stack).
+    // The watchdog is a separate, admin-configured background consumer of the same Ollama
+    // connection, and containerWatchdog.diagnose() already no-ops on its own if no model is set.
+    if (aiWatchdog.enabled && aiWatchdog.checkContainerEvents) {
       const diagnosis = await containerWatchdog.diagnose(
         notification.hostId,
         notification.containerId,
