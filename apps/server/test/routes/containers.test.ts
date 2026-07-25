@@ -210,9 +210,19 @@ describe('POST /api/hosts/local/containers/:id/actions/:action', () => {
     expect(mockContainer.stop).toHaveBeenCalledOnce();
   });
 
-  it('allows a non-admin user, since start/stop/restart are non-destructive', async () => {
+  it('rejects a non-admin user without the manageContainers permission', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer');
+    const res = await agent.post('/api/hosts/local/containers/container-123/actions/stop');
+    expect(res.status).toBe(403);
+    expect(mockContainer.stop).not.toHaveBeenCalled();
+  });
+
+  it('allows a non-admin with the manageContainers permission', async () => {
+    const { agent: adminAgent } = await createAdminAgent(app);
+    const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', {
+      manageContainers: true,
+    });
     const res = await agent.post('/api/hosts/local/containers/container-123/actions/stop');
     expect(res.status).toBe(200);
     expect(mockContainer.stop).toHaveBeenCalledOnce();
