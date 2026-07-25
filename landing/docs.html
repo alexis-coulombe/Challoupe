@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Challoupe Documentation</title>
+<meta name="description" content="Full documentation for Challoupe: containers, images, stacks, multiple hosts, users, notifications, the AI assistant and everything else it can do." />
+<link rel="icon" type="image/svg+xml" href="../apps/web/public/logo.svg" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0b0e14',
+          sider: '#0e1219',
+          surface: '#161c28',
+          surface2: '#1e2530',
+          border: '#2a3441',
+          bordersoft: '#242e3c',
+          primary: '#3b82f6',
+          primarylight: '#7ab3ff',
+          primarydark: '#1d4ed8',
+          amber: '#f5b942',
+          amberdark: '#b8791f',
+        },
+        fontFamily: {
+          mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  body { background-color: #0b0e14; }
+  ::selection { background: rgba(59, 130, 246, 0.35); }
+  * { scrollbar-width: thin; scrollbar-color: #2a3441 transparent; }
+
+  .doclink { display: block; padding: 0.4rem 1rem; border-radius: 0 999px 999px 0; color: #64748b; font-size: 0.875rem; transition: color .15s ease, background-color .15s ease; }
+  .doclink:hover { color: #e2e8f0; }
+  .doclink.active { background: rgba(59, 130, 246, 0.15); color: #7ab3ff; font-weight: 500; }
+
+  .docsection { display: none; }
+  .docsection.active { display: block; animation: fadein .25s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .docsection p { color: #94a3b8; line-height: 1.75; margin-top: 1rem; max-width: 760px; }
+  .docsection h2 { color: white; font-size: 1.75rem; font-weight: 700; }
+  .docsection h3 { color: white; font-size: 1.1rem; font-weight: 600; margin-top: 2rem; }
+  .docsection code { background: #1e2530; border: 1px solid #242e3c; color: #7ab3ff; padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-size: 0.85em; }
+</style>
+</head>
+<body class="bg-ink text-slate-300 antialiased">
+
+<header class="sticky top-0 z-40 border-b border-border bg-ink/95 backdrop-blur-md">
+  <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+    <a href="index.html" class="flex items-center gap-2.5">
+      <svg width="28" height="28" viewBox="0 0 100 100" class="shrink-0">
+        <polygon points="30,27 50,37 50,52 30,42" fill="#7ab3ff" opacity="0.9"/>
+        <polygon points="50,37 70,27 70,42 50,52" fill="#1d4ed8" opacity="0.85"/>
+        <polygon points="30,27 50,17 70,27 50,37" fill="#7ab3ff"/>
+        <polygon points="50,52 15,68 50,84" fill="#f5b942"/>
+        <polygon points="50,52 85,68 50,84" fill="#b8791f"/>
+      </svg>
+      <span class="font-mono font-bold text-lg text-white tracking-tight">Challoupe</span>
+      <span class="text-slate-600 hidden sm:inline">/ Documentation</span>
+    </a>
+    <div class="flex items-center gap-4 text-sm">
+      <a href="index.html" class="text-slate-400 hover:text-white transition-colors">Home</a>
+      <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<div class="mx-auto max-w-7xl px-6 py-8 flex flex-col lg:flex-row gap-10 items-start">
+
+  <select id="mobileNav" class="lg:hidden w-full mb-4 rounded-lg border border-border bg-surface text-slate-200 text-sm px-3 py-2">
+    <option value="overview">Overview</option>
+    <option value="installing">Installing Challoupe</option>
+    <option value="containers">Containers</option>
+    <option value="images">Images</option>
+    <option value="volumesnetworks">Volumes and networks</option>
+    <option value="stacks">Stacks</option>
+    <option value="webhooks">Deploy webhooks</option>
+    <option value="hosts">Multiple hosts</option>
+    <option value="users">Users and permissions</option>
+    <option value="notifications">Notifications and alerts</option>
+    <option value="ai">The AI assistant</option>
+    <option value="scanning">Vulnerability scanning</option>
+    <option value="audit">Audit log</option>
+    <option value="backup">Backup and restore</option>
+    <option value="config">Configuration</option>
+  </select>
+
+  <aside class="hidden lg:block w-64 shrink-0 sticky top-24 self-start">
+    <nav class="space-y-0.5">
+      <a class="doclink" data-chapter="overview" href="#overview">Overview</a>
+      <a class="doclink" data-chapter="installing" href="#installing">Installing Challoupe</a>
+      <a class="doclink" data-chapter="containers" href="#containers">Containers</a>
+      <a class="doclink" data-chapter="images" href="#images">Images</a>
+      <a class="doclink" data-chapter="volumesnetworks" href="#volumesnetworks">Volumes and networks</a>
+      <a class="doclink" data-chapter="stacks" href="#stacks">Stacks</a>
+      <a class="doclink" data-chapter="webhooks" href="#webhooks">Deploy webhooks</a>
+      <a class="doclink" data-chapter="hosts" href="#hosts">Multiple hosts</a>
+      <a class="doclink" data-chapter="users" href="#users">Users and permissions</a>
+      <a class="doclink" data-chapter="notifications" href="#notifications">Notifications and alerts</a>
+      <a class="doclink" data-chapter="ai" href="#ai">The AI assistant</a>
+      <a class="doclink" data-chapter="scanning" href="#scanning">Vulnerability scanning</a>
+      <a class="doclink" data-chapter="audit" href="#audit">Audit log</a>
+      <a class="doclink" data-chapter="backup" href="#backup">Backup and restore</a>
+      <a class="doclink" data-chapter="config" href="#config">Configuration</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 min-w-0 pb-24">
+
+    <section id="overview" class="docsection">
+      <h2>Overview</h2>
+      <p>Challoupe is a Docker manager you run on your own machine or inside your own network. It gives you a browser interface for containers, images, volumes, networks and full compose stacks, along with the accounts, permissions, audit trail and remote host support you would normally only find in a paid product.</p>
+      <p>There is no tier above the one you already have. Every capability described on this page ships in the same build, whether you run it on a single laptop or across several machines you manage from one place.</p>
+      <p>The rest of this documentation goes through each part of the app on its own, so pick a chapter on the left whenever you need it.</p>
+    </section>
+
+    <section id="installing" class="docsection">
+      <h2>Installing Challoupe</h2>
+      <p>The whole application ships as one Docker image. You do not need Node installed on your machine, you do not need to build anything by hand, and you do not need a separate database server running somewhere else. Everything Challoupe needs, its own SQLite file, your compose files, your settings, lives under a single data folder that gets mounted as a volume.</p>
+      <div class="mt-6 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
+        <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">git clone https://github.com/alexis-coulombe/Challoupe.git
+cd Challoupe
+docker compose up -d --build</pre>
+      </div>
+      <p>Once the container is running, open the address it listens on and you will be asked to create the first account. That account becomes an administrator automatically, since there has to be one to configure anything else.</p>
+      <p>Challoupe talks to Docker through the socket at <code>/var/run/docker.sock</code>, so that path needs to reach the container. If you want the storage figure in the header to reflect real disk usage, also mount the host's Docker root folder at the same path inside the container, the exact path can be found by asking Docker itself for its root directory setting.</p>
+    </section>
+
+    <section id="containers" class="docsection">
+      <h2>Containers</h2>
+      <p>This page lists every container on whichever host is currently selected, sorted alphabetically so nothing shuffles around between refreshes. From the list you can start, stop, restart or remove a container, and a Create button walks you through an image, ports, environment variables, volumes and a restart policy.</p>
+      <p>An Advanced settings section on the same form covers what a compose file usually would: network selection, a command override, working directory, user, labels, privileged mode, whether the container removes itself once it exits, and memory or CPU limits. None of it is hidden away on a different screen, it sits right there, collapsed until you need it.</p>
+      <h3>The container page</h3>
+      <p>Opening a single container brings up its own page with three tabs. Logs streams live output and lets you choose how far back to look. Stats draws CPU, memory and network activity as it happens. Terminal opens a real shell inside the container straight from your browser, nothing to install on your own computer. When the AI assistant is turned on, a Diagnose button on the Logs tab reads what just happened and explains it in plain language.</p>
+    </section>
+
+    <section id="images" class="docsection">
+      <h2>Images</h2>
+      <p>Images lists every image pulled or built on the current host, together with its size and every tag attached to it. Pulling something new, removing an image, or clearing out anything unused all happen from here. You can also build an image straight from a Git repository address rather than pulling something already published.</p>
+      <p>Next to a tag you may notice a small badge saying whether a newer version is available. Challoupe checks the remote registry on a timer and compares what it finds against what you have locally, so you know at a glance whether the running image still matches what the registry currently serves. No badge at all simply means it has not been checked yet, which is a different thing from being told it is current.</p>
+    </section>
+
+    <section id="volumesnetworks" class="docsection">
+      <h2>Volumes and networks</h2>
+      <p>These two pages stay simple on purpose, since there is less to configure day to day. Volumes shows which containers use each one and lets you remove anything not attached to a container anymore. Networks lets you create a new network with the driver of your choice and remove ones you no longer need. Both lists sort alphabetically, the same reason containers do, so the order stays predictable.</p>
+    </section>
+
+    <section id="stacks" class="docsection">
+      <h2>Stacks</h2>
+      <p>A stack in Challoupe is a compose file, kept in its own folder on disk. You can start from a blank template, pick something from the catalog covering common setups, or have the AI assistant put together a first draft from a short description if that feature is turned on.</p>
+      <p>Deploying a stack runs the real compose command underneath, so anything that already works on your own machine through the command line will work here too. Editing a stack that is already running shows you what is about to change before letting you confirm the deploy. Stopping a stack tears its containers down, and every stack's page also flags drift: a service that stopped outside Challoupe, a container Compose no longer recognizes, or one running a different image than the file calls for.</p>
+      <p>If you already keep stacks in Portainer, an import flow reads them straight from a running Portainer instance given its address and your login there, so you do not have to copy compose files over by hand.</p>
+    </section>
+
+    <section id="webhooks" class="docsection">
+      <h2>Deploy webhooks</h2>
+      <p>Every stack can have its own deploy webhook, found on that stack's page. Generating one gives you a single address containing a token, shown exactly once. Sending a plain request to that address pulls the freshest image for every service in the stack and redeploys it immediately, with no Challoupe session involved at all.</p>
+      <p>This is meant for a build pipeline. Once it pushes a new image on a tag that keeps moving, have the pipeline call that address and the running stack picks the change up right away. Only a hash of the token is ever kept on the server, so if it gets lost the only option is generating a fresh one, which retires the old one instantly.</p>
+    </section>
+
+    <section id="hosts" class="docsection">
+      <h2>Multiple hosts</h2>
+      <p>Challoupe is not limited to the machine it happens to run on. From the Hosts page, an administrator can register another machine reachable over SSH, and a switcher in the header lets anyone pick which host they are currently looking at. Containers, images, volumes, networks, and even a container's logs, live stats and terminal, all follow whichever host is selected.</p>
+      <p>Nothing extra needs to be exposed on the remote machine beyond a normal SSH login with access to Docker there, no additional port, no certificate to manage. The private key you provide gets encrypted before it ever touches the database and is never sent back to the browser once saved. Compose stacks are the one exception and always run on the local host, since the compose command itself has no equivalent path over SSH yet.</p>
+    </section>
+
+    <section id="users" class="docsection">
+      <h2>Users and permissions</h2>
+      <p>Every account is either an administrator, who can do anything including managing other accounts and settings, or a regular user whose access comes from individual permissions: managing containers, images, volumes, networks or stacks, opening a terminal, and using the AI assistant or the vulnerability scanner. Reading and simple actions like starting or stopping something stay open to everyone by default, only the more consequential actions need a permission granted first.</p>
+      <p>Any local account can turn on two factor sign in from its own account menu, scanning a QR code with an authenticator app and keeping a set of single use backup codes in case the phone is ever lost. An administrator can reset someone's two factor setup if they get locked out of it. Challoupe also supports signing in through an outside identity provider using OpenID Connect, so you can keep relying on whatever your organization already uses instead of yet another password to remember.</p>
+    </section>
+
+    <section id="notifications" class="docsection">
+      <h2>Notifications and alerts</h2>
+      <p>Settings lets you turn on a webhook, formatted for Discord, Slack or a plain JSON consumer, and a ntfy topic if you would rather get a push notification on your phone instead. Both can be told which events actually matter to you: a container crashing, a scheduled image check turning up something newer, a resource threshold being crossed, or a scheduled backup failing.</p>
+      <p>Resource alerts watch CPU, memory and disk usage against thresholds you set yourself, on a timer you also control. Checks on individual containers apply across every host you have registered, while the reading for the machine Challoupe itself runs on only ever describes that one machine, since there is no way to read another computer's own resource usage over the same connection used to manage its containers.</p>
+    </section>
+
+    <section id="ai" class="docsection">
+      <h2>The AI assistant</h2>
+      <p>Point Challoupe at an Ollama server, your own or one already running somewhere on your network, and three things unlock. A Diagnose button on a container's Logs tab reads what just happened and explains it in a sentence or two instead of you scrolling through a wall of text. A Generate button in the stack editor turns a short description into a first draft compose file. A floating chat button opens a small assistant aware of the containers you currently have running, so you can ask it something without leaving the page.</p>
+      <p>None of this sends anything outside your own network. The address you configure is the only place any of it ever talks to, and turning the feature off in Settings removes every entry point to it, in the interface and on the server both.</p>
+    </section>
+
+    <section id="scanning" class="docsection">
+      <h2>Vulnerability scanning</h2>
+      <p>From the Images page, a Scan action runs Trivy against whichever image you choose. Trivy itself runs as a single container that starts, does its work, and exits right after, nothing keeps running once the scan finishes. The first scan downloads a vulnerability database that stays cached locally afterward, so later scans come back quicker. Results arrive sorted by severity, so whatever is worth fixing first sits at the top.</p>
+    </section>
+
+    <section id="audit" class="docsection">
+      <h2>Audit log</h2>
+      <p>An administrator only page keeps a record of what happened across the whole app: things created or removed, changes to settings, scans that were run, sign ins, password changes and permission checks that were denied. It stays on by default and can be turned off from the page itself if you would rather not keep one, though turning it off only stops new entries from being written, it does not erase what already happened.</p>
+    </section>
+
+    <section id="backup" class="docsection">
+      <h2>Backup and restore</h2>
+      <p>A single export bundles every account, every setting and every stack's compose file into one file you can download whenever you like. Restoring one replaces everything currently in Challoupe and signs every open session out, since the set of valid accounts just changed under everyone at once. A scheduler can also write that same export to disk on its own timer, keeping only as many recent copies as you tell it to.</p>
+    </section>
+
+    <section id="config" class="docsection">
+      <h2>Configuration</h2>
+      <p>A handful of environment variables control how Challoupe runs. Most already have a sensible default and only need your attention if your setup is unusual.</p>
+      <div class="mt-6 overflow-x-auto rounded-xl border border-border">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-surface2 text-slate-400">
+            <tr>
+              <th class="px-4 py-3 font-medium">Variable</th>
+              <th class="px-4 py-3 font-medium">Default</th>
+              <th class="px-4 py-3 font-medium">What it does</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border bg-surface/60">
+            <tr><td class="px-4 py-3"><code>PORT</code></td><td class="px-4 py-3 text-slate-500">3001</td><td class="px-4 py-3 text-slate-400">The port the server listens on.</td></tr>
+            <tr><td class="px-4 py-3"><code>HOST</code></td><td class="px-4 py-3 text-slate-500">0.0.0.0</td><td class="px-4 py-3 text-slate-400">Which network interface it listens on.</td></tr>
+            <tr><td class="px-4 py-3"><code>DATA_DIR</code></td><td class="px-4 py-3 text-slate-500">./data</td><td class="px-4 py-3 text-slate-400">Where the database, session secret, host encryption key and stack files all live.</td></tr>
+            <tr><td class="px-4 py-3"><code>DOCKER_SOCK</code></td><td class="px-4 py-3 text-slate-500">/var/run/docker.sock</td><td class="px-4 py-3 text-slate-400">Path to the Docker socket.</td></tr>
+            <tr><td class="px-4 py-3"><code>SESSION_SECRET</code></td><td class="px-4 py-3 text-slate-500">generated automatically</td><td class="px-4 py-3 text-slate-400">Signs the session cookie. Created and kept under the data folder if you never set your own.</td></tr>
+            <tr><td class="px-4 py-3"><code>TLS_CERT_FILE</code> / <code>TLS_KEY_FILE</code></td><td class="px-4 py-3 text-slate-500">unset</td><td class="px-4 py-3 text-slate-400">A certificate and its matching key, if you want Challoupe serving https directly instead of sitting behind a separate proxy.</td></tr>
+            <tr><td class="px-4 py-3"><code>TRUST_PROXY</code></td><td class="px-4 py-3 text-slate-500">false</td><td class="px-4 py-3 text-slate-400">Turn on only when a trusted proxy sits in front and forwards the original client information, so the session cookie and the audit log reflect the real visitor.</td></tr>
+            <tr><td class="px-4 py-3"><code>PUBLIC_URL</code></td><td class="px-4 py-3 text-slate-500">taken from the request</td><td class="px-4 py-3 text-slate-400">The address people actually reach Challoupe at, when a proxy in front hides that from the server. Needed so the sign in callback address comes out correct.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const chapters = Array.from(document.querySelectorAll('.docsection')).map((el) => el.id);
+  const links = document.querySelectorAll('.doclink');
+  const mobileNav = document.getElementById('mobileNav');
+
+  function showChapter(id, updateHash) {
+    if (!chapters.includes(id)) id = chapters[0];
+    document.querySelectorAll('.docsection').forEach((el) => el.classList.toggle('active', el.id === id));
+    links.forEach((a) => a.classList.toggle('active', a.dataset.chapter === id));
+    mobileNav.value = id;
+    if (updateHash) history.replaceState(null, '', '#' + id);
+    window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
+  }
+
+  links.forEach((a) => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      showChapter(a.dataset.chapter, true);
+    });
+  });
+
+  mobileNav.addEventListener('change', () => showChapter(mobileNav.value, true));
+
+  showChapter(window.location.hash ? window.location.hash.slice(1) : chapters[0], false);
+</script>
+
+</body>
+</html>
