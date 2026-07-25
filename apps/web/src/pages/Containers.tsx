@@ -252,24 +252,25 @@ export default function Containers() {
         const act = (action: string) => actionMutation.mutate({ id: record.id, action });
         return (
           <Space size="small">
-            {record.state === 'running' ? (
-              <>
-                <Tooltip title="Stop">
-                  <Button size="small" icon={<StopOutlined />} onClick={() => act('stop')} />
+            {canManage &&
+              (record.state === 'running' ? (
+                <>
+                  <Tooltip title="Stop">
+                    <Button size="small" icon={<StopOutlined />} onClick={() => act('stop')} />
+                  </Tooltip>
+                  <Tooltip title="Restart">
+                    <Button size="small" icon={<ReloadOutlined />} onClick={() => act('restart')} />
+                  </Tooltip>
+                </>
+              ) : record.state === 'paused' ? (
+                <Tooltip title="Resume">
+                  <Button size="small" icon={<CaretRightOutlined />} onClick={() => act('unpause')} />
                 </Tooltip>
-                <Tooltip title="Restart">
-                  <Button size="small" icon={<ReloadOutlined />} onClick={() => act('restart')} />
+              ) : (
+                <Tooltip title="Start">
+                  <Button size="small" icon={<CaretRightOutlined />} onClick={() => act('start')} />
                 </Tooltip>
-              </>
-            ) : record.state === 'paused' ? (
-              <Tooltip title="Resume">
-                <Button size="small" icon={<CaretRightOutlined />} onClick={() => act('unpause')} />
-              </Tooltip>
-            ) : (
-              <Tooltip title="Start">
-                <Button size="small" icon={<CaretRightOutlined />} onClick={() => act('start')} />
-              </Tooltip>
-            )}
+              ))}
             {canManage && (
               <DeleteButton
                 confirmTitle="Delete this container?"
@@ -293,9 +294,9 @@ export default function Containers() {
         )}
       </ListPageHeader>
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
-        {bulkButton('start', 'Start', <CaretRightOutlined />)}
-        {bulkButton('stop', 'Stop', <StopOutlined />)}
-        {bulkButton('restart', 'Restart', <ReloadOutlined />)}
+        {canManage && bulkButton('start', 'Start', <CaretRightOutlined />)}
+        {canManage && bulkButton('stop', 'Stop', <StopOutlined />)}
+        {canManage && bulkButton('restart', 'Restart', <ReloadOutlined />)}
         {canManage && (
           <DeleteButton
             confirmTitle={`Delete ${selectedKeys.length} container(s)?`}

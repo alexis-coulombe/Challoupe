@@ -232,24 +232,25 @@ export default function ContainerDetail() {
         </Typography.Title>
         {state && <Tag color={CONTAINER_STATE_COLORS[state] ?? 'default'}>{state}</Tag>}
         {name && <FavoriteButton type="container" id={id} label={name} />}
-        {running ? (
-          <>
-            <Button icon={<StopOutlined />} onClick={() => actionMutation.mutate('stop')}>
-              Stop
+        {canManage &&
+          (running ? (
+            <>
+              <Button icon={<StopOutlined />} onClick={() => actionMutation.mutate('stop')}>
+                Stop
+              </Button>
+              <Button icon={<ReloadOutlined />} onClick={() => actionMutation.mutate('restart')}>
+                Restart
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="primary"
+              icon={<CaretRightOutlined />}
+              onClick={() => actionMutation.mutate(state === 'paused' ? 'unpause' : 'start')}
+            >
+              Start
             </Button>
-            <Button icon={<ReloadOutlined />} onClick={() => actionMutation.mutate('restart')}>
-              Restart
-            </Button>
-          </>
-        ) : (
-          <Button
-            type="primary"
-            icon={<CaretRightOutlined />}
-            onClick={() => actionMutation.mutate(state === 'paused' ? 'unpause' : 'start')}
-          >
-            Start
-          </Button>
-        )}
+          ))}
         {canManage && (
           <DeleteButton
             size="middle"
