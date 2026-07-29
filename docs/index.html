@@ -316,18 +316,36 @@
     <div class="mx-auto max-w-3xl">
       <div class="text-center mb-10">
         <h2 class="text-3xl font-bold text-white">Just docker compose up.</h2>
-        <p class="text-slate-400 mt-4">Clone the repo, then bring it up with Compose. No separate services needed.</p>
+        <p class="text-slate-400 mt-4">Pull the published image directly, or clone the repo and bring it up with Compose.</p>
       </div>
 
       <div class="rounded-xl border border-border bg-surface overflow-hidden">
         <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface2">
           <span class="text-xs text-slate-500 font-mono">shell</span>
-          <button id="copy-btn" class="text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5">
+          <button class="copy-btn text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5" data-copy-target="copy-target-pull">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h10" stroke-linecap="round"/></svg>
-            <span id="copy-label">Copy</span>
+            <span class="copy-label">Copy</span>
           </button>
         </div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code id="copy-target">git clone https://github.com/alexis-coulombe/Challoupe.git
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code id="copy-target-pull">docker pull ghcr.io/alexis-coulombe/challoupe:latest
+docker run -d --name challoupe \
+  -p 3001:3001 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v challoupe_data:/app/data \
+  ghcr.io/alexis-coulombe/challoupe:latest</code></pre>
+      </div>
+
+      <p class="text-slate-500 text-sm text-center mt-6 mb-6">Or, from a clone of this repo, <code>docker-compose.yml</code> already points at the same image:</p>
+
+      <div class="rounded-xl border border-border bg-surface overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface2">
+          <span class="text-xs text-slate-500 font-mono">shell</span>
+          <button class="copy-btn text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5" data-copy-target="copy-target-compose">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h10" stroke-linecap="round"/></svg>
+            <span class="copy-label">Copy</span>
+          </button>
+        </div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code id="copy-target-compose">git clone https://github.com/alexis-coulombe/Challoupe.git
 cd Challoupe
 docker compose up -d</code></pre>
       </div>
@@ -384,17 +402,18 @@ docker compose up -d</code></pre>
   mobileMenu.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => mobileMenu.classList.add('hidden')));
 
   // copy-to-clipboard
-  const copyBtn = document.getElementById('copy-btn');
-  const copyLabel = document.getElementById('copy-label');
-  const copyTarget = document.getElementById('copy-target');
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(copyTarget.textContent.trim());
-      copyLabel.textContent = 'Copied!';
-      setTimeout(() => (copyLabel.textContent = 'Copy'), 1600);
-    } catch (e) {
-      copyLabel.textContent = 'Select & copy';
-    }
+  document.querySelectorAll('.copy-btn').forEach((copyBtn) => {
+    const copyLabel = copyBtn.querySelector('.copy-label');
+    const copyTarget = document.getElementById(copyBtn.dataset.copyTarget);
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(copyTarget.textContent.trim());
+        copyLabel.textContent = 'Copied!';
+        setTimeout(() => (copyLabel.textContent = 'Copy'), 1600);
+      } catch (e) {
+        copyLabel.textContent = 'Select & copy';
+      }
+    });
   });
 </script>
 
