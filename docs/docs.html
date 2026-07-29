@@ -57,12 +57,17 @@
 <header class="sticky top-0 z-40 border-b border-border bg-ink/95 backdrop-blur-md">
   <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
     <a href="index.html" class="flex items-center gap-2.5">
-      <svg width="28" height="28" viewBox="0 0 100 100" class="shrink-0">
-        <polygon points="30,27 50,37 50,52 30,42" fill="#7ab3ff" opacity="0.9"/>
-        <polygon points="50,37 70,27 70,42 50,52" fill="#1d4ed8" opacity="0.85"/>
-        <polygon points="30,27 50,17 70,27 50,37" fill="#7ab3ff"/>
-        <polygon points="50,52 15,68 50,84" fill="#f5b942"/>
-        <polygon points="50,52 85,68 50,84" fill="#b8791f"/>
+      <svg width="28" height="28" viewBox="0 0 512 512" class="shrink-0">
+        <polygon points="210,268 256,138 256,268" fill="#bfdbfe"/>
+        <polygon points="256,138 302,268 256,268" fill="#1d4ed8"/>
+        <polygon points="86,268 176,288 256,396 256,268" fill="#60a5fa"/>
+        <polygon points="256,268 256,396 336,288 426,268" fill="#1e40af"/>
+        <g fill="none" stroke="#0b1220" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+          <polyline points="86,268 426,268"/>
+          <polyline points="210,268 256,138 302,268"/>
+          <polyline points="86,268 176,288 256,396 336,288 426,268"/>
+          <line x1="256" y1="138" x2="256" y2="396"/>
+        </g>
       </svg>
       <span class="font-mono font-bold text-lg text-white tracking-tight">Challoupe</span>
       <span class="text-slate-600 hidden sm:inline">/ Documentation</span>
@@ -87,6 +92,7 @@
     <option value="hosts">Multiple hosts</option>
     <option value="users">Users and permissions</option>
     <option value="notifications">Notifications and alerts</option>
+    <option value="systemstats">System stats API</option>
     <option value="ai">The AI assistant</option>
     <option value="scanning">Vulnerability scanning</option>
     <option value="audit">Audit log</option>
@@ -106,6 +112,7 @@
       <a class="doclink" data-chapter="hosts" href="#hosts">Multiple hosts</a>
       <a class="doclink" data-chapter="users" href="#users">Users and permissions</a>
       <a class="doclink" data-chapter="notifications" href="#notifications">Notifications and alerts</a>
+      <a class="doclink" data-chapter="systemstats" href="#systemstats">System stats API</a>
       <a class="doclink" data-chapter="ai" href="#ai">The AI assistant</a>
       <a class="doclink" data-chapter="scanning" href="#scanning">Vulnerability scanning</a>
       <a class="doclink" data-chapter="audit" href="#audit">Audit log</a>
@@ -166,6 +173,20 @@ docker compose up -d --build</pre>
       <h2>Deploy webhooks</h2>
       <p>Every stack can have its own deploy webhook, found on that stack's page. Generating one gives you a single address containing a token, shown exactly once. Sending a plain request to that address pulls the freshest image for every service in the stack and redeploys it immediately, with no Challoupe session involved at all.</p>
       <p>This is meant for a build pipeline. Once it pushes a new image on a tag that keeps moving, have the pipeline call that address and the running stack picks the change up right away. Only a hash of the token is ever kept on the server, so if it gets lost the only option is generating a fresh one, which retires the old one instantly.</p>
+      <h3>Endpoint</h3>
+      <p>The address is generated from that stack's own page, while signed in with permission to manage stacks. The call itself is <code>POST /api/webhooks/deploy/:name/:token</code>, no session needed, capped at 20 attempts every 15 minutes per source address.</p>
+      <div class="mt-6 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
+        <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">curl -X POST https://challoupe.example.com/api/webhooks/deploy/my-stack/&lt;token&gt;</pre>
+      </div>
+      <p>A successful response looks like this, with <code>output</code> holding whatever <code>docker compose</code> itself printed:</p>
+      <div class="mt-4 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
+        <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">json</div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">{
+  "ok": true,
+  "output": " Container my-stack-web-1  Started"
+}</pre>
+      </div>
     </section>
 
     <section id="hosts" class="docsection">
@@ -176,7 +197,7 @@ docker compose up -d --build</pre>
 
     <section id="users" class="docsection">
       <h2>Users and permissions</h2>
-      <p>Every account is either an administrator, who can do anything including managing other accounts and settings, or a regular user whose access comes from individual permissions: managing containers, images, volumes, networks or stacks, opening a terminal, and using the AI assistant or the vulnerability scanner. Reading and simple actions like starting or stopping something stay open to everyone by default, only the more consequential actions need a permission granted first.</p>
+      <p>Every account is either an administrator, who can do anything including managing other accounts and settings, or a regular user whose access comes from individual permissions: managing containers, images, volumes, networks or stacks, opening a terminal, and using the AI assistant or the vulnerability scanner. Reading stays open to everyone by default, lists, logs, stats, but anything that changes something, including starting or stopping a container, needs the matching permission granted first.</p>
       <p>Any local account can turn on two factor sign in from its own account menu, scanning a QR code with an authenticator app and keeping a set of single use backup codes in case the phone is ever lost. An administrator can reset someone's two factor setup if they get locked out of it. Challoupe also supports signing in through an outside identity provider using OpenID Connect, so you can keep relying on whatever your organization already uses instead of yet another password to remember.</p>
     </section>
 
@@ -186,10 +207,48 @@ docker compose up -d --build</pre>
       <p>Resource alerts watch CPU, memory and disk usage against thresholds you set yourself, on a timer you also control. Checks on individual containers apply across every host you have registered, while the reading for the machine Challoupe itself runs on only ever describes that one machine, since there is no way to read another computer's own resource usage over the same connection used to manage its containers.</p>
     </section>
 
+    <section id="systemstats" class="docsection">
+      <h2>System stats API</h2>
+      <p>Settings' General tab has a System stats API card for outside tools: a status page, an uptime checker, anything that wants to poll Challoupe without signing in. Generating a token gives you a URL containing it, shown exactly once, that returns Docker version, container and image counts as JSON.</p>
+      <p>Add <code>?host=&lt;id&gt;</code>, using the ID shown on the Hosts page, to read a different registered host instead of the local one. CPU, memory and disk usage are only ever included for the local host, since there is no way to read a remote machine's own resource usage over the same SSH connection used to manage its containers. Only a hash of the token is kept on the server, so revoking one and generating a fresh one is the only way to rotate it.</p>
+      <h3>Endpoint</h3>
+      <p>The token itself is only ever generated or revoked from the Settings UI, while signed in as an administrator. The one endpoint anything outside Challoupe actually calls is <code>GET /api/system-stats/:token</code>, no session or cookie needed, capped at 60 requests a minute.</p>
+      <div class="mt-6 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
+        <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">curl https://challoupe.example.com/api/system-stats/&lt;token&gt;
+
+# a different registered host, by ID
+curl https://challoupe.example.com/api/system-stats/&lt;token&gt;?host=2</pre>
+      </div>
+      <p>A successful response looks like this. Fields stay <code>null</code> for any host but the local one:</p>
+      <div class="mt-4 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
+        <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">json</div>
+        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">{
+  "host": "local",
+  "serverVersion": "27.3.1",
+  "containersTotal": 12,
+  "containersRunning": 9,
+  "containersPaused": 0,
+  "containersStopped": 3,
+  "imagesTotal": 21,
+  "memoryTotal": 16777216000,
+  "cpuPercent": 4.2,
+  "memoryUsed": 6291456000,
+  "memoryPercent": 37.5,
+  "storageUsed": 42949672960,
+  "storageTotal": 214748364800,
+  "storagePercent": 20
+}</pre>
+      </div>
+    </section>
+
     <section id="ai" class="docsection">
       <h2>The AI assistant</h2>
       <p>Point Challoupe at an Ollama server, your own or one already running somewhere on your network, and three things unlock. A Diagnose button on a container's Logs tab reads what just happened and explains it in a sentence or two instead of you scrolling through a wall of text. A Generate button in the stack editor turns a short description into a first draft compose file. A floating chat button opens a small assistant aware of the containers you currently have running, so you can ask it something without leaving the page.</p>
-      <p>None of this sends anything outside your own network. The address you configure is the only place any of it ever talks to, and turning the feature off in Settings removes every entry point to it, in the interface and on the server both.</p>
+      <p>None of this sends anything outside your own network. The address you configure is the only place any of it ever talks to, and turning the feature off in Settings hides all three entry points from every user and disables them on the server too.</p>
+      <h3>AI Watchdog</h3>
+      <p>A separate switch, also in Settings, watches in the background instead of waiting for you to ask. With a model configured, it can diagnose a container the moment it crashes, gets OOM-killed, or fails its health check, folding that diagnosis straight into the crash notification sent out over whatever channels are set up under Notifications. It keeps running even with the AI assistant above turned off, since it is an independent consumer of the same Ollama connection rather than one of its user-facing entry points.</p>
+      <p>Its other check, scanning the audit log for repeated failed logins or permission denials on a timer you set, is plain rule-based logic and never calls Ollama, so it runs whether or not a model is configured.</p>
     </section>
 
     <section id="scanning" class="docsection">

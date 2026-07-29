@@ -13,7 +13,7 @@ A self-hosted Docker manager: containers, images, volumes, networks, compose sta
 
 Beyond the basics of containers, images, volumes and networks, Challoupe covers compose stacks with deploy webhooks, any number of remote Docker hosts over SSH, granular per-user permissions with two-factor and SSO sign-in, a local AI assistant, vulnerability scanning, resource alerts, webhook/ntfy notifications, a full audit log, and backup/restore.
 
-Full documentation, everything above explained chapter by chapter, lives in [`landing/docs.html`](landing/docs.html). Open it in a browser (or clone the repo and open the file locally) for the details on any of it.
+Full documentation, everything above explained chapter by chapter, lives in [`docs/docs.html`](docs/docs.html). Open it in a browser (or clone the repo and open the file locally) for the details on any of it.
 
 ## Getting started
 
