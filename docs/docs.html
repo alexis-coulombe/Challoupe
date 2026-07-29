@@ -137,8 +137,9 @@
         <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
         <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">git clone https://github.com/alexis-coulombe/Challoupe.git
 cd Challoupe
-docker compose up -d --build</pre>
+docker compose up -d</pre>
       </div>
+      <p><code>docker-compose.yml</code> points at the published image, so this pulls it directly rather than building it on your own machine. If you would rather build from source instead, for instance to test a local change, <code>docker compose up -d --build</code> uses the included Dockerfile the same way.</p>
       <p>Once the container is running, open the address it listens on and you will be asked to create the first account. That account becomes an administrator automatically, since there has to be one to configure anything else.</p>
       <p>Challoupe talks to Docker through the socket at <code>/var/run/docker.sock</code>, so that path needs to reach the container. If you want the storage figure in the header to reflect real disk usage, also mount the host's Docker root folder at the same path inside the container, the exact path can be found by asking Docker itself for its root directory setting.</p>
     </section>

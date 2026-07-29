@@ -31,10 +31,14 @@ npm start          # serves the full app on http://localhost:3001
 ## Running in Docker
 
 ```bash
-docker compose up -d --build
+git clone https://github.com/alexis-coulombe/Challoupe.git
+cd Challoupe
+docker compose up -d
 ```
 
-Builds the image from the included multi-stage `Dockerfile` (compiles both workspaces, then a slim runtime with the Docker CLI + Compose plugin, needed since stacks shell out to `docker compose`), mounts `/var/run/docker.sock` to manage the host's Docker daemon, and persists `data/` in a named volume. Runs as root since the host socket's group ownership isn't predictable at build time.
+`docker-compose.yml` points at the published image (`ghcr.io/alexis-coulombe/challoupe:latest`), so this pulls it directly, no local build needed. It mounts `/var/run/docker.sock` to manage the host's Docker daemon, and persists `data/` in a named volume. Runs as root since the host socket's group ownership isn't predictable ahead of time.
+
+To build from source instead (e.g. to test a local change), use `docker compose up -d --build`, which uses the included multi-stage `Dockerfile` (compiles both workspaces, then a slim runtime with the Docker CLI + Compose plugin, needed since stacks shell out to `docker compose`).
 
 To serve HTTPS directly, set `TLS_CERT_FILE`/`TLS_KEY_FILE` (see below) to a cert/key pair mounted into the container; `docker-compose.yml` has a commented-out example. Otherwise put a reverse proxy (Traefik, Caddy, nginx) in front.
 
