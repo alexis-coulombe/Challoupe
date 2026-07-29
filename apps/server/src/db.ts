@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS stack_webhooks (
   token_hash TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS system_stats_token (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  token_hash TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 // Added after the initial release: bring existing databases up to date one column at a

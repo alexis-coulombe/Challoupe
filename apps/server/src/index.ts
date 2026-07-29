@@ -13,6 +13,8 @@ import userRoutes from './routes/users.js';
 import hostRoutes from './routes/hosts.js';
 import stackRoutes from './routes/stacks.js';
 import deployWebhookRoutes from './routes/deployWebhooks.js';
+import systemStatsPublicRoutes from './routes/systemStatsPublic.js';
+import systemStatsTokenRoutes from './routes/systemStatsToken.js';
 import settingsRoutes from './routes/settings.js';
 import aiRoutes from './integrations/ollama/ai.routes.js';
 import trivyRoutes from './integrations/trivy/trivy.routes.js';
@@ -52,8 +54,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(sessionMiddleware);
 
 app.use('/api/auth', authRoutes);
-// Unauthenticated by design (see routes/deployWebhooks.ts) — must not sit behind requireAuth.
 app.use('/api/webhooks', deployWebhookRoutes);
+app.use('/api/system-stats', systemStatsPublicRoutes);
+app.use('/api/system-stats-token', requireAuth, requireAdmin, systemStatsTokenRoutes);
 app.use('/api/users', requireAuth, requireAdmin, userRoutes);
 app.use('/api/hosts', requireAuth, hostRoutes);
 app.use('/api/stacks', requireAuth, stackRoutes);

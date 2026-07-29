@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -15,6 +15,7 @@ import {
   Input,
   InputNumber,
   List,
+  Modal,
   Popconfirm,
   Select,
   Space,
@@ -39,7 +40,9 @@ import {
   BgColorsOutlined,
   DashboardOutlined,
   EyeOutlined,
+  LinkOutlined,
   NotificationOutlined,
+  ReloadOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
   SecurityScanOutlined,
@@ -53,6 +56,7 @@ import { ApiError, type AppSettings, type BackupFile, type NotificationFormat } 
 import { AI_COLOR, AI_COLOR_BORDER, fromISO, SECURITY_COLOR, SECURITY_COLOR_BORDER, formatBytes } from '../utils';
 import { findSsoProvider, guessSsoProvider, parseKnownSsoProvider, SSO_PROVIDERS } from '../data/ssoProviders';
 import AiButton from '../components/AiButton';
+import DeleteButton from '../components/DeleteButton';
 import SecurityButton from '../components/SecurityButton';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
@@ -62,6 +66,7 @@ import { imagesApi } from '../services/imagesApi';
 import { notificationsApi } from '../services/notificationsApi';
 import { settingsApi } from '../services/settingsApi';
 import { systemApi } from '../services/systemApi';
+import { systemStatsApi } from '../services/systemStatsApi';
 
 const REFRESH_INTERVAL_OPTIONS = [
   { value: 3000, label: '3 seconds' },
@@ -100,6 +105,99 @@ const SSO_PROVIDER_OPTIONS = SSO_PROVIDERS.map((p) => ({
     </Space>
   ),
 }));
+
+function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
+  const { message } = AntApp.useApp();
+  const queryClient = useQueryClient();
+  const [newToken, setNewToken] = useState<string | null>(null);
+
+  const { data: tokenStatus } = useQuery({
+    queryKey: ['system-stats-token'],
+    queryFn: () => systemStatsApi.getToken(),
+  });
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['system-stats-token'] });
+
+  const regenerateMutation = useMutation({
+    mutationFn: () => systemStatsApi.regenerateToken(),
+    onSuccess: ({ token }) => {
+      setNewToken(token);
+      invalidate();
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: () => systemStatsApi.revokeToken(),
+    onSuccess: () => {
+      message.success('System stats token revoked');
+      invalidate();
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const url = newToken ? `${window.location.origin}/api/system-stats/${newToken}` : '';
+
+  return (
+    <Card>
+      <Typography.Title level={5} style={{ marginTop: 0 }}>
+        <ApiOutlined style={{ marginRight: 8 }} />
+        System stats API
+      </Typography.Title>
+      <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+        An endpoint returning system information as JSON. Meant for a script, status page,
+        or monitoring tool to poll on its own schedule. Add <code>?host=&lt;id&gt;</code> to read a
+        different registered host, using the ID shown on the <Link to="/hosts">Hosts</Link> page.
+      </Typography.Paragraph>
+      {isAdmin && (
+        <Space wrap>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={regenerateMutation.isPending}
+            onClick={() => regenerateMutation.mutate()}
+          >
+            {tokenStatus?.configured ? 'Regenerate' : 'Generate'} token
+          </Button>
+          {tokenStatus?.configured && (
+            <DeleteButton
+              confirmTitle="Revoke the system stats token? Anything polling it will start getting 404s."
+              onConfirm={() => revokeMutation.mutate()}
+              loading={revokeMutation.isPending}
+            >
+              Revoke
+            </DeleteButton>
+          )}
+        </Space>
+      )}
+
+      <Modal
+        title={
+          <Space size={8}>
+            <LinkOutlined />
+            System stats URL
+          </Space>
+        }
+        open={newToken !== null}
+        onCancel={() => setNewToken(null)}
+        footer={
+          <Button type="primary" onClick={() => setNewToken(null)}>
+            Done
+          </Button>
+        }
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="This key is only shown once. Make sure to save it now."
+        />
+        <Typography.Text code copyable={{ text: url }} style={{ wordBreak: 'break-all' }}>
+          {url}
+        </Typography.Text>
+      </Modal>
+    </Card>
+  );
+}
 
 export default function Settings() {
   const { user, logout, refresh } = useAuth();
@@ -554,6 +652,8 @@ export default function Settings() {
                       </span>
                     </div>
                   </Card>
+
+                  <SystemStatsCard isAdmin={isAdmin} />
                 </Space>
               ),
             },

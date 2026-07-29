@@ -121,6 +121,16 @@ export default function Hosts() {
 
   const columns: ColumnsType<HostSummary> = [
     {
+      title: 'ID',
+      dataIndex: 'id',
+      width: 90,
+      render: (host_id: number) => (
+        <Typography.Text code copyable={{ text: String(host_id) }}>
+          {host_id}
+        </Typography.Text>
+      ),
+    },
+    {
       title: 'Name',
       dataIndex: 'name',
       sorter: (a, b) => a.name.localeCompare(b.name),
