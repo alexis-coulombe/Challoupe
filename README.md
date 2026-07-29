@@ -2,7 +2,7 @@
   <img src="assets/brand/banner.svg" width="720">
 </p>
 
-A self-hosted Docker manager: containers, images, volumes, networks, compose stacks, and user management — across the local host and any number of remote Docker hosts over SSH.
+A self-hosted Docker manager: containers, images, volumes, networks, compose stacks, and user management. Across the local host and any number of remote Docker hosts over SSH.
 
 ## Architecture
 
@@ -31,12 +31,23 @@ npm start          # serves the full app on http://localhost:3001
 ## Running in Docker
 
 ```bash
+docker pull ghcr.io/alexis-coulombe/challoupe:latest
+docker run -d --name challoupe \
+  -p 3001:3001 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v challoupe_data:/app/data \
+  ghcr.io/alexis-coulombe/challoupe:latest
+```
+
+Mounts `/var/run/docker.sock` to manage the host's Docker daemon, and persists `data/` in a named volume. Runs as root since the host socket's group ownership isn't predictable ahead of time.
+
+Or, from a clone of this repo, `docker-compose.yml` already points at the same published image:
+
+```bash
 git clone https://github.com/alexis-coulombe/Challoupe.git
 cd Challoupe
 docker compose up -d
 ```
-
-`docker-compose.yml` points at the published image (`ghcr.io/alexis-coulombe/challoupe:latest`), so this pulls it directly, no local build needed. It mounts `/var/run/docker.sock` to manage the host's Docker daemon, and persists `data/` in a named volume. Runs as root since the host socket's group ownership isn't predictable ahead of time.
 
 To build from source instead (e.g. to test a local change), use `docker compose up -d --build`, which uses the included multi-stage `Dockerfile` (compiles both workspaces, then a slim runtime with the Docker CLI + Compose plugin, needed since stacks shell out to `docker compose`).
 
