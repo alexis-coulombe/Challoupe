@@ -268,12 +268,7 @@ export default function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        className="app-sider"
-        breakpoint="lg"
-        collapsedWidth={64}
-        style={{ borderRight: '1px solid #1f2733', display: 'flex', flexDirection: 'column' }}
-      >
+      <Sider className="app-sider" breakpoint="lg" collapsedWidth={64} style={{ borderRight: '1px solid #1f2733' }}>
         <div
           style={{
             padding: '16px',
@@ -295,12 +290,7 @@ export default function AppLayout() {
           openKeys={openKeys}
           onOpenChange={setOpenKeys}
           items={menuItems}
-          style={{ flex: 1, overflow: 'auto' }}
         />
-        <div className="sider-version">
-          v{__APP_VERSION__}
-          {__GIT_COMMIT__ && <span className="sider-version-commit"> · {__GIT_COMMIT__}</span>}
-        </div>
       </Sider>
       <Drawer
         title={
@@ -315,7 +305,7 @@ export default function AppLayout() {
         width={240}
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
+        styles={{ body: { padding: 0 } }}
       >
         <Menu
           mode="inline"
@@ -323,12 +313,7 @@ export default function AppLayout() {
           openKeys={openKeys}
           onOpenChange={setOpenKeys}
           items={menuItems}
-          style={{ flex: 1 }}
         />
-        <div className="sider-version">
-          v{__APP_VERSION__}
-          {__GIT_COMMIT__ && <span className="sider-version-commit"> · {__GIT_COMMIT__}</span>}
-        </div>
       </Drawer>
       <Layout>
         <Header
