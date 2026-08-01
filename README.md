@@ -78,3 +78,7 @@ Tests run against an in-memory database and an isolated temp directory (`NODE_EN
 | `TLS_KEY_FILE` | unset | Path to the matching PEM private key |
 | `TRUST_PROXY` | `false` | Set to `true` only behind a trusted reverse proxy forwarding `X-Forwarded-*`; fixes the session cookie's `Secure` flag and audit-log IP |
 | `PUBLIC_URL` | reflects the incoming request | Externally-reachable base URL (e.g. `https://challoupe.example.com`), needed if a proxy hides the original host/proto. Used for the OIDC callback URL |
+
+## License
+
+Challoupe is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-or-later). You're free to use, modify, and redistribute it; if you run a modified version as a network service, you have to make that modified source available to its users too.
