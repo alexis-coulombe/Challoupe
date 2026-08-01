@@ -163,6 +163,26 @@ describe('settings', () => {
     expect(settingsService.get().oidc.buttonLabel).toBe('New label');
   });
 
+  it('encrypts the OIDC client secret and ntfy password at rest instead of storing plaintext', () => {
+    settingsService.update({
+      oidc: { clientSecret: 'super-secret-value' },
+      ntfy: { password: 'ntfy-super-secret' },
+      notifications: { webhookUrl: 'https://hooks.example.com/very-secret-token' },
+    });
+    const rows = db
+      .prepare("SELECT key, value FROM settings WHERE key IN ('oidc.clientSecret', 'ntfy.password', 'notifications.webhookUrl')")
+      .all() as Array<{ key: string; value: string }>;
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row.value).not.toContain('secret');
+      expect(row.value).not.toContain('hooks.example.com');
+    }
+    // Still round-trips correctly through the service.
+    expect(settingsService.get().oidc.clientSecret).toBe('super-secret-value');
+    expect(settingsService.get().ntfy.password).toBe('ntfy-super-secret');
+    expect(settingsService.get().notifications.webhookUrl).toBe('https://hooks.example.com/very-secret-token');
+  });
+
   it('persists the image update check settings independently of the other settings', () => {
     settingsService.update({ imageUpdateCheck: { enabled: true, intervalHours: 6 } });
     expect(settingsService.get()).toEqual({

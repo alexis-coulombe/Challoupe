@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 import { db } from './db.js';
+import { decryptSecret, encryptSecret } from './hostCrypto.js';
 
 export const RESTART_POLICIES = ['no', 'always', 'unless-stopped', 'on-failure'] as const;
 export type RestartPolicy = (typeof RESTART_POLICIES)[number];
@@ -264,6 +265,7 @@ export class SettingsService {
       const raw = stored[`oidc.${field}`];
       if (raw === undefined) continue;
       if (field === 'enabled') oidc.enabled = raw === 'true';
+      else if (field === 'clientSecret') oidc.clientSecret = decryptSecret(raw);
       else oidc[field] = raw;
     }
 
@@ -303,7 +305,7 @@ export class SettingsService {
       const raw = stored[`notifications.${field}`];
       if (raw === undefined) continue;
       if (field === 'format') notifications.format = raw as NotificationFormat;
-      else if (field === 'webhookUrl') notifications.webhookUrl = raw;
+      else if (field === 'webhookUrl') notifications.webhookUrl = decryptSecret(raw);
       else notifications[field] = raw === 'true';
     }
 
@@ -311,7 +313,9 @@ export class SettingsService {
     for (const field of Object.keys(ntfy) as Array<keyof NtfySettings>) {
       const raw = stored[`ntfy.${field}`];
       if (raw === undefined) continue;
-      if (field === 'serverUrl' || field === 'topic' || field === 'username' || field === 'password') {
+      if (field === 'password') {
+        ntfy.password = decryptSecret(raw);
+      } else if (field === 'serverUrl' || field === 'topic' || field === 'username') {
         ntfy[field] = raw;
       } else {
         ntfy[field] = raw === 'true';
@@ -381,7 +385,11 @@ export class SettingsService {
       if (key === 'oidc') {
         for (const [field, val] of Object.entries(value as Partial<OidcSettings>)) {
           if (val === undefined) continue;
-          if (field === 'clientSecret' && val === '') continue; // blank = leave the stored secret unchanged
+          if (field === 'clientSecret') {
+            if (val === '') continue; // blank = leave the stored secret unchanged
+            upsert.run('oidc.clientSecret', encryptSecret(String(val)));
+            continue;
+          }
           upsert.run(`oidc.${field}`, String(val));
         }
         continue;
@@ -417,7 +425,11 @@ export class SettingsService {
       if (key === 'notifications') {
         for (const [field, val] of Object.entries(value as Partial<NotificationSettings>)) {
           if (val === undefined) continue;
-          if (field === 'webhookUrl' && val === '') continue; // blank = leave the stored URL unchanged
+          if (field === 'webhookUrl') {
+            if (val === '') continue; // blank = leave the stored URL unchanged
+            upsert.run('notifications.webhookUrl', encryptSecret(String(val)));
+            continue;
+          }
           upsert.run(`notifications.${field}`, String(val));
         }
         continue;
@@ -425,7 +437,11 @@ export class SettingsService {
       if (key === 'ntfy') {
         for (const [field, val] of Object.entries(value as Partial<NtfySettings>)) {
           if (val === undefined) continue;
-          if (field === 'password' && val === '') continue; // blank = leave the stored password unchanged
+          if (field === 'password') {
+            if (val === '') continue; // blank = leave the stored password unchanged
+            upsert.run('ntfy.password', encryptSecret(String(val)));
+            continue;
+          }
           upsert.run(`ntfy.${field}`, String(val));
         }
         continue;
