@@ -207,19 +207,53 @@ export default function AppLayout() {
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: <Link to="/">Dashboard</Link> },
     { key: '/containers', icon: <ContainerOutlined />, label: <Link to="/containers">Containers</Link> },
-    { key: '/images', icon: <BlockOutlined />, label: <Link to="/images">Images</Link> },
-    { key: '/volumes', icon: <DatabaseOutlined />, label: <Link to="/volumes">Volumes</Link> },
-    { key: '/networks', icon: <ApartmentOutlined />, label: <Link to="/networks">Networks</Link> },
+    {
+      key: 'resources',
+      icon: <ClusterOutlined />,
+      label: 'Resources',
+      children: [
+        { key: '/images', icon: <BlockOutlined />, label: <Link to="/images">Images</Link> },
+        { key: '/volumes', icon: <DatabaseOutlined />, label: <Link to="/volumes">Volumes</Link> },
+        { key: '/networks', icon: <ApartmentOutlined />, label: <Link to="/networks">Networks</Link> },
+      ],
+    },
     { key: '/stacks', icon: <AppstoreOutlined />, label: <Link to="/stacks">Stacks</Link> },
     ...(user?.role === 'admin'
       ? [
-          { key: '/users', icon: <TeamOutlined />, label: <Link to="/users">Users</Link> },
-          { key: '/hosts', icon: <CloudServerOutlined />, label: <Link to="/hosts">Hosts</Link> },
-          { key: '/audit-log', icon: <HistoryOutlined />, label: <Link to="/audit-log">Audit Log</Link> },
+          {
+            key: 'admin',
+            icon: <SafetyOutlined />,
+            label: 'Administration',
+            children: [
+              { key: '/users', icon: <TeamOutlined />, label: <Link to="/users">Users</Link> },
+              { key: '/hosts', icon: <CloudServerOutlined />, label: <Link to="/hosts">Hosts</Link> },
+              { key: '/audit-log', icon: <HistoryOutlined />, label: <Link to="/audit-log">Audit Log</Link> },
+            ],
+          },
         ]
       : []),
     { key: '/settings', icon: <SettingOutlined />, label: <Link to="/settings">Settings</Link> },
   ];
+
+  // Which submenu(s) a route belongs to, so navigating straight to e.g. /networks (a link,
+  // a refresh, the command palette) opens "Resources" instead of leaving it collapsed with
+  // no visible active item.
+  const SUBMENU_FOR_ROUTE: Record<string, string> = {
+    '/images': 'resources',
+    '/volumes': 'resources',
+    '/networks': 'resources',
+    '/users': 'admin',
+    '/hosts': 'admin',
+    '/audit-log': 'admin',
+  };
+  const [openKeys, setOpenKeys] = useState<string[]>(() =>
+    SUBMENU_FOR_ROUTE[selectedKey] ? [SUBMENU_FOR_ROUTE[selectedKey]] : []
+  );
+  useEffect(() => {
+    const submenu = SUBMENU_FOR_ROUTE[selectedKey];
+    if (submenu) setOpenKeys((prev) => (prev.includes(submenu) ? prev : [...prev, submenu]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey]);
 
   const changePassword = async (values: { current: string; next: string }) => {
     try {
@@ -234,7 +268,12 @@ export default function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider className="app-sider" breakpoint="lg" collapsedWidth={64} style={{ borderRight: '1px solid #1f2733' }}>
+      <Sider
+        className="app-sider"
+        breakpoint="lg"
+        collapsedWidth={64}
+        style={{ borderRight: '1px solid #1f2733', display: 'flex', flexDirection: 'column' }}
+      >
         <div
           style={{
             padding: '16px',
@@ -249,7 +288,19 @@ export default function AppLayout() {
             <span style={{ color: '#7ab3ff' }}>Challoupe</span>
           </Typography.Title>
         </div>
-        <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} items={menuItems} />
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          openKeys={openKeys}
+          onOpenChange={setOpenKeys}
+          items={menuItems}
+          style={{ flex: 1, overflow: 'auto' }}
+        />
+        <div className="sider-version">
+          v{__APP_VERSION__}
+          {__GIT_COMMIT__ && <span className="sider-version-commit"> · {__GIT_COMMIT__}</span>}
+        </div>
       </Sider>
       <Drawer
         title={
@@ -264,9 +315,20 @@ export default function AppLayout() {
         width={240}
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        styles={{ body: { padding: 0 } }}
+        styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column' } }}
       >
-        <Menu mode="inline" selectedKeys={[selectedKey]} items={menuItems} />
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          openKeys={openKeys}
+          onOpenChange={setOpenKeys}
+          items={menuItems}
+          style={{ flex: 1 }}
+        />
+        <div className="sider-version">
+          v{__APP_VERSION__}
+          {__GIT_COMMIT__ && <span className="sider-version-commit"> · {__GIT_COMMIT__}</span>}
+        </div>
       </Drawer>
       <Layout>
         <Header

@@ -42,6 +42,25 @@ body {
   display: inline;
 }
 
+.sider-version {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: #5b6b7f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-top: 1px solid #1f2733;
+}
+
+.sider-version-commit {
+  font-family: monospace;
+}
+
+/* Icon-only collapsed width has no room for this text. */
+.ant-layout-sider-collapsed .sider-version {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .header-stats {
     display: none;
