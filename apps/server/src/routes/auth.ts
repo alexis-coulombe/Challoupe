@@ -27,10 +27,10 @@ router.post('/login', loginLimiter, c.login);
 router.post('/totp/verify', loginLimiter, c.totpVerify);
 router.post('/totp/setup', requireAuth, c.totpSetup);
 router.post('/totp/confirm', requireAuth, c.totpConfirm);
-router.post('/totp/disable', requireAuth, c.totpDisable);
-router.post('/totp/backup-codes', requireAuth, c.totpBackupCodes);
+router.post('/totp/disable', requireAuth, loginLimiter, c.totpDisable);
+router.post('/totp/backup-codes', requireAuth, loginLimiter, c.totpBackupCodes);
 router.post('/logout', c.logout);
-router.post('/password', requireAuth, c.changePassword);
+router.post('/password', requireAuth, loginLimiter, c.changePassword);
 router.use('/oidc', oidcRoutes);
 
 export default router;
