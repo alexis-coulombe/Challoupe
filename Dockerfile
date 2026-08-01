@@ -14,6 +14,8 @@ RUN npm run build
 
 # ---- runtime ----
 FROM node:22-bookworm-slim AS runtime
+LABEL org.opencontainers.image.source="https://github.com/alexis-coulombe/Challoupe"
+LABEL org.opencontainers.image.licenses="AGPL-3.0-or-later"
 WORKDIR /app
 ENV NODE_ENV=production
 
