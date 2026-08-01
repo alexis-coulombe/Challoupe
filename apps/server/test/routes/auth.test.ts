@@ -360,20 +360,27 @@ describe('TOTP two-factor authentication', () => {
     expect(res.status).toBe(400);
   });
 
-  it('regenerates backup codes, invalidating the old set', async () => {
-    const agent = request.agent(app);
-    await agent.post('/api/auth/setup').send({ username: 'admin', password: 'password123' });
-    const { backupCodes: oldCodes } = await setupTotp(agent);
+  it(
+    'regenerates backup codes, invalidating the old set',
+    async () => {
+      const agent = request.agent(app);
+      await agent.post('/api/auth/setup').send({ username: 'admin', password: 'password123' });
+      const { backupCodes: oldCodes } = await setupTotp(agent);
 
-    const res = await agent.post('/api/auth/totp/backup-codes').send({ password: 'password123' });
-    expect(res.status).toBe(200);
-    const newCodes = res.body.backupCodes as string[];
-    expect(newCodes).toHaveLength(8);
-    expect(newCodes).not.toEqual(oldCodes);
+      const res = await agent.post('/api/auth/totp/backup-codes').send({ password: 'password123' });
+      expect(res.status).toBe(200);
+      const newCodes = res.body.backupCodes as string[];
+      expect(newCodes).toHaveLength(8);
+      expect(newCodes).not.toEqual(oldCodes);
 
-    const freshAgent = request.agent(app);
-    await freshAgent.post('/api/auth/login').send({ username: 'admin', password: 'password123' });
-    const oldCodeRes = await freshAgent.post('/api/auth/totp/verify').send({ token: oldCodes[0] });
-    expect(oldCodeRes.status).toBe(401);
-  });
+      const freshAgent = request.agent(app);
+      await freshAgent.post('/api/auth/login').send({ username: 'admin', password: 'password123' });
+      const oldCodeRes = await freshAgent.post('/api/auth/totp/verify').send({ token: oldCodes[0] });
+      expect(oldCodeRes.status).toBe(401);
+    },
+    // Setup + regenerate + verify each bcrypt-hash/compare a full set of 8 backup codes on
+    // top of the usual TOTP setup cost; under full-suite parallel load that occasionally
+    // outruns the 5s default (pre-existing flake, unrelated to what this test asserts).
+    15_000
+  );
 });
