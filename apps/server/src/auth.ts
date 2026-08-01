@@ -8,6 +8,7 @@ import type Database from 'better-sqlite3';
 import type { NextFunction, Request, Response } from 'express';
 import { db } from './db.js';
 import { DATA_DIR, SESSION_TTL_DAYS } from './config.js';
+import { decryptSecret, encryptSecret } from './hostCrypto.js';
 import {
   DEFAULT_PERMISSIONS,
   PERMISSION_COLUMNS,
@@ -115,17 +116,28 @@ export class UserRepository {
   }
 
   /**
-   * Returns a secret/backup-codes pair when TOTP is enabled
-   * @param id 
-   * @returns 
+   * Returns a secret/backup-codes pair when TOTP is enabled.
+   * @param id
+   * @returns
    */
   getTotpSecret(id: number): { secret: string; backupCodes: string[] } | undefined {
     const row = this.db
       .prepare('SELECT totp_secret, totp_backup_codes FROM users WHERE id = ? AND totp_enabled = 1')
       .get(id) as { totp_secret: string | null; totp_backup_codes: string | null } | undefined;
-    if (!row || !row.totp_secret) return undefined;
+    
+    if (!row || !row.totp_secret) {
+      return undefined;
+    }
+
+    let secret: string;
+    try {
+      secret = decryptSecret(row.totp_secret);
+    } catch {
+      return undefined;
+    }
+    
     return {
-      secret: row.totp_secret,
+      secret,
       backupCodes: row.totp_backup_codes ? (JSON.parse(row.totp_backup_codes) as string[]) : [],
     };
   }
@@ -133,7 +145,7 @@ export class UserRepository {
   enableTotp(id: number, secret: string, hashedBackupCodes: string[]): void {
     this.db
       .prepare('UPDATE users SET totp_secret = ?, totp_enabled = 1, totp_backup_codes = ? WHERE id = ?')
-      .run(secret, JSON.stringify(hashedBackupCodes), id);
+      .run(encryptSecret(secret), JSON.stringify(hashedBackupCodes), id);
   }
 
   disableTotp(id: number): void {
