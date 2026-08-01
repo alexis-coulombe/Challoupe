@@ -9,6 +9,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Segmented,
   Select,
   Space,
@@ -21,7 +22,9 @@ import type { ColumnsType } from 'antd/es/table';
 import {
   CaretRightOutlined,
   MinusCircleOutlined,
+  PauseOutlined,
   PlusOutlined,
+  PoweroffOutlined,
   ReloadOutlined,
   StopOutlined,
 } from '@ant-design/icons';
@@ -168,8 +171,9 @@ export default function Containers() {
     onSuccess: (result, action) =>
       onBulkDone(
         result,
-        { start: 'started', stop: 'stopped', restart: 'restarted', remove: 'deleted' }[action] ??
+        { start: 'started', stop: 'stopped', restart: 'restarted', pause: 'paused', kill: 'killed', remove: 'deleted' }[
           action
+        ] ?? action
       ),
   });
 
@@ -255,6 +259,9 @@ export default function Containers() {
             {canManage &&
               (record.state === 'running' ? (
                 <>
+                  <Tooltip title="Pause">
+                    <Button size="small" icon={<PauseOutlined />} onClick={() => act('pause')} />
+                  </Tooltip>
                   <Tooltip title="Stop">
                     <Button size="small" icon={<StopOutlined />} onClick={() => act('stop')} />
                   </Tooltip>
@@ -271,6 +278,13 @@ export default function Containers() {
                   <Button size="small" icon={<CaretRightOutlined />} onClick={() => act('start')} />
                 </Tooltip>
               ))}
+            {canManage && (record.state === 'running' || record.state === 'paused') && (
+              <Tooltip title="Kill (force stop)">
+                <Popconfirm title="Force kill this container? This sends SIGKILL immediately, without a graceful shutdown." onConfirm={() => act('kill')}>
+                  <Button size="small" danger icon={<PoweroffOutlined />} />
+                </Popconfirm>
+              </Tooltip>
+            )}
             {canManage && (
               <DeleteButton
                 confirmTitle="Delete this container?"
@@ -295,8 +309,26 @@ export default function Containers() {
       </ListPageHeader>
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
         {canManage && bulkButton('start', 'Start', <CaretRightOutlined />)}
+        {canManage && bulkButton('pause', 'Pause', <PauseOutlined />)}
         {canManage && bulkButton('stop', 'Stop', <StopOutlined />)}
         {canManage && bulkButton('restart', 'Restart', <ReloadOutlined />)}
+        {canManage && (
+          <Popconfirm
+            title={`Force kill ${selectedKeys.length} container(s)?`}
+            description="Sends SIGKILL immediately, without a graceful shutdown."
+            onConfirm={() => bulkMutation.mutate('kill')}
+          >
+            <Button
+              size="small"
+              danger
+              icon={<PoweroffOutlined />}
+              loading={bulkMutation.isPending && bulkMutation.variables === 'kill'}
+              disabled={bulkMutation.isPending}
+            >
+              Kill
+            </Button>
+          </Popconfirm>
+        )}
         {canManage && (
           <DeleteButton
             confirmTitle={`Delete ${selectedKeys.length} container(s)?`}
