@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db.js';
@@ -18,6 +19,10 @@ const newPasswordSchema = z.string().min(8).max(128);
 
 const setupSchema = z.object({ username: usernameSchema, password: newPasswordSchema });
 const loginSchema = z.object({ username: usernameSchema, password: z.string().min(1).max(128) });
+
+// A login for a username that doesn't exist is still bcrypt-verified against this, so that
+// path takes the same ~100ms as a real one instead of returning near-instantly.
+const DUMMY_PASSWORD_HASH = hashPassword(crypto.randomBytes(32).toString('hex'));
 
 export class AuthController {
   status = (req: Request, res: Response): void => {
@@ -51,7 +56,8 @@ export class AuthController {
   login = (req: Request, res: Response): void => {
     const body = loginSchema.parse(req.body);
     const user = userRepository.findByUsername(body.username);
-    if (!user || !verifyPassword(body.password, user.password_hash)) {
+    const passwordOk = verifyPassword(body.password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !passwordOk) {
       auditLog.record({
         userId: user?.id ?? null,
         username: body.username,
