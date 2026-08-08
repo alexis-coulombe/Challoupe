@@ -170,4 +170,24 @@ volumes:
     restart: unless-stopped
 `,
   },
+  {
+    id: 'chariot',
+    name: 'Chariot',
+    description: 'A self-hosted file storage app. Upload, organize, and share files from your own server.',
+    category: 'Storage',
+    compose: `services:
+  chariot:
+    image: ghcr.io/alexis-coulombe/chariot:latest
+    ports:
+      - "4000:4000"
+    environment:
+      JWT_SECRET: changeme-to-a-long-random-string
+    volumes:
+      - chariot-data:/app/apps/server/data
+    restart: unless-stopped
+
+volumes:
+  chariot-data:
+`,
+  },
 ];
