@@ -8,6 +8,11 @@ export class AuditLogController {
     const limit = Number(req.query.limit) || 300;
     res.json(auditLog.list(limit));
   };
+
+  clear = (req: Request, res: Response): void => {
+    auditLog.clear();
+    res.status(204).end();
+  };
 }
 
 export const auditLogController = new AuditLogController();

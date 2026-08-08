@@ -7,6 +7,7 @@ import { formatDateTime, TABLE_PAGINATION } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { auditLogApi } from '../services/auditLogApi';
 import { settingsApi } from '../services/settingsApi';
+import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
 
 export default function AuditLog() {
@@ -26,6 +27,15 @@ export default function AuditLog() {
     onSuccess: () => {
       message.success('Setting saved');
       queryClient.invalidateQueries({ queryKey: ['settings'] });
+    },
+    onError: (err) => message.error(err.message),
+  });
+
+  const clearMutation = useMutation({
+    mutationFn: () => auditLogApi.clear(),
+    onSuccess: () => {
+      message.success('Audit log cleared');
+      queryClient.invalidateQueries({ queryKey: ['audit-log'] });
     },
     onError: (err) => message.error(err.message),
   });
@@ -74,6 +84,15 @@ export default function AuditLog() {
         <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isFetching}>
           Refresh
         </Button>
+        <DeleteButton
+          confirmTitle="Clear the audit log? This permanently deletes all recorded entries."
+          onConfirm={() => clearMutation.mutate()}
+          loading={clearMutation.isPending}
+          disabled={!data?.length}
+          size="middle"
+        >
+          Clear
+        </DeleteButton>
       </ListPageHeader>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space align="center">
