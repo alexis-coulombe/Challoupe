@@ -337,11 +337,12 @@ describe('PUT /api/settings', () => {
     expect(res.body.notifyEvents.onImageUpdate).toBe(false);
     expect(res.body.notifications.webhookUrl).toBe(''); // never echoed back
 
-    // Not readable back over the API by design, so check the stored value directly.
+    // Not readable back over the API by design, and encrypted at rest.
     const stored = db.prepare("SELECT value FROM settings WHERE key = 'notifications.webhookUrl'").get() as {
       value: string;
     };
-    expect(stored.value).toBe('https://discord.com/api/webhooks/x/y');
+    expect(stored.value).not.toBe('https://discord.com/api/webhooks/x/y');
+    expect(stored.value).not.toContain('discord.com');
   });
 
   it('rejects an invalid webhook URL', async () => {
@@ -376,11 +377,12 @@ describe('PUT /api/settings', () => {
     expect(res.body.notifyEvents.onImageUpdate).toBe(false);
     expect(res.body.ntfy.password).toBe(''); // never echoed back
 
-    // Not readable back over the API by design, so check the stored value directly.
+    // Not readable back over the API by design, and encrypted at rest.
     const stored = db.prepare("SELECT value FROM settings WHERE key = 'ntfy.password'").get() as {
       value: string;
     };
-    expect(stored.value).toBe('first-password');
+    expect(stored.value).not.toBe('first-password');
+    expect(stored.value).not.toContain('first-password');
   });
 
   it('rejects an invalid ntfy server URL', async () => {

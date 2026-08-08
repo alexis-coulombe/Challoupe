@@ -310,12 +310,24 @@ function handleGenerateStack(ws: WebSocket): void {
   });
 }
 
+// Kept short on purpose: this rides along on every /ai/chat turn, and the model behind it is
+// often a small local Ollama one with a limited context window.
+const ABOUT_CHALLOUPE =
+  'Challoupe is a self-hosted Docker management web app (Portainer-like). Pages: Dashboard; ' +
+  'Containers (create, start/stop/pause/restart/kill, exec terminal, logs, stats); Images (pull, ' +
+  'build from a Git repo, prune, registry update checks); Volumes; Networks; Stacks (docker-compose: ' +
+  'create/deploy/down, drift detection, per-stack deploy webhooks); Hosts (manage remote Docker ' +
+  'daemons over SSH); Users (role admin/user, plus granular permissions: manageContainers, ' +
+  'manageImages, manageVolumes, manageNetworks, manageStacks, exec, useAi, useSecurityScanner); ' +
+  'Audit Log; Settings (feature flags, SSO via OIDC, TOTP 2FA, webhook/ntfy notifications, scheduled ' +
+  'backups, per-user resource quotas & alerts, AI watchdog, Trivy vulnerability scanning).';
+
 async function buildInfraContext(): Promise<string> {
   const containers = await docker.listContainers({ all: true });
   const lines = containers.map(
     (c) => `- ${(c.Names[0] ?? '').replace(/^\//, '')} (${c.Image}): ${c.State} — ${c.Status}`
   );
-  return `You are an assistant embedded in a self-hosted Docker manager. Answer questions about the user's Docker environment concisely and helpfully. Current containers:\n${
+  return `You are the AI assistant embedded in Challoupe. ${ABOUT_CHALLOUPE}\nAnswer questions about Challoupe itself or about the user's Docker environment, concisely and helpfully.\nCurrent containers:\n${
     lines.join('\n') || '(none)'
   }`;
 }

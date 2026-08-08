@@ -7,6 +7,7 @@ import {
   Card,
   Descriptions,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Switch,
@@ -18,6 +19,8 @@ import {
   ArrowLeftOutlined,
   CaretRightOutlined,
   LoadingOutlined,
+  PauseOutlined,
+  PoweroffOutlined,
   ReloadOutlined,
   RobotOutlined,
   StopOutlined,
@@ -235,6 +238,9 @@ export default function ContainerDetail() {
         {canManage &&
           (running ? (
             <>
+              <Button icon={<PauseOutlined />} onClick={() => actionMutation.mutate('pause')}>
+                Pause
+              </Button>
               <Button icon={<StopOutlined />} onClick={() => actionMutation.mutate('stop')}>
                 Stop
               </Button>
@@ -251,6 +257,17 @@ export default function ContainerDetail() {
               Start
             </Button>
           ))}
+        {canManage && (running || state === 'paused') && (
+          <Popconfirm
+            title="Force kill this container?"
+            description="Sends SIGKILL immediately, without a graceful shutdown."
+            onConfirm={() => actionMutation.mutate('kill')}
+          >
+            <Button danger icon={<PoweroffOutlined />}>
+              Kill
+            </Button>
+          </Popconfirm>
+        )}
         {canManage && (
           <DeleteButton
             size="middle"
