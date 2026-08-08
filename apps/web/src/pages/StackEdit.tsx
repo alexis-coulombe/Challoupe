@@ -183,7 +183,11 @@ export default function StackEdit() {
     if (existing) setCompose(existing.compose);
   }, [existing]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['stacks'] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['stacks'] });
+    queryClient.invalidateQueries({ queryKey: ['stack', routeName] });
+    queryClient.invalidateQueries({ queryKey: ['stack-drift', routeName] });
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (deploy: boolean) => {
