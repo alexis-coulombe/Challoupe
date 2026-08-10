@@ -53,6 +53,7 @@ import { useAppSettings } from '../hooks/useAppSettings';
 import { useDockerEventNotifications } from '../hooks/useDockerEventNotifications';
 import { useOllamaChat } from '../hooks/useOllamaChat';
 import AiButton from './AiButton';
+import AppSwitcher from './AppSwitcher';
 import CommandPalette from './CommandPalette';
 import PasswordInput from './PasswordInput';
 import TwoFactorModal from './TwoFactorModal';
@@ -381,6 +382,7 @@ export default function AppLayout() {
                 />
               </Tooltip>
             )}
+            <AppSwitcher />
             <Dropdown
               menu={{
                 items: [

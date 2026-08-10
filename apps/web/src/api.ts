@@ -296,6 +296,12 @@ export interface ResourceAlertSettings {
   containerMemoryPercent: number;
 }
 
+// A link to another self-hosted app's URL, shown in the app-switcher grid in the header.
+export interface AppLink {
+  label: string;
+  url: string;
+}
+
 export interface AppSettings {
   defaultRestartPolicy: RestartPolicy;
   refreshIntervalMs: number;
@@ -316,6 +322,7 @@ export interface AppSettings {
   ntfy: NtfySettings;
   aiWatchdog: AiWatchdogSettings;
   resourceAlerts: ResourceAlertSettings;
+  appLinks: AppLink[];
 }
 
 export interface OidcLoginConfig {

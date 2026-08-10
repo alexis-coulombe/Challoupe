@@ -109,6 +109,17 @@ const updateSchema = z
         containerMemoryPercent: z.number().min(1).max(100),
       })
       .partial(),
+    appLinks: z
+      .array(
+        z.object({
+          label: z.string().trim().min(1).max(60),
+          url: z
+            .string()
+            .max(500)
+            .refine((v) => /^https?:\/\//.test(v.trim()), 'Must start with http:// or https://'),
+        })
+      )
+      .max(12),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'At least one setting is required' });

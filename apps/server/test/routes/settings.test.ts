@@ -60,6 +60,7 @@ const DEFAULTS = {
     containerCpuPercent: 90,
     containerMemoryPercent: 90,
   },
+  appLinks: [],
 };
 
 beforeEach(() => {
@@ -220,6 +221,7 @@ describe('PUT /api/settings', () => {
         containerCpuPercent: 85,
         containerMemoryPercent: 85,
       },
+      appLinks: [],
     });
   });
 
@@ -444,6 +446,34 @@ describe('PUT /api/settings', () => {
   it('rejects a resource alert threshold outside the 1-100 percent range', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const res = await admin.put('/api/settings').send({ resourceAlerts: { hostCpuPercent: 150 } });
+    expect(res.status).toBe(400);
+  });
+
+  it('lets an admin save and read back a list of app links', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin
+      .put('/api/settings')
+      .send({ appLinks: [{ label: 'Chariot', url: 'https://chariot.example.com' }] });
+    expect(res.status).toBe(200);
+    expect(res.body.appLinks).toEqual([{ label: 'Chariot', url: 'https://chariot.example.com' }]);
+  });
+
+  it('rejects more than 12 app links', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const appLinks = Array.from({ length: 13 }, (_, i) => ({ label: `App ${i}`, url: 'https://example.com' }));
+    const res = await admin.put('/api/settings').send({ appLinks });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an app link with a blank label', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ appLinks: [{ label: '  ', url: 'https://example.com' }] });
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an app link URL that isn't http(s)", async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const res = await admin.put('/api/settings').send({ appLinks: [{ label: 'Bad', url: 'ftp://example.com' }] });
     expect(res.status).toBe(400);
   });
 

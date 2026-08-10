@@ -92,6 +92,7 @@
     <option value="hosts">Multiple hosts</option>
     <option value="users">Users and permissions</option>
     <option value="notifications">Notifications and alerts</option>
+    <option value="applinks">App switcher</option>
     <option value="systemstats">System stats API</option>
     <option value="ai">The AI assistant</option>
     <option value="scanning">Vulnerability scanning</option>
@@ -112,6 +113,7 @@
       <a class="doclink" data-chapter="hosts" href="#hosts">Multiple hosts</a>
       <a class="doclink" data-chapter="users" href="#users">Users and permissions</a>
       <a class="doclink" data-chapter="notifications" href="#notifications">Notifications and alerts</a>
+      <a class="doclink" data-chapter="applinks" href="#applinks">App switcher</a>
       <a class="doclink" data-chapter="systemstats" href="#systemstats">System stats API</a>
       <a class="doclink" data-chapter="ai" href="#ai">The AI assistant</a>
       <a class="doclink" data-chapter="scanning" href="#scanning">Vulnerability scanning</a>
@@ -206,6 +208,13 @@ docker compose up -d</pre>
       <h2>Notifications and alerts</h2>
       <p>Settings lets you turn on a webhook, formatted for Discord, Slack or a plain JSON consumer, and a ntfy topic if you would rather get a push notification on your phone instead. Both can be told which events actually matter to you: a container crashing, a scheduled image check turning up something newer, a resource threshold being crossed, or a scheduled backup failing.</p>
       <p>Resource alerts watch CPU, memory and disk usage against thresholds you set yourself, on a timer you also control. Checks on individual containers apply across every host you have registered, while the reading for the machine Challoupe itself runs on only ever describes that one machine, since there is no way to read another computer's own resource usage over the same connection used to manage its containers.</p>
+    </section>
+
+    <section id="applinks" class="docsection">
+      <h2>App switcher</h2>
+      <p>The grid icon next to the account menu in the header opens a small app switcher, the same idea as Google's own launcher: a shortcut to jump straight to another self-hosted app you run alongside Challoupe, without hunting for a bookmark.</p>
+      <p>An administrator adds each app under Settings' "App links" tab, a name and a URL per entry. Every signed-in user then sees those apps in the switcher and can click through to any of them, opening in a new tab; only an administrator can add, edit or remove entries. Add Challoupe's own URL to that other app's equivalent settings to link back the other way, so the two switchers point at each other.</p>
+      <p>Nothing is configured by default. Until an administrator adds at least one link, the switcher tells an administrator they can connect another app there, and tells anyone else there's nothing linked yet.</p>
     </section>
 
     <section id="systemstats" class="docsection">

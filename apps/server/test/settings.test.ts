@@ -58,6 +58,7 @@ const DEFAULTS = {
     containerCpuPercent: 90,
     containerMemoryPercent: 90,
   },
+  appLinks: [],
 };
 
 beforeEach(() => {
@@ -281,6 +282,19 @@ describe('settings', () => {
     });
   });
 
+  it('persists a list of app links, trimming whitespace from each label and URL', () => {
+    settingsService.update({
+      appLinks: [{ label: '  Chariot  ', url: '  https://chariot.example.com  ' }],
+    });
+    expect(settingsService.get().appLinks).toEqual([{ label: 'Chariot', url: 'https://chariot.example.com' }]);
+  });
+
+  it('replaces the whole app links list on a later update rather than merging it', () => {
+    settingsService.update({ appLinks: [{ label: 'A', url: 'https://a.example.com' }] });
+    settingsService.update({ appLinks: [{ label: 'B', url: 'https://b.example.com' }] });
+    expect(settingsService.get().appLinks).toEqual([{ label: 'B', url: 'https://b.example.com' }]);
+  });
+
   it('reset() clears every stored setting back to its default', () => {
     settingsService.update({
       defaultRestartPolicy: 'always',
@@ -290,6 +304,7 @@ describe('settings', () => {
       ntfy: { enabled: true, topic: 'challoupe', password: 'shh' },
       aiWatchdog: { enabled: true, checkAuditLog: false },
       resourceAlerts: { enabled: true, hostCpuPercent: 80 },
+      appLinks: [{ label: 'Chariot', url: 'https://chariot.example.com' }],
     });
     expect(settingsService.reset()).toEqual(DEFAULTS);
     const rows = db.prepare('SELECT COUNT(*) AS n FROM settings').get() as { n: number };

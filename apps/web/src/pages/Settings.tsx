@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
@@ -28,6 +28,7 @@ import type { Color } from 'antd/es/color-picker';
 import {
   AlertOutlined,
   ApiOutlined,
+  AppstoreOutlined,
   BellOutlined,
   ClockCircleOutlined,
   CloudDownloadOutlined,
@@ -42,6 +43,7 @@ import {
   EyeOutlined,
   LinkOutlined,
   NotificationOutlined,
+  PlusOutlined,
   ReloadOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
@@ -202,6 +204,7 @@ function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
 export default function Settings() {
   const { user, logout, refresh } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { message, modal } = AntApp.useApp();
   const queryClient = useQueryClient();
   const [form] = Form.useForm<AppSettings>();
@@ -464,6 +467,13 @@ export default function Settings() {
     </Space>
   );
 
+  const appLinksTabLabel = (
+    <Space size={6}>
+      <AppstoreOutlined />
+      App links
+    </Space>
+  );
+
   return (
     <div>
       <Typography.Title level={3}>Settings</Typography.Title>
@@ -475,7 +485,7 @@ export default function Settings() {
         onFinish={(values) => saveMutation.mutate(values)}
       >
         <Tabs
-          defaultActiveKey="general"
+          defaultActiveKey={searchParams.get('tab') || 'general'}
           items={[
             {
               key: 'general',
@@ -1231,6 +1241,63 @@ export default function Settings() {
                       </List.Item>
                     )}
                   />
+                </Card>
+              ),
+            },
+            {
+              key: 'applinks',
+              label: appLinksTabLabel,
+              forceRender: true,
+              children: (
+                <Card>
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    <AppstoreOutlined style={{ marginRight: 8 }} />
+                    Connected apps
+                  </Typography.Title>
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Add another app's URL here to jump to it from the grid icon in the header,
+                    the same way Google links Gmail, Drive, and its other apps together. Add
+                    Challoupe's own URL to that other app's settings to link back the other way.
+                  </Typography.Paragraph>
+                  <Form.List name="appLinks">
+                    {(fields, { add, remove }) => (
+                      <>
+                        {fields.map((field) => (
+                          <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }} wrap>
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'label']}
+                              rules={[{ required: true, message: 'Name is required' }]}
+                            >
+                              <Input placeholder="Name (e.g. Chariot)" style={{ width: 200 }} />
+                            </Form.Item>
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'url']}
+                              rules={[
+                                { required: true, message: 'URL is required' },
+                                { pattern: /^https?:\/\//, message: 'Must start with http:// or https://' },
+                              ]}
+                            >
+                              <Input placeholder="https://chariot.example.com" style={{ width: 320 }} />
+                            </Form.Item>
+                            {isAdmin && (
+                              <Button
+                                icon={<DeleteOutlined />}
+                                aria-label="Remove app link"
+                                onClick={() => remove(field.name)}
+                              />
+                            )}
+                          </Space>
+                        ))}
+                        {isAdmin && fields.length < 12 && (
+                          <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>
+                            Add app
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </Form.List>
                 </Card>
               ),
             },
