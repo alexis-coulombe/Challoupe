@@ -139,7 +139,7 @@ export default function Stacks() {
       render: (_, record) => (
         <Space size="small">
           {canManage && (
-            <Tooltip title="Deploy (up -d)">
+            <Tooltip title="Deploy (pulls the latest images, then up -d)">
               <Button
                 size="small"
                 icon={<CaretRightOutlined />}

@@ -27,7 +27,7 @@ export class DeployWebhookController {
       return;
     }
 
-    const result = await stackService.deployWithPull(name);
+    const result = await stackService.deploy(name);
     auditLog.record({
       userId: null,
       username: 'webhook',

@@ -138,11 +138,11 @@ export class StackService {
     }
   }
 
+  // Always pulls the latest tag for every image before (re)creating containers, so
+  // saving/redeploying a stack is enough to pick up a new `:latest` (or any other
+  // mutable tag) without a separate "update image" step. Falls back to a local build
+  // when a service has no pullable image (compose handles this itself, exit code stays 0).
   deploy(name: string): Promise<ComposeResult> {
-    return this.compose(name, ['up', '-d', '--remove-orphans']);
-  }
-
-  deployWithPull(name: string): Promise<ComposeResult> {
     return this.compose(name, ['up', '-d', '--remove-orphans', '--pull', 'always']);
   }
 

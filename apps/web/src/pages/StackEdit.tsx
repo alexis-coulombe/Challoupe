@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, App as AntApp, Button, Card, Col, Input, Modal, Row, Space, Tag, Typography } from 'antd';
+import { Alert, App as AntApp, Button, Card, Col, Input, Modal, Row, Space, Tag, Tooltip, Typography } from 'antd';
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
@@ -367,15 +367,17 @@ export default function StackEdit() {
             >
               Save
             </Button>
-            <Button
-              type="primary"
-              icon={<CaretRightOutlined />}
-              onClick={deployClick}
-              loading={saveMutation.isPending}
-              disabled={busy || (isNew && !name)}
-            >
-              {isNew ? 'Create and deploy' : 'Save and deploy'}
-            </Button>
+            <Tooltip title="Pulls the latest version of every image before (re)creating containers">
+              <Button
+                type="primary"
+                icon={<CaretRightOutlined />}
+                onClick={deployClick}
+                loading={saveMutation.isPending}
+                disabled={busy || (isNew && !name)}
+              >
+                {isNew ? 'Create and deploy' : 'Save and deploy'}
+              </Button>
+            </Tooltip>
           </>
         )}
         {!isNew && (
