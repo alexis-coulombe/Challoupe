@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { wsUrl, type StatsSample } from '../api';
+import { wsUrl } from '../api';
+import type { StatsSample } from '../models/StatsSample';
 
 const HISTORY_LENGTH = 60;
 
@@ -10,6 +11,9 @@ export interface StatsHistory {
   memoryLimit: number;
   networkRx: number[];
   networkTx: number[];
+  blockRead: number[];
+  blockWrite: number[];
+  pids: number[];
   latest: StatsSample | null;
   connected: boolean;
 }
@@ -21,22 +25,25 @@ const EMPTY: StatsHistory = {
   memoryLimit: 0,
   networkRx: [],
   networkTx: [],
+  blockRead: [],
+  blockWrite: [],
+  pids: [],
   latest: null,
   connected: false,
 };
 
-// Tracks a rolling window of live `docker stats` samples over a WebSocket,
-// converting cumulative network byte counters into an instantaneous rate.
+// Tracks a rolling window of live `docker stats` samples over a WebSocket, converting
+// cumulative network and block I/O byte counters into an instantaneous rate.
 export function useContainerStats(hostId: string, containerId: string, enabled: boolean): StatsHistory {
   const [history, setHistory] = useState<StatsHistory>(EMPTY);
-  const prevNetRef = useRef<{ rx: number; tx: number; t: number } | null>(null);
+  const prevRef = useRef<{ rx: number; tx: number; read: number; write: number; t: number } | null>(null);
 
   useEffect(() => {
     if (!enabled) {
       setHistory(EMPTY);
       return;
     }
-    prevNetRef.current = null;
+    prevRef.current = null;
     setHistory(EMPTY);
     const ws = new WebSocket(wsUrl(`/hosts/${hostId}/containers/${containerId}/stats`));
 
@@ -47,14 +54,18 @@ export function useContainerStats(hostId: string, containerId: string, enabled: 
       const now = Date.now();
       let rxRate = 0;
       let txRate = 0;
-      if (prevNetRef.current) {
-        const dt = (now - prevNetRef.current.t) / 1000;
+      let readRate = 0;
+      let writeRate = 0;
+      if (prevRef.current) {
+        const dt = (now - prevRef.current.t) / 1000;
         if (dt > 0) {
-          rxRate = Math.max(0, (sample.networkRx - prevNetRef.current.rx) / dt);
-          txRate = Math.max(0, (sample.networkTx - prevNetRef.current.tx) / dt);
+          rxRate = Math.max(0, (sample.networkRx - prevRef.current.rx) / dt);
+          txRate = Math.max(0, (sample.networkTx - prevRef.current.tx) / dt);
+          readRate = Math.max(0, (sample.blockRead - prevRef.current.read) / dt);
+          writeRate = Math.max(0, (sample.blockWrite - prevRef.current.write) / dt);
         }
       }
-      prevNetRef.current = { rx: sample.networkRx, tx: sample.networkTx, t: now };
+      prevRef.current = { rx: sample.networkRx, tx: sample.networkTx, read: sample.blockRead, write: sample.blockWrite, t: now };
 
       setHistory((prev) => ({
         cpuPercent: [...prev.cpuPercent, sample.cpuPercent].slice(-HISTORY_LENGTH),
@@ -63,6 +74,9 @@ export function useContainerStats(hostId: string, containerId: string, enabled: 
         memoryLimit: sample.memoryLimit,
         networkRx: [...prev.networkRx, rxRate].slice(-HISTORY_LENGTH),
         networkTx: [...prev.networkTx, txRate].slice(-HISTORY_LENGTH),
+        blockRead: [...prev.blockRead, readRate].slice(-HISTORY_LENGTH),
+        blockWrite: [...prev.blockWrite, writeRate].slice(-HISTORY_LENGTH),
+        pids: [...prev.pids, sample.pids].slice(-HISTORY_LENGTH),
         latest: sample,
         connected: true,
       }));

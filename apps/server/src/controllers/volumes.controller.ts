@@ -6,6 +6,7 @@ import { DOCKER_NAME_RE } from '../validators.js';
 const createSchema = z.object({
   name: z.string().regex(DOCKER_NAME_RE),
   driver: z.string().default('local'),
+  driverOpts: z.record(z.string()).optional(),
 });
 
 export class VolumesController {
@@ -24,7 +25,11 @@ export class VolumesController {
 
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
-    const volume = await req.dockerClient!.createVolume({ Name: body.name, Driver: body.driver });
+    const volume = await req.dockerClient!.createVolume({
+      Name: body.name,
+      Driver: body.driver,
+      DriverOpts: body.driverOpts,
+    });
     auditLog.record({
       userId: req.user!.id,
       username: req.user!.username,

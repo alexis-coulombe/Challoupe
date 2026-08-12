@@ -63,6 +63,21 @@ describe('admin-only volume mutations', () => {
     expect((await agent.post('/api/hosts/local/volumes/prune')).status).toBe(200);
   });
 
+  it('forwards driverOpts to Docker, for bind-mount-backed volumes', async () => {
+    const { agent } = await createAdminAgent(app);
+    const res = await agent.post('/api/hosts/local/volumes').send({
+      name: 'my-bind-volume',
+      driver: 'local',
+      driverOpts: { type: 'none', o: 'bind', device: '/data/my-bind-volume' },
+    });
+    expect(res.status).toBe(201);
+    expect(mockDocker.createVolume).toHaveBeenCalledWith({
+      Name: 'my-bind-volume',
+      Driver: 'local',
+      DriverOpts: { type: 'none', o: 'bind', device: '/data/my-bind-volume' },
+    });
+  });
+
   it('allows a non-admin with the manageVolumes permission', async () => {
     const { agent: adminAgent } = await createAdminAgent(app);
     const agent = await createUserAgent(app, adminAgent, 'viewer', 'password123', 'user', {

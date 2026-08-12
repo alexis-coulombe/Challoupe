@@ -1,19 +1,31 @@
-import { api } from '../api';
+import { api } from '../../api';
 
-export interface SystemStatsTokenStatus {
+interface SystemStatsTokenStatus {
   configured: boolean;
   createdAt?: string;
 }
 
-export class SystemStatsApi {
+class SystemStatsApi {
+  /**
+   * Get token
+   * @returns Token response
+   */
   getToken() {
     return api.get<SystemStatsTokenStatus>('/system-stats-token');
   }
 
+  /**
+   * Regenerate token
+   * @returns Regenerate response
+   */
   regenerateToken() {
     return api.post<{ token: string }>('/system-stats-token');
   }
 
+  /**
+   * Revoke token
+   * @returns Revoke response
+   */
   revokeToken() {
     return api.delete('/system-stats-token');
   }

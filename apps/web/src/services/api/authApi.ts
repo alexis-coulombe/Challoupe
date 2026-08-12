@@ -1,7 +1,19 @@
-import { api } from '../api';
-import type { AuthStatus, LoginResult, OidcLoginConfig, TotpSetup } from '../api';
+import { api } from '../../api';
+import type { User } from '../../models/User';
+import type { AuthStatus } from '../../models/AuthStatus';
+import type { TotpSetup } from '../../models/TotpSetup';
 
-export class AuthApi {
+export interface LoginResult {
+  user?: User;
+  requiresTotp?: boolean;
+}
+
+export interface OidcLoginConfig {
+  enabled: boolean;
+  buttonLabel: string;
+}
+
+class AuthApi {
   status() {
     return api.get<AuthStatus>('/auth/status');
   }

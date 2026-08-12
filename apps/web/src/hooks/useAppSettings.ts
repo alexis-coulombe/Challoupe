@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { settingsApi } from '../services/settingsApi';
+import { settingsApi } from '../services/api/settingsApi';
 
-// Shared fetch for the app-wide settings (default restart policy, refresh
-// interval, log tail, terminal shell), cached under one query key so every
-// consumer reads the same values without refetching independently.
+/**
+ * Shared fetch for the app-wide settings
+ * @returns Global settings
+ */
 export function useAppSettings() {
   return useQuery({
     queryKey: ['settings'],

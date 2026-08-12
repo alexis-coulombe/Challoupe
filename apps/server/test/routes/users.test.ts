@@ -108,6 +108,27 @@ describe('PUT /api/users/:id', () => {
     expect(res.body.role).toBe('admin');
   });
 
+  it('refuses to let an admin change their own role, even with another admin present', async () => {
+    const { agent: admin, user } = await createAdminAgent(app);
+    await admin.post('/api/users').send({ username: 'other-admin', password: 'password123', role: 'admin' });
+    const res = await admin.put(`/api/users/${user.id}`).send({ role: 'user' });
+    expect(res.status).toBe(400);
+  });
+
+  it('refuses to let an admin change their own permissions', async () => {
+    const { agent: admin, user } = await createAdminAgent(app);
+    const res = await admin.put(`/api/users/${user.id}`).send({ permissions: { manageContainers: true } });
+    expect(res.status).toBe(400);
+  });
+
+  it('still lets an admin reset their own password when role/permissions are unchanged', async () => {
+    const { agent: admin, user } = await createAdminAgent(app);
+    const res = await admin
+      .put(`/api/users/${user.id}`)
+      .send({ password: 'newpassword123', role: user.role, permissions: user.permissions });
+    expect(res.status).toBe(200);
+  });
+
   it('updates only the permissions that were sent, leaving the rest untouched', async () => {
     const { agent: admin } = await createAdminAgent(app);
     const created = await admin.post('/api/users').send({ username: 'member', password: 'password123' });

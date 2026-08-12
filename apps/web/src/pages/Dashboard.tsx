@@ -9,19 +9,18 @@ import {
   CheckCircleOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import type { ContainerSummary } from '../api';
+import type { ContainerSummary } from '../models/ContainerSummary';
 import { CONTAINER_STATE_COLORS, STACK_STATUS, usageColor } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useFavorites } from '../hooks/useFavorites';
-import { containersApi } from '../services/containersApi';
-import { stacksApi } from '../services/stacksApi';
-import { systemApi } from '../services/systemApi';
+import { containersApi } from '../services/api/containersApi';
+import { stacksApi } from '../services/api/stacksApi';
+import { systemApi } from '../services/api/systemApi';
 import FavoriteButton from '../components/FavoriteButton';
 import Sparkline from '../components/Sparkline';
 
 const HISTORY_LENGTH = 60;
 
-// Containers a user would want to notice at a glance: crashed (non-zero exit) or dead.
 const EXIT_CODE_RE = /Exited \((\d+)\)/;
 function needsAttention(c: ContainerSummary): boolean {
   if (c.state === 'dead') return true;
@@ -41,6 +40,7 @@ function Trend({ label, value, color, points }: { label: string; value: string; 
           {value}
         </Typography.Text>
       </div>
+
       <Sparkline
         series={[{ id: label, label, color, points }]}
         domain={[0, 100]}
@@ -65,8 +65,8 @@ function StatCard({
   value: number | string;
 }) {
   return (
-    <Link to={to}>
-      <Card hoverable styles={{ body: { padding: 20 } }}>
+    <Link to={to} style={{ display: 'block', height: '100%' }}>
+      <Card hoverable styles={{ body: { padding: 20 } }} style={{ height: '100%' }}>
         <Space size={14} align="center">
           <div
             style={{
@@ -154,7 +154,7 @@ export default function Dashboard() {
   return (
     <div>
       <Typography.Title level={3}>Dashboard</Typography.Title>
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} align="stretch">
         <Col xs={12} md={6}>
           <StatCard
             to="/containers"
@@ -164,6 +164,7 @@ export default function Dashboard() {
             value={info?.containersRunning ?? '…'}
           />
         </Col>
+
         <Col xs={12} md={6}>
           <StatCard
             to="/containers"
@@ -173,9 +174,11 @@ export default function Dashboard() {
             value={info?.containersStopped ?? '…'}
           />
         </Col>
+
         <Col xs={12} md={6}>
           <StatCard to="/images" icon={<BlockOutlined />} color="#3b82f6" label="Images" value={info?.images ?? '…'} />
         </Col>
+
         <Col xs={12} md={6}>
           <StatCard
             to="/stacks"
@@ -186,15 +189,17 @@ export default function Dashboard() {
           />
         </Col>
       </Row>
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }} align="stretch">
         <Col xs={24} md={12}>
-          <Card title="Resource usage">
+          <Card title="Resource usage" style={{ height: '100%' }}>
             <Trend
               label="CPU"
               value={info?.cpuPercent != null ? `${info.cpuPercent.toFixed(1)}%` : '—'}
               color={usageColor(info?.cpuPercent ?? 0)}
               points={cpuHistory}
             />
+
             <Trend
               label="Memory"
               value={info?.memoryPercent != null ? `${info.memoryPercent.toFixed(1)}%` : '—'}
@@ -204,7 +209,7 @@ export default function Dashboard() {
           </Card>
         </Col>
         <Col xs={24} md={12}>
-          <Card title="Needs attention">
+          <Card title="Needs attention" style={{ height: '100%' }}>
             {attention.length === 0 ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -230,6 +235,7 @@ export default function Dashboard() {
           </Card>
         </Col>
       </Row>
+
       {favoriteRows.length > 0 && (
         <Card title="Favorites" style={{ marginTop: 16 }}>
           <List
@@ -241,6 +247,7 @@ export default function Dashboard() {
               >
                 <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
                   <Link to={f.path}>{f.label}</Link>
+
                   <Tag color={f.tagColor}>{f.tagLabel}</Tag>
                 </Space>
               </List.Item>
@@ -248,10 +255,11 @@ export default function Dashboard() {
           />
         </Card>
       )}
+
       <Card style={{ marginTop: 16 }}>
         <Space direction="vertical">
           <Typography.Text type="secondary">
-            {info ? `${info.name} · Docker ${info.serverVersion} · ${info.os}` : 'Loading environment info…'}
+            {info ? `${info.name} - Docker ${info.serverVersion} - ${info.os}` : 'Loading environment info...'}
           </Typography.Text>
           <Link to="/settings">View environment details &amp; settings →</Link>
         </Space>

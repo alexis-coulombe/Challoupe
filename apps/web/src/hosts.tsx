@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { HostSummary } from './api';
-import { hostsApi } from './services/hostsApi';
+import type { HostSummary } from './models/HostSummary';
+import { hostsApi } from './services/api/hostsApi';
 import { useAuth } from './auth';
 
 const STORAGE_KEY = 'challoupe.selectedHostId';
@@ -30,8 +30,7 @@ export function HostProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, id);
   };
 
-  // If the previously-selected host was deleted elsewhere (another tab, another admin),
-  // fall back to local rather than silently querying a host id that no longer exists.
+  // If the previously-selected host was deleted elsewhere, fall back to local.
   useEffect(() => {
     if (hostId !== 'local' && hosts && !hosts.some((h) => String(h.id) === hostId)) {
       setHostId('local');

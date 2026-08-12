@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Spin } from 'antd';
-import { hasPermission, type Permission } from './api';
+import { hasPermission, type Permission } from './models/permissions';
 import { useAuth } from './auth';
 import AppLayout from './components/AppLayout';
 import Login from './pages/Login';
@@ -57,39 +57,11 @@ export default function App() {
         <Route path="/volumes" element={<Volumes />} />
         <Route path="/networks" element={<Networks />} />
         <Route path="/stacks" element={<Stacks />} />
-        <Route
-          path="/stacks/new"
-          element={
-            <RequirePermission permission="manageStacks">
-              <StackEdit />
-            </RequirePermission>
-          }
-        />
+        <Route path="/stacks/new" element={<RequirePermission permission="manageStacks"><StackEdit /></RequirePermission>} />
         <Route path="/stacks/:name" element={<StackEdit />} />
-        <Route
-          path="/users"
-          element={
-            <AdminOnly>
-              <Users />
-            </AdminOnly>
-          }
-        />
-        <Route
-          path="/hosts"
-          element={
-            <AdminOnly>
-              <Hosts />
-            </AdminOnly>
-          }
-        />
-        <Route
-          path="/audit-log"
-          element={
-            <AdminOnly>
-              <AuditLog />
-            </AdminOnly>
-          }
-        />
+        <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />
+        <Route path="/hosts" element={<AdminOnly><Hosts /></AdminOnly>} />
+        <Route path="/audit-log" element={<AdminOnly><AuditLog /></AdminOnly>} />
         <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

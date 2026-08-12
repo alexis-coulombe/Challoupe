@@ -18,8 +18,8 @@ import {
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
 import { useFavorites, type FavoriteType } from '../hooks/useFavorites';
-import { containersApi } from '../services/containersApi';
-import { stacksApi } from '../services/stacksApi';
+import { containersApi } from '../services/api/containersApi';
+import { stacksApi } from '../services/api/stacksApi';
 
 interface PaletteItem {
   key: string;

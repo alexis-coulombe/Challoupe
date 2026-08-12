@@ -1,7 +1,8 @@
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import utc from 'dayjs/plugin/utc';
-import type { StackSummary, TrivySeverity } from './api';
+import type { StackSummary } from './models/StackSummary';
+import type { TrivySeverity } from './models/TrivySeverity';
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
@@ -73,12 +74,19 @@ export async function runBulk<T>(
   return { ok, errors };
 }
 
-// Shared antd Table pagination config: a page of 20, hidden entirely for shorter lists.
-export const TABLE_PAGINATION = { pageSize: 20, hideOnSinglePage: true } as const;
+/**
+ * Shared antd Table pagination config
+ */
+export const TABLE_PAGINATION = {
+  pageSize: 20,
+  hideOnSinglePage: true,
+  size: 'default' as const,
+  position: ['bottomCenter'] as Array<'bottomCenter'>,
+};
 
 // The one accent reserved for AI/Ollama-powered features, kept distinct from the blue
 // brand/primary color so an "AI" touchpoint is recognizable at a glance.
-export const AI_COLOR = '#8b5cf6';
+export const AI_COLOR = '#aa89f8';
 export const AI_COLOR_SOFT = 'rgba(139, 92, 246, 0.14)';
 export const AI_COLOR_BORDER = 'rgba(139, 92, 246, 0.35)';
 

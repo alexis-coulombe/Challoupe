@@ -1,44 +1,22 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App as AntApp, Button, Card, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Button, Card, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined } from '@ant-design/icons';
-import type { AuditLogEntry } from '../api';
+import type { AuditLogEntry } from '../models/AuditLogEntry';
 import { formatDateTime, TABLE_PAGINATION } from '../utils';
-import { useAppSettings } from '../hooks/useAppSettings';
-import { auditLogApi } from '../services/auditLogApi';
-import { settingsApi } from '../services/settingsApi';
+import { useAuditLogService, auditLogService } from '../services/AuditLogService';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
 
 export default function AuditLog() {
-  const queryClient = useQueryClient();
-  const { message } = AntApp.useApp();
-  const { data: settings } = useAppSettings();
-  const enabled = settings?.featureFlags.auditLog !== false;
-
-  const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['audit-log'],
-    queryFn: () => auditLogApi.list(),
-    refetchInterval: settings?.refreshIntervalMs ?? 5000,
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (value: boolean) => settingsApi.update({ featureFlags: { auditLog: value } }),
-    onSuccess: () => {
-      message.success('Setting saved');
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const clearMutation = useMutation({
-    mutationFn: () => auditLogApi.clear(),
-    onSuccess: () => {
-      message.success('Audit log cleared');
-      queryClient.invalidateQueries({ queryKey: ['audit-log'] });
-    },
-    onError: (err) => message.error(err.message),
-  });
+  const {
+    entries: data,
+    isLoading,
+    isFetching,
+    refetch,
+    enabled,
+    toggle: toggleMutation,
+    clear: clearMutation,
+  } = useAuditLogService();
 
   const columns: ColumnsType<AuditLogEntry> = [
     { title: 'Time', dataIndex: 'created_at', render: formatDateTime, width: 170 },
@@ -47,7 +25,7 @@ export default function AuditLog() {
       title: 'Action',
       dataIndex: 'action',
       render: (action: string) => <Typography.Text code>{action}</Typography.Text>,
-      filters: [...new Set((data ?? []).map((e) => e.action))].map((a) => ({ text: a, value: a })),
+      filters: auditLogService.actionFilters(data ?? []),
       onFilter: (value, record) => record.action === value,
     },
     {
@@ -81,19 +59,23 @@ export default function AuditLog() {
   return (
     <div>
       <ListPageHeader title="Audit Log">
-        <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isFetching}>
-          Refresh
-        </Button>
-        <DeleteButton
-          confirmTitle="Clear the audit log? This permanently deletes all recorded entries."
-          onConfirm={() => clearMutation.mutate()}
-          loading={clearMutation.isPending}
-          disabled={!data?.length}
-          size="middle"
-        >
-          Clear
-        </DeleteButton>
+        <Space wrap>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={isFetching}>
+            Refresh
+          </Button>
+
+          <DeleteButton
+            confirmTitle="Clear the audit log? This permanently deletes all recorded entries."
+            onConfirm={() => clearMutation.mutate()}
+            loading={clearMutation.isPending}
+            disabled={!data?.length}
+            size="middle"
+          >
+            Clear all
+          </DeleteButton>
+        </Space>
       </ListPageHeader>
+
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space align="center">
           <Switch
@@ -103,11 +85,13 @@ export default function AuditLog() {
           />
           <Typography.Text strong>Record actions to the audit log</Typography.Text>
         </Space>
+
         <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
           Tracks users actions. Turning this off stops new entries; 
-          history already recorded stays visible below.
+          history already recorded stays visible.
         </Typography.Paragraph>
       </Card>
+      
       <Table
         rowKey="id"
         columns={columns}

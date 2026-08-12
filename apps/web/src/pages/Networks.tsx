@@ -1,23 +1,18 @@
 import { useState, type Key } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App as AntApp, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
+import { Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
-import { hasPermission, type NetworkSummary } from '../api';
+import { hasPermission } from '../models/permissions';
+import type { NetworkSummary } from '../models/NetworkSummary';
 import { TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
-import { useBulkAction } from '../hooks/useBulkAction';
-import { networksApi } from '../services/networksApi';
+import { useNetworksService, networksService } from '../services/NetworksService';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
 
-const BUILTIN_NETWORKS = ['bridge', 'host', 'none'];
-
 export default function Networks() {
-  const queryClient = useQueryClient();
-  const { message } = AntApp.useApp();
   const { user } = useAuth();
   const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageNetworks');
@@ -25,39 +20,13 @@ export default function Networks() {
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [form] = Form.useForm<{ name: string; driver: string }>();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['networks', hostId],
-    queryFn: () => networksApi.list(hostId),
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['networks', hostId] });
-
-  const createMutation = useMutation({
-    mutationFn: (values: { name: string; driver: string }) => networksApi.create(hostId, values),
-    onSuccess: () => {
-      message.success('Network created');
-      setCreateOpen(false);
-      form.resetFields();
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (id: string) => networksApi.remove(hostId, id),
-    onSuccess: () => {
-      message.success('Network deleted');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const bulkRemoveMutation = useBulkAction<string>({
-    queryKey: ['networks', hostId],
-    run: (id) => networksApi.remove(hostId, id),
-    successLabel: (count) => `${count} network(s) deleted`,
-    onSettled: () => setSelectedKeys([]),
-  });
+  const {
+    networks: data,
+    isLoading,
+    create: createMutation,
+    remove: removeMutation,
+    bulkRemove: bulkRemoveMutation,
+  } = useNetworksService(hostId, { onBulkRemoved: () => setSelectedKeys([]) });
 
   const columns: ColumnsType<NetworkSummary> = [
     {
@@ -67,7 +36,7 @@ export default function Networks() {
       render: (name: string) => (
         <Space>
           {name}
-          {BUILTIN_NETWORKS.includes(name) && <Tag>system</Tag>}
+          {networksService.isBuiltin(name) && <Tag>system</Tag>}
         </Space>
       ),
     },
@@ -77,7 +46,7 @@ export default function Networks() {
     {
       title: 'Actions',
       render: (_, record) =>
-        canManage && !BUILTIN_NETWORKS.includes(record.name) && (
+        canManage && !networksService.isBuiltin(record.name) && (
           <DeleteButton
             confirmTitle="Delete this network?"
             onConfirm={() => removeMutation.mutate(record.id)}
@@ -96,6 +65,7 @@ export default function Networks() {
           </Button>
         )}
       </ListPageHeader>
+
       {canManage && (
         <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
           <DeleteButton
@@ -103,10 +73,11 @@ export default function Networks() {
             onConfirm={() => bulkRemoveMutation.mutate(selectedKeys as string[])}
             loading={bulkRemoveMutation.isPending}
           >
-            Delete
+            Permanently delete
           </DeleteButton>
         </BulkBar>
       )}
+
       <Table
         rowKey="id"
         columns={columns}
@@ -119,7 +90,7 @@ export default function Networks() {
                 selectedRowKeys: selectedKeys,
                 onChange: setSelectedKeys,
                 getCheckboxProps: (record) => ({
-                  disabled: BUILTIN_NETWORKS.includes(record.name),
+                  disabled: networksService.isBuiltin(record.name),
                 }),
               }
             : undefined
@@ -127,6 +98,7 @@ export default function Networks() {
         pagination={TABLE_PAGINATION}
         scroll={{ x: 'max-content' }}
       />
+
       <Modal
         title="Create network"
         open={createOpen}
@@ -139,7 +111,14 @@ export default function Networks() {
           form={form}
           layout="vertical"
           initialValues={{ driver: 'bridge' }}
-          onFinish={(values) => createMutation.mutate(values)}
+          onFinish={(values) =>
+            createMutation.mutate(values, {
+              onSuccess: () => {
+                setCreateOpen(false);
+                form.resetFields();
+              },
+            })
+          }
         >
           <Form.Item
             name="name"
@@ -149,7 +128,7 @@ export default function Networks() {
               { pattern: /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, message: 'Invalid name' },
             ]}
           >
-            <Input placeholder="my-network" />
+            <Input placeholder="my-network-name" />
           </Form.Item>
           <Form.Item name="driver" label="Driver">
             <Select

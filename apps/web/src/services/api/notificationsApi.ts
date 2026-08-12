@@ -1,7 +1,7 @@
-import { api } from '../api';
-import type { NotificationFormat } from '../api';
+import { api } from '../../api';
+import type { NotificationFormat } from '../../models/NotificationFormat';
 
-export class NotificationsApi {
+class NotificationsApi {
   test(webhookUrl: string, format: NotificationFormat) {
     return api.post<{ ok: true }>('/notifications/test', { webhookUrl, format });
   }

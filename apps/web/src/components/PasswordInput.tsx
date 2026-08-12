@@ -93,6 +93,7 @@ export default function PasswordInput({
           autoFocus={autoFocus}
           autoComplete={autoComplete}
         />
+        
         <Tooltip title="Generate a strong password">
           <Button icon={<SyncOutlined />} onClick={() => onChange?.(generatePassword())} />
         </Tooltip>
@@ -113,6 +114,7 @@ export default function PasswordInput({
               />
             ))}
           </div>
+
           <span style={{ fontSize: 11, color: strength.color }}>{strength.label}</span>
         </Space>
       )}

@@ -1,5 +1,5 @@
 import { useState, type Key } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import {
   App as AntApp,
   Button,
@@ -21,7 +21,9 @@ import {
   SecurityScanOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
-import { hasPermission, type ImageSummary, type TrivySeverity } from '../api';
+import { hasPermission } from '../models/permissions';
+import type { ImageSummary } from '../models/ImageSummary';
+import type { TrivySeverity } from '../models/TrivySeverity';
 import {
   CONSOLE_BG,
   CONSOLE_BORDER,
@@ -36,9 +38,9 @@ import {
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
-import { useBulkAction } from '../hooks/useBulkAction';
-import { imagesApi } from '../services/imagesApi';
-import { trivyApi } from '../services/trivyApi';
+import { imagesApi } from '../services/api/imagesApi';
+import { trivyApi } from '../services/api/trivyApi';
+import { imagesService, useImagesService } from '../services/ImagesService';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import KeyValueFormList from '../components/KeyValueFormList';
@@ -69,7 +71,7 @@ function ScanButton({ image }: { image: string }) {
         title={
           <Space size={8}>
             <SecurityScanOutlined style={{ color: SECURITY_COLOR }} />
-            Vulnerability scan : {image}
+            Scanning : {image}
           </Space>
         }
         open={open}
@@ -83,13 +85,15 @@ function ScanButton({ image }: { image: string }) {
       >
         {scanMutation.isPending && (
           <Typography.Text type="secondary">
-            <LoadingOutlined /> Scanning… this can take a while on the first run while the
+            <LoadingOutlined /> Currently scanning... this can take a while on the first run while the
             vulnerability database downloads.
           </Typography.Text>
         )}
+
         {scanMutation.isError && (
           <Typography.Text type="danger">{(scanMutation.error as Error).message}</Typography.Text>
         )}
+
         {result && (
           <>
             <Space size={8} wrap style={{ marginBottom: 16 }}>
@@ -103,6 +107,7 @@ function ScanButton({ image }: { image: string }) {
                 ))
               )}
             </Space>
+
             <Table
               size="small"
               rowKey={(v) => `${v.id}-${v.pkgName}`}
@@ -188,8 +193,9 @@ function BuildFromGitButton({ hostId, onBuilt }: { hostId: string; onBuilt: () =
       <Button icon={<BranchesOutlined />} onClick={() => setOpen(true)}>
         Build from Git
       </Button>
+
       <Modal
-        title="Build an image from a Git repository"
+        title="Build image from a Git repository"
         open={open}
         onCancel={close}
         onOk={() => form.submit()}
@@ -201,7 +207,7 @@ function BuildFromGitButton({ hostId, onBuilt }: { hostId: string; onBuilt: () =
           <Form.Item
             name="repoUrl"
             label="Repository URL"
-            tooltip="Works with GitHub, GitLab, Gitea, or any Git host reachable from the Docker daemon. For a private repo, embed a token: https://<token>@host/user/repo.git"
+            tooltip="Works with any Git host reachable from the Docker daemon. For a private repo, embed a token: https://<token>@host/user/repo.git"
             rules={[{ required: true, type: 'url', message: 'Enter a valid URL' }]}
           >
             <Input placeholder="https://github.com/user/repo.git" />
@@ -210,21 +216,21 @@ function BuildFromGitButton({ hostId, onBuilt }: { hostId: string; onBuilt: () =
             <Form.Item
               name="ref"
               label="Branch / tag"
-              tooltip="Docker only defaults to 'master' if this is left blank. Specify it explicitly for repos whose default branch is 'main' or anything else"
+              tooltip="Docker will defaults to 'master' if left blank."
             >
-              <Input placeholder="main" style={{ width: 180 }} />
+              <Input placeholder="master" style={{ width: 180 }} />
             </Form.Item>
             <Form.Item
               name="subdir"
               label="Subdirectory"
-              tooltip="Build context subdirectory, if the Dockerfile isn't at the repo root"
+              tooltip="Optional, specify if the Dockerfile isn't at the repo root"
             >
-              <Input placeholder="e.g. backend" style={{ width: 180 }} />
+              <Input placeholder="/docker" style={{ width: 180 }} />
             </Form.Item>
             <Form.Item
               name="dockerfile"
               label="Dockerfile path"
-              tooltip="Relative to the subdirectory above (or the repo root)"
+              tooltip="Optional, path to Dockerfile file. Relative to the subdirectory above (or the repo root)"
             >
               <Input placeholder="Dockerfile" style={{ width: 180 }} />
             </Form.Item>
@@ -236,11 +242,13 @@ function BuildFromGitButton({ hostId, onBuilt }: { hostId: string; onBuilt: () =
             <KeyValueFormList name="buildArgs" addLabel="Add build argument" />
           </Form.Item>
         </Form>
+
         {result && (
           <>
             <Typography.Text type={result.ok ? 'success' : 'danger'} strong>
               {result.ok ? `Built ${result.tag}` : `Build failed: ${result.error}`}
             </Typography.Text>
+            
             <pre
               style={{
                 background: CONSOLE_BG,
@@ -265,83 +273,25 @@ function BuildFromGitButton({ hostId, onBuilt }: { hostId: string; onBuilt: () =
 }
 
 export default function Images() {
-  const queryClient = useQueryClient();
-  const { message } = AntApp.useApp();
   const { user } = useAuth();
   const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageImages');
   const [pullRef, setPullRef] = useState('');
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const { data: settings } = useAppSettings();
-  const scanEnabled =
-    settings?.featureFlags.vulnerabilityScanner !== false && hasPermission(user, 'useSecurityScanner');
+  const scanEnabled = settings?.featureFlags.vulnerabilityScanner !== false && hasPermission(user, 'useSecurityScanner');
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['images', hostId],
-    queryFn: () => imagesApi.list(hostId),
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['images', hostId] });
-
-  const pullMutation = useMutation({
-    mutationFn: (reference: string) => imagesApi.pull(hostId, reference),
-    onSuccess: () => {
-      message.success('Image pulled');
-      setPullRef('');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (ref: string) => imagesApi.remove(hostId, ref),
-    onSuccess: () => {
-      message.success('Image deleted');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const pruneMutation = useMutation({
-    mutationFn: () => imagesApi.prune(hostId),
-    onSuccess: (result) => {
-      message.success(`Prune complete: ${formatBytes(result.spaceReclaimed)} reclaimed`);
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const checkUpdateMutation = useMutation({
-    mutationFn: (id: string) => imagesApi.checkUpdate(hostId, id),
-    onSuccess: (result) => {
-      if (result.updateAvailable === true) message.info(`Update available for ${result.reference}`);
-      else if (result.updateAvailable === false) message.success(`${result.reference} is up to date`);
-      else message.warning(result.error ?? 'Could not determine update status');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const checkAllUpdatesMutation = useMutation({
-    mutationFn: () => imagesApi.checkUpdates(hostId),
-    onSuccess: (result) => {
-      message.success(`Checked ${result.checked} image(s) : ${result.updatesAvailable} update(s) available`);
-      if (result.errors.length) message.warning(`${result.errors.length} check(s) could not be completed`);
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const byId = new Map((data ?? []).map((i) => [i.id, i]));
-  const bulkRemoveMutation = useBulkAction<string>({
-    queryKey: ['images', hostId],
-    run: (id) => {
-      const ref = byId.get(id)?.tags[0] ?? id;
-      return imagesApi.remove(hostId, ref);
-    },
-    successLabel: (count) => `${count} image(s) deleted`,
-    onSettled: () => setSelectedKeys([]),
-  });
+  const {
+    images: data,
+    isLoading,
+    invalidate,
+    pull: pullMutation,
+    remove: removeMutation,
+    prune: pruneMutation,
+    checkUpdate: checkUpdateMutation,
+    checkAllUpdates: checkAllUpdatesMutation,
+    bulkRemove: bulkRemoveMutation,
+  } = useImagesService(hostId, { onBulkRemoved: () => setSelectedKeys([]) });
 
   const columns: ColumnsType<ImageSummary> = [
     {
@@ -390,7 +340,8 @@ export default function Images() {
       title: 'Actions',
       render: (_, record) => (
         <Space>
-          {scanEnabled && <ScanButton image={record.tags[0] ?? record.id} />}
+          {scanEnabled && <ScanButton image={imagesService.resolveRef(record, record.id)} />}
+
           {canManage && (
             <Tooltip title={record.tags.length ? 'Check for updates' : 'Untagged. Nothing to check'}>
               <Button
@@ -402,11 +353,12 @@ export default function Images() {
               />
             </Tooltip>
           )}
+
           {canManage && (
             <DeleteButton
               confirmTitle="Delete this image?"
-              onConfirm={() => removeMutation.mutate(record.tags[0] ?? record.id)}
-              loading={removeMutation.isPending && removeMutation.variables === (record.tags[0] ?? record.id)}
+              onConfirm={() => removeMutation.mutate(imagesService.resolveRef(record, record.id))}
+              loading={removeMutation.isPending && removeMutation.variables === (imagesService.resolveRef(record, record.id))}
             />
           )}
         </Space>
@@ -420,24 +372,27 @@ export default function Images() {
         {canManage && (
           <Space wrap>
             <Input.Search
-              placeholder="e.g. nginx:alpine"
+              placeholder="nginx:alpine"
               value={pullRef}
               onChange={(e) => setPullRef(e.target.value)}
-              onSearch={(v) => v && pullMutation.mutate(v)}
+              onSearch={(v) => v && pullMutation.mutate(v, { onSuccess: () => setPullRef('') })}
               enterButton="Pull"
               loading={pullMutation.isPending}
               style={{ width: 320 }}
             />
+
             <Button
               icon={<SyncOutlined />}
               loading={checkAllUpdatesMutation.isPending}
               onClick={() => checkAllUpdatesMutation.mutate()}
             >
-              Check for updates
+              Check updates
             </Button>
+
             <BuildFromGitButton hostId={hostId} onBuilt={invalidate} />
+
             <Popconfirm
-              title="Remove unused (dangling) images?"
+              title="Remove unused images?"
               onConfirm={() => pruneMutation.mutate()}
             >
               <Button icon={<ClearOutlined />} loading={pruneMutation.isPending}>
@@ -447,6 +402,7 @@ export default function Images() {
           </Space>
         )}
       </ListPageHeader>
+
       {canManage && (
         <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
           <DeleteButton
@@ -454,10 +410,11 @@ export default function Images() {
             onConfirm={() => bulkRemoveMutation.mutate(selectedKeys as string[])}
             loading={bulkRemoveMutation.isPending}
           >
-            Delete
+            Permanently delete
           </DeleteButton>
         </BulkBar>
       )}
+
       <Table
         rowKey="id"
         columns={columns}

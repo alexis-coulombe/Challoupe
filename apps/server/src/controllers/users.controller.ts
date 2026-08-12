@@ -89,6 +89,16 @@ export class UsersController {
       return;
     }
     const body = updateSchema.parse(req.body);
+    if (id === req.user!.id) {
+      const roleChanged = body.role !== undefined && body.role !== target.role;
+      const permissionsChanged =
+        body.permissions !== undefined &&
+        Object.entries(body.permissions).some(([p, v]) => target.permissions[p as Permission] !== v);
+      if (roleChanged || permissionsChanged) {
+        res.status(400).json({ error: 'Cannot edit your own role or permissions' });
+        return;
+      }
+    }
     if (body.role && body.role !== 'admin' && target.role === 'admin' && this.adminCount() === 1) {
       res.status(400).json({ error: 'Cannot demote the last administrator' });
       return;

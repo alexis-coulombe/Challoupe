@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { App as AntApp, Alert, Button, Form, Input, Modal, QRCode, Space, Typography } from 'antd';
-import type { TotpSetup } from '../api';
-import { authApi } from '../services/authApi';
+import type { TotpSetup } from '../models/TotpSetup';
+import { authApi } from '../services/api/authApi';
 import { useAuth } from '../auth';
 
 // Enable/disable flow for TOTP two-factor authentication, opened from the user menu in

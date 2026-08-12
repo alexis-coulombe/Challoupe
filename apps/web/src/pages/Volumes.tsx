@@ -1,70 +1,43 @@
 import { useState, type Key } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { App as AntApp, Button, Form, Input, Modal, Popconfirm, Space, Table, Typography } from 'antd';
+import { AutoComplete, Button, Checkbox, Form, Input, Modal, Popconfirm, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ClearOutlined, PlusOutlined } from '@ant-design/icons';
-import { hasPermission, type VolumeSummary } from '../api';
-import { formatBytes, fromISO, TABLE_PAGINATION } from '../utils';
+import { hasPermission } from '../models/permissions';
+import type { VolumeSummary } from '../models/VolumeSummary';
+import { fromISO, TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
-import { useBulkAction } from '../hooks/useBulkAction';
-import { volumesApi } from '../services/volumesApi';
+import { useVolumesService, volumesService } from '../services/VolumesService';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
 
+const DRIVER_OPTIONS = [{ value: 'local' }];
+
+interface VolumeFormValues {
+  name: string;
+  driver: string;
+  bindMount?: boolean;
+  hostPath?: string;
+}
+
 export default function Volumes() {
-  const queryClient = useQueryClient();
-  const { message } = AntApp.useApp();
   const { user } = useAuth();
   const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageVolumes');
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
-  const [form] = Form.useForm<{ name: string; driver: string }>();
+  const [form] = Form.useForm<VolumeFormValues>();
+  const bindMount = Form.useWatch('bindMount', form);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['volumes', hostId],
-    queryFn: () => volumesApi.list(hostId),
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['volumes', hostId] });
-
-  const createMutation = useMutation({
-    mutationFn: (values: { name: string; driver: string }) => volumesApi.create(hostId, values),
-    onSuccess: () => {
-      message.success('Volume created');
-      setCreateOpen(false);
-      form.resetFields();
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: (name: string) => volumesApi.remove(hostId, name),
-    onSuccess: () => {
-      message.success('Volume deleted');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const pruneMutation = useMutation({
-    mutationFn: () => volumesApi.prune(hostId),
-    onSuccess: (result) => {
-      message.success(`Prune complete: ${formatBytes(result.spaceReclaimed)} reclaimed`);
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const bulkRemoveMutation = useBulkAction<string>({
-    queryKey: ['volumes', hostId],
-    run: (name) => volumesApi.remove(hostId, name),
-    successLabel: (count) => `${count} volume(s) deleted`,
-    onSettled: () => setSelectedKeys([]),
-  });
+  const {
+    volumes: data,
+    isLoading,
+    create: createMutation,
+    remove: removeMutation,
+    prune: pruneMutation,
+    bulkRemove: bulkRemoveMutation,
+  } = useVolumesService(hostId, { onBulkRemoved: () => setSelectedKeys([]) });
 
   const columns: ColumnsType<VolumeSummary> = [
     {
@@ -108,12 +81,14 @@ export default function Volumes() {
                 Prune
               </Button>
             </Popconfirm>
+
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
               Create volume
             </Button>
           </Space>
         )}
       </ListPageHeader>
+
       {canManage && (
         <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
           <DeleteButton
@@ -121,10 +96,11 @@ export default function Volumes() {
             onConfirm={() => bulkRemoveMutation.mutate(selectedKeys as string[])}
             loading={bulkRemoveMutation.isPending}
           >
-            Delete
+            Permanently delete
           </DeleteButton>
         </BulkBar>
       )}
+
       <Table
         rowKey="name"
         columns={columns}
@@ -135,6 +111,7 @@ export default function Volumes() {
         pagination={TABLE_PAGINATION}
         scroll={{ x: 'max-content' }}
       />
+
       <Modal
         title="Create volume"
         open={createOpen}
@@ -147,7 +124,21 @@ export default function Volumes() {
           form={form}
           layout="vertical"
           initialValues={{ driver: 'local' }}
-          onFinish={(values) => createMutation.mutate(values)}
+          onFinish={(values) =>
+            createMutation.mutate(
+              {
+                name: values.name,
+                driver: values.bindMount ? 'local' : values.driver,
+                driverOpts: values.bindMount ? volumesService.bindMountOpts(values.hostPath!) : undefined,
+              },
+              {
+                onSuccess: () => {
+                  setCreateOpen(false);
+                  form.resetFields();
+                },
+              }
+            )
+          }
         >
           <Form.Item
             name="name"
@@ -157,11 +148,34 @@ export default function Volumes() {
               { pattern: /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/, message: 'Invalid name' },
             ]}
           >
-            <Input placeholder="my-volume" />
+            <Input placeholder="my-volume-name" />
           </Form.Item>
+
           <Form.Item name="driver" label="Driver">
-            <Input />
+            <AutoComplete
+              options={DRIVER_OPTIONS}
+              disabled={bindMount}
+              placeholder="local"
+              filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+            />
           </Form.Item>
+
+          <Form.Item name="bindMount" valuePropName="checked" style={{ marginBottom: bindMount ? 8 : 0 }}>
+            <Checkbox onChange={(e) => e.target.checked && form.setFieldValue('driver', 'local')}>
+              Bind to a host path
+            </Checkbox>
+          </Form.Item>
+
+          {bindMount && (
+            <Form.Item
+              name="hostPath"
+              label="Host path"
+              tooltip="An absolute path on the host. The volume's data will live there instead of Docker's own storage area."
+              rules={[{ required: true, message: 'Enter a host path' }]}
+            >
+              <Input placeholder="/data/my-volume" />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>

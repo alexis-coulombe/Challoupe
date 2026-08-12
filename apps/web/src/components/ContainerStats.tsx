@@ -12,7 +12,7 @@ interface StatTileProps {
 
 function StatTile({ label, value, color, children }: StatTileProps) {
   return (
-    <Card size="small">
+    <Card size="small" style={{ height: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
         <Typography.Text type="secondary">{label}</Typography.Text>
         <Typography.Text strong style={{ fontSize: 18, color }}>
@@ -55,7 +55,7 @@ export default function ContainerStats({
   const memColor = usageColor(stats.latest.memoryPercent);
 
   return (
-    <Row gutter={[16, 16]}>
+    <Row gutter={[16, 16]} align="stretch">
       <Col xs={24} md={8}>
         <StatTile label="CPU" value={`${stats.latest.cpuPercent.toFixed(1)}%`} color={cpuColor}>
           <Sparkline
@@ -91,6 +91,30 @@ export default function ContainerStats({
               { id: 'tx', label: 'TX', color: '#9085e9', points: stats.networkTx },
             ]}
             formatValue={formatRate}
+          />
+        </StatTile>
+      </Col>
+      <Col xs={24} md={8}>
+        <StatTile
+          label="Disk I/O"
+          value={`${formatRate(stats.blockRead[stats.blockRead.length - 1] ?? 0)} / ${formatRate(
+            stats.blockWrite[stats.blockWrite.length - 1] ?? 0
+          )}`}
+        >
+          <Sparkline
+            series={[
+              { id: 'read', label: 'Read', color: '#22c55e', points: stats.blockRead },
+              { id: 'write', label: 'Write', color: '#f59e0b', points: stats.blockWrite },
+            ]}
+            formatValue={formatRate}
+          />
+        </StatTile>
+      </Col>
+      <Col xs={24} md={8}>
+        <StatTile label="Processes" value={`${stats.pids[stats.pids.length - 1] ?? 0}`}>
+          <Sparkline
+            series={[{ id: 'pids', label: 'PIDs', color: '#ec4899', points: stats.pids }]}
+            formatValue={(v) => `${Math.round(v)}`}
           />
         </StatTile>
       </Col>

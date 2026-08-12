@@ -6,8 +6,9 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { AuthStatus, User } from './api';
-import { authApi } from './services/authApi';
+import type { AuthStatus } from './models/AuthStatus';
+import type { User } from './models/User';
+import { authApi } from './services/api/authApi';
 
 interface AuthContextValue {
   user: User | null;

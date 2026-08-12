@@ -45,9 +45,9 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
-import { hasPermission } from '../api';
-import { authApi } from '../services/authApi';
-import { systemApi } from '../services/systemApi';
+import { hasPermission } from '../models/permissions';
+import { authApi } from '../services/api/authApi';
+import { systemApi } from '../services/api/systemApi';
 import { AI_COLOR, AI_COLOR_SOFT, formatBytes } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useDockerEventNotifications } from '../hooks/useDockerEventNotifications';

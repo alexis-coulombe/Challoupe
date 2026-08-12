@@ -1,33 +1,46 @@
-import { api } from '../api';
-import type { ContainerInspect, ContainerSummary } from '../api';
+import { api } from '../../api';
+import type { ContainerSummary } from '../../models/ContainerSummary';
+import type { ContainerCreateRequest } from '../../models/ContainerCreateRequest';
 
-export interface ContainerCreateRequest {
-  name?: string;
-  image: string;
-  network?: string;
-  command: string[];
-  workingDir?: string;
-  user?: string;
-  labels: string[];
-  env: string[];
-  ports: Array<{ host: number; container: number; protocol: 'tcp' | 'udp' }>;
-  volumes: Array<{ host: string; container: string }>;
-  restartPolicy: string;
-  privileged: boolean;
-  autoRemove: boolean;
-  memoryMb?: number;
-  cpus?: number;
+interface ContainerInspect {
+  Id: string;
+  Name: string;
+  Created: string;
+  State: { Status: string; StartedAt: string; ExitCode: number };
+  Config: { Image: string; Env: string[]; Tty: boolean };
+  HostConfig: { RestartPolicy: { Name: string } };
+  NetworkSettings: {
+    Ports: Record<string, Array<{ HostIp: string; HostPort: string }> | null>;
+  };
+  Mounts: Array<{ Type: string; Source: string; Destination: string; Name?: string }>;
 }
 
-export class ContainersApi {
+class ContainersApi {
+  /**
+   * List all containers
+   * @param hostId string
+   * @returns Container list
+   */
   list(hostId: string) {
     return api.get<ContainerSummary[]>(`/hosts/${hostId}/containers`);
   }
 
+  /**
+   * Get a container by id
+   * @param hostId string
+   * @param id string
+   * @returns Container response
+   */
   get(hostId: string, id: string) {
     return api.get<ContainerInspect>(`/hosts/${hostId}/containers/${id}`);
   }
 
+  /**
+   * Create a new container
+   * @param hostId string
+   * @param body ContainerCreateRequest
+   * @returns New container response
+   */
   create(hostId: string, body: ContainerCreateRequest) {
     return api.post<{ id: string }>(`/hosts/${hostId}/containers`, body);
   }
@@ -36,7 +49,12 @@ export class ContainersApi {
     return api.post(`/hosts/${hostId}/containers/${id}/actions/${action}`);
   }
 
-  // Always force-removed, the only mode any page uses.
+  /**
+   * Remove a container
+   * @param hostId string
+   * @param id string
+   * @returns void
+   */
   remove(hostId: string, id: string) {
     return api.delete(`/hosts/${hostId}/containers/${id}?force=true`);
   }
