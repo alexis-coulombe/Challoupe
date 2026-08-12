@@ -6,18 +6,12 @@ import oidcRoutes from '../integrations/oidc/oidc.routes.js';
 
 const router = Router();
 
-// Keyed by IP (express-rate-limit's default `req.ip`, which respects the app's `trust
-// proxy` setting). Bounds how many password guesses a single source can throw at either
-// endpoint regardless of which username they target.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts. Try again later.' },
-  // The test suite creates dozens of admin/user agents per file, each a real request
-  // through this same middleware. Without this it would start tripping on test fixtures
-  // rather than actual brute-forcing.
   skip: () => process.env.NODE_ENV === 'test',
 });
 

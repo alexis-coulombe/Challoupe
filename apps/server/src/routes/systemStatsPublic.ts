@@ -4,7 +4,6 @@ import { systemStatsController as c } from '../controllers/systemStats.controlle
 
 const router = Router();
 
-// Rate limit endpoint to 60 times a minute
 const statsLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 60,

@@ -1,17 +1,16 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { DOCKER_NAME_RE } from '../validators.js';
+import { createSchema } from './schemas/volumes.schema.js';
 
-const createSchema = z.object({
-  name: z.string().regex(DOCKER_NAME_RE),
-  driver: z.string().default('local'),
-  driverOpts: z.record(z.string()).optional(),
-});
-
-export class VolumesController {
+class VolumesController {
+  /**
+   * List all volumes
+   * @param req Request
+   * @param res Response
+   */
   list = async (req: Request, res: Response): Promise<void> => {
     const { Volumes } = await req.dockerClient!.listVolumes();
+
     res.json(
       (Volumes ?? []).map((v) => ({
         name: v.Name,
@@ -23,6 +22,11 @@ export class VolumesController {
     );
   };
 
+  /**
+   * Create volume
+   * @param req Request
+   * @param res Response
+   */
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
     const volume = await req.dockerClient!.createVolume({
@@ -38,9 +42,15 @@ export class VolumesController {
       status: 'success',
       ip: req.ip,
     });
+
     res.status(201).json(volume);
   };
 
+  /**
+   * Remove volume
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   remove = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     await req.dockerClient!.getVolume(req.params.name).remove({ force: req.query.force === 'true' });
     auditLog.record({
@@ -51,9 +61,15 @@ export class VolumesController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 
+  /**
+   * Prune volumes
+   * @param req Request
+   * @param res Response
+   */
   prune = async (req: Request, res: Response): Promise<void> => {
     const result = await req.dockerClient!.pruneVolumes();
     auditLog.record({
@@ -64,6 +80,7 @@ export class VolumesController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ spaceReclaimed: result.SpaceReclaimed ?? 0 });
   };
 }

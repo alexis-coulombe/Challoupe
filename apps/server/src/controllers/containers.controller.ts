@@ -1,49 +1,23 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { auditLog } from '../audit.js';
 import { demuxLogs, pullImage } from '../docker.js';
-import { RESTART_POLICIES, settingsService } from '../settings.js';
+import { settingsService } from '../settings.js';
 import { imageUpdateService } from '../imageUpdates.js';
-import { DOCKER_NAME_RE, KEY_VALUE_RE, parseKeyValueList } from '../validators.js';
-
-const createSchema = z.object({
-  name: z.string().regex(DOCKER_NAME_RE).optional(),
-  image: z.string().min(1),
-  network: z.string().regex(DOCKER_NAME_RE).optional(),
-  command: z.array(z.string()).default([]),
-  workingDir: z.string().max(255).optional(),
-  user: z
-    .string()
-    .max(64)
-    .regex(/^[a-zA-Z0-9_.:-]*$/)
-    .optional(),
-  labels: z.array(z.string().regex(KEY_VALUE_RE)).default([]),
-  env: z.array(z.string().regex(KEY_VALUE_RE)).default([]),
-  ports: z
-    .array(
-      z.object({
-        host: z.number().int().min(1).max(65535),
-        container: z.number().int().min(1).max(65535),
-        protocol: z.enum(['tcp', 'udp']).default('tcp'),
-      })
-    )
-    .default([]),
-  volumes: z
-    .array(z.object({ host: z.string().min(1), container: z.string().min(1) }))
-    .default([]),
-  restartPolicy: z.enum(RESTART_POLICIES).optional(),
-  privileged: z.boolean().default(false),
-  autoRemove: z.boolean().default(false),
-  memoryMb: z.number().int().positive().max(1024 * 1024).optional(),
-  cpus: z.number().positive().max(256).optional(),
-});
+import { parseKeyValueList } from '../validators.js';
+import { createSchema } from './schemas/containers.schema.js';
 
 const ACTIONS = ['start', 'stop', 'restart', 'kill', 'pause', 'unpause'] as const;
 type ContainerAction = (typeof ACTIONS)[number];
 
-export class ContainersController {
+class ContainersController {
+  /**
+   * List all containers
+   * @param req Request
+   * @param res Response
+   */
   list = async (req: Request, res: Response): Promise<void> => {
     const list = await req.dockerClient!.listContainers({ all: true });
+
     res.json(
       list.map((c) => {
         const cached = imageUpdateService.getCachedStatus(req.hostId!, c.Image);
@@ -62,27 +36,28 @@ export class ContainersController {
     );
   };
 
-  // Container creation can grant privileged mode and arbitrary host bind-mounts,
-  // effectively root on the host via the Docker socket.
+  /**
+   * Create container
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
     const settings = settingsService.get();
     const restartPolicy = body.restartPolicy ?? settings.defaultRestartPolicy;
 
     if (body.autoRemove && restartPolicy !== 'no') {
-      res
-        .status(400)
-        .json({ error: "Auto-remove cannot be combined with a restart policy other than 'Never'" });
+      res.status(400).json({ error: "Auto-remove cannot be combined with a restart policy other than 'Never'" });
       return;
     }
 
-    // Admins are never capped; a "user"-role account is bound by the configured quota
-    // (when one is set). A request over quota is rejected, and one left unset is
-    // clamped to the quota so a quota can never be silently bypassed by omission.
     let memoryMb = body.memoryMb;
     let cpus = body.cpus;
+    // Admins are never capped
     if (req.user!.role !== 'admin') {
       const { maxContainerMemoryMb, maxContainerCpus } = settings;
+
       if (maxContainerMemoryMb != null) {
         if (memoryMb != null && memoryMb > maxContainerMemoryMb) {
           res.status(400).json({ error: `Memory limit exceeds your quota of ${maxContainerMemoryMb} MB` });
@@ -90,6 +65,7 @@ export class ContainersController {
         }
         memoryMb = memoryMb ?? maxContainerMemoryMb;
       }
+
       if (maxContainerCpus != null) {
         if (cpus != null && cpus > maxContainerCpus) {
           res.status(400).json({ error: `CPU limit exceeds your quota of ${maxContainerCpus} cores` });
@@ -127,9 +103,7 @@ export class ContainersController {
         Memory: memoryMb ? memoryMb * 1024 * 1024 : undefined,
         NanoCpus: cpus ? Math.round(cpus * 1e9) : undefined,
       },
-      NetworkingConfig: body.network
-        ? { EndpointsConfig: { [body.network]: {} } }
-        : undefined,
+      NetworkingConfig: body.network ? { EndpointsConfig: { [body.network]: {} } } : undefined,
     };
 
     let container;
@@ -137,10 +111,14 @@ export class ContainersController {
       container = await req.dockerClient!.createContainer(options);
     } catch (err) {
       // Image not present locally: pull it and retry.
-      if ((err as { statusCode?: number }).statusCode !== 404) throw err;
+      if ((err as { statusCode?: number }).statusCode !== 404) {
+        throw err;
+      }
+
       await pullImage(req.dockerClient!, body.image);
       container = await req.dockerClient!.createContainer(options);
     }
+
     await container.start();
     auditLog.record({
       userId: req.user!.id,
@@ -151,13 +129,24 @@ export class ContainersController {
       status: 'success',
       ip: req.ip,
     });
+
     res.status(201).json({ id: container.id });
   };
 
+  /**
+   * Get a container by id
+   * @param req Request<{ id: string }>
+   * @param res Response
+   */
   getOne = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     res.json(await req.dockerClient!.getContainer(req.params.id).inspect());
   };
 
+  /**
+   * Get container logs
+   * @param req Request<{ id: string }>
+   * @param res Response
+   */
   logs = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     const tail = Math.min(Number(req.query.tail) || 200, 5000);
     const container = req.dockerClient!.getContainer(req.params.id);
@@ -168,15 +157,24 @@ export class ContainersController {
       tail,
       follow: false,
     })) as unknown as Buffer;
+
     res.type('text/plain').send(info.Config.Tty ? buf.toString('utf8') : demuxLogs(buf));
   };
 
+  /**
+   * Do action on the container
+   * @param req Request<{ id: string; action: string }>
+   * @param res Response
+   * @returns void
+   */
   action = async (req: Request<{ id: string; action: string }>, res: Response): Promise<void> => {
     const action = req.params.action as ContainerAction;
+
     if (!ACTIONS.includes(action)) {
       res.status(400).json({ error: `Unknown action: ${req.params.action}` });
       return;
     }
+
     const container = req.dockerClient!.getContainer(req.params.id);
     await (container[action] as () => Promise<unknown>)();
     auditLog.record({
@@ -187,9 +185,15 @@ export class ContainersController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 
+  /**
+   * Remove container
+   * @param req Request<{ id: string }>
+   * @param res Response
+   */
   remove = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     await req.dockerClient!.getContainer(req.params.id).remove({ force: req.query.force === 'true' });
     auditLog.record({
@@ -200,6 +204,7 @@ export class ContainersController {
       status: 'success',
       ip: req.ip,
     });
+    
     res.json({ ok: true });
   };
 }
