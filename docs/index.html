@@ -16,17 +16,17 @@
     theme: {
       extend: {
         colors: {
-          ink: '#0b0e14',
-          sider: '#0e1219',
-          surface: '#161c28',
-          surface2: '#1e2530',
-          border: '#2a3441',
-          bordersoft: '#242e3c',
-          primary: '#3b82f6',
-          primarylight: '#7ab3ff',
-          primarydark: '#1d4ed8',
-          amber: '#f5b942',
-          amberdark: '#b8791f',
+          bg: '#ffffff',
+          bgalt: '#fbf5f7',
+          surface: '#ffffff',
+          border: '#f1e3e8',
+          ink: '#1c1a22',
+          muted: '#6b7280',
+          primary: '#f53838',
+          primarydark: '#d01f1f',
+          primarylight: '#ffe1e1',
+          accent: '#ffc93c',
+          teal: '#2ec4b6',
         },
         fontFamily: {
           mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
@@ -38,81 +38,84 @@
 
 <style>
   html { scroll-behavior: smooth; }
-  body { background-color: #0b0e14; }
+  body { background-color: #ffffff; }
 
-  ::selection { background: rgba(59, 130, 246, 0.35); }
-  * { scrollbar-width: thin; scrollbar-color: #2a3441 transparent; }
+  ::selection { background: rgba(245, 56, 56, 0.2); }
+  * { scrollbar-width: thin; scrollbar-color: #f1e3e8 transparent; }
 
-  .nav-scrolled { background-color: rgba(11, 14, 20, 0.8); backdrop-filter: blur(10px); border-bottom: 1px solid #2a3441; }
+  .nav-scrolled { background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-bottom: 1px solid #f1e3e8; }
 </style>
 </head>
-<body class="bg-ink text-slate-300 antialiased overflow-x-hidden">
+<body class="bg-bg text-ink antialiased overflow-x-hidden">
 
 <!-- nav -->
 <header id="nav" class="fixed top-0 inset-x-0 z-50 transition-colors duration-300">
   <div class="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
     <a href="#top" class="flex items-center gap-2.5">
       <svg width="30" height="30" viewBox="0 0 512 512" class="shrink-0">
-        <polygon points="210,268 256,138 256,268" fill="#bfdbfe"/>
-        <polygon points="256,138 302,268 256,268" fill="#1d4ed8"/>
-        <polygon points="86,268 176,288 256,396 256,268" fill="#60a5fa"/>
-        <polygon points="256,268 256,396 336,288 426,268" fill="#1e40af"/>
-        <g fill="none" stroke="#0b1220" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+        <polygon points="210,268 256,138 256,268" fill="#ffd6d6"/>
+        <polygon points="256,138 302,268 256,268" fill="#f53838"/>
+        <polygon points="86,268 176,288 256,396 256,268" fill="#f2696e"/>
+        <polygon points="256,268 256,396 336,288 426,268" fill="#d01f1f"/>
+        <g fill="none" stroke="#1c1a22" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
           <polyline points="86,268 426,268"/>
           <polyline points="210,268 256,138 302,268"/>
           <polyline points="86,268 176,288 256,396 336,288 426,268"/>
           <line x1="256" y1="138" x2="256" y2="396"/>
         </g>
       </svg>
-      <span class="font-mono font-bold text-lg text-white tracking-tight">Challoupe</span>
+      <span class="font-mono font-bold text-lg text-ink tracking-tight">Challoupe</span>
     </a>
-    <nav class="hidden md:flex items-center gap-8 text-sm text-slate-400">
-      <a href="#features" class="hover:text-white transition-colors">Features</a>
-      <a href="#why-free" class="hover:text-white transition-colors">Why free</a>
-      <a href="#start" class="hover:text-white transition-colors">Get started</a>
-      <a href="docs.html" class="hover:text-white transition-colors">Documentation</a>
+    <nav class="hidden md:flex items-center gap-8 text-sm text-muted">
+      <a href="#features" class="hover:text-primary transition-colors">Features</a>
+      <a href="#why-free" class="hover:text-primary transition-colors">Why free</a>
+      <a href="#start" class="hover:text-primary transition-colors">Get started</a>
+      <a href="docs.html" class="hover:text-primary transition-colors">Documentation</a>
     </nav>
     <div class="flex items-center gap-3">
       <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener"
-         class="hidden sm:inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm text-slate-200 hover:border-primary/50 hover:text-white transition-colors">
+         class="hidden sm:inline-flex items-center gap-2 rounded-full border-2 border-primary px-5 py-2 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.09 3.29 9.4 7.86 10.93.57.1.78-.25.78-.55v-1.94c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.29-1.68-1.29-1.68-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.67 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.73 0c2.19-1.49 3.15-1.18 3.15-1.18.62 1.58.23 2.75.11 3.04.74.8 1.18 1.83 1.18 3.08 0 4.4-2.7 5.38-5.26 5.66.41.36.78 1.08.78 2.17v3.22c0 .3.21.66.79.55A10.52 10.52 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
         GitHub
       </a>
-      <button id="menu-btn" class="md:hidden text-slate-300" aria-label="Toggle menu">
+      <button id="menu-btn" class="md:hidden text-ink" aria-label="Toggle menu">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/></svg>
       </button>
     </div>
   </div>
-  <div id="mobile-menu" class="hidden md:hidden border-t border-border bg-ink/95 backdrop-blur-md px-6 py-4 space-y-3 text-sm">
-    <a href="#features" class="block text-slate-300 hover:text-white">Features</a>
-    <a href="#why-free" class="block text-slate-300 hover:text-white">Why free</a>
-    <a href="#start" class="block text-slate-300 hover:text-white">Get started</a>
-    <a href="docs.html" class="block text-slate-300 hover:text-white">Documentation</a>
-    <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="block text-primarylight">GitHub →</a>
+  <div id="mobile-menu" class="hidden md:hidden border-t border-border bg-white/95 backdrop-blur-md px-6 py-4 space-y-3 text-sm">
+    <a href="#features" class="block text-muted hover:text-primary">Features</a>
+    <a href="#why-free" class="block text-muted hover:text-primary">Why free</a>
+    <a href="#start" class="block text-muted hover:text-primary">Get started</a>
+    <a href="docs.html" class="block text-muted hover:text-primary">Documentation</a>
+    <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="block text-primary font-semibold">GitHub →</a>
   </div>
 </header>
 
 <main id="top">
 
   <!-- hero -->
-  <section class="relative pt-36 pb-24 px-6">
-    <div class="mx-auto max-w-6xl grid lg:grid-cols-2 gap-16 items-center">
+  <section class="relative pt-36 pb-24 px-6 overflow-hidden">
+    <div class="pointer-events-none absolute -top-24 -right-40 h-96 w-96 rounded-full bg-primarylight blur-3xl opacity-70"></div>
+    <div class="pointer-events-none absolute top-40 -left-32 h-72 w-72 rounded-full bg-accent/20 blur-3xl"></div>
+
+    <div class="relative mx-auto max-w-6xl grid lg:grid-cols-2 gap-16 items-center">
       <div>
-        <h1 class="text-4xl sm:text-5xl font-bold text-white leading-[1.1] tracking-tight">
+        <h1 class="text-4xl sm:text-5xl font-bold text-ink leading-[1.1] tracking-tight mt-5">
           Docker management,
-          without the paywall.
+          <span class="text-primary">without the paywall.</span>
         </h1>
-        <p class="text-lg text-slate-400 mt-6 leading-relaxed">
+        <p class="text-lg text-muted mt-6 leading-relaxed">
           Containers, images, volumes, networks and compose stacks. Plus the RBAC, SSO,
           audit logging and vulnerability scanning other tools save for a paid tier.
           Challoupe has no license to sell, so it's all included.
         </p>
         <div class="flex flex-wrap gap-4 mt-8">
           <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener"
-             class="rounded-lg bg-primary hover:bg-primarydark px-6 py-3 text-sm font-semibold text-white transition-colors shadow-lg shadow-primary/20">
+             class="rounded-full bg-primary hover:bg-primarydark px-7 py-3.5 text-sm font-semibold text-white transition-colors shadow-lg shadow-primary/30">
             View on GitHub
           </a>
-          <a href="#start" class="rounded-lg border border-border hover:border-primary/50 px-6 py-3 text-sm font-semibold text-slate-200 hover:text-white transition-colors">
+          <a href="#start" class="rounded-full border-2 border-border hover:border-primary px-7 py-3.5 text-sm font-semibold text-ink hover:text-primary transition-colors">
             Get started →
           </a>
         </div>
@@ -120,165 +123,180 @@
 
       <!-- product mockup -->
       <div>
-        <div class="rounded-xl border border-border bg-surface shadow-2xl shadow-black/40 overflow-hidden">
-          <div class="flex items-center gap-1.5 px-4 py-3 border-b border-border bg-surface2">
-            <span class="h-2.5 w-2.5 rounded-full bg-red-500/70"></span>
-            <span class="h-2.5 w-2.5 rounded-full bg-amber-400/70"></span>
-            <span class="h-2.5 w-2.5 rounded-full bg-emerald-500/70"></span>
-            <span class="ml-3 text-xs text-slate-500 font-mono">challoupe.local</span>
-          </div>
+        <div class="rounded-3xl border border-border bg-surface shadow-2xl shadow-primary/10 overflow-hidden">
           <img src="screenshots/dashboard.png" alt="The Challoupe dashboard: running/stopped containers, images, stacks and live resource usage" class="w-full block" loading="eager" />
-        </div>
-
-        <!-- terminal snippet -->
-        <div class="mt-5 rounded-xl border border-border bg-surface/80 px-4 py-3 font-mono text-xs text-slate-400">
-          <span class="text-emerald-400">$</span> docker compose up -d
         </div>
       </div>
     </div>
   </section>
 
   <!-- why free -->
-  <section id="why-free" class="py-24 px-6">
+  <section id="why-free" class="py-12 px-6">
     <div class="mx-auto max-w-3xl text-center">
-      <h2 class="text-3xl font-bold text-white">Why is it free?</h2>
-      <p class="text-slate-400 mt-5 leading-relaxed">
+      <span class="inline-flex items-center gap-2 rounded-full bg-primarylight px-4 py-1.5 text-xs font-semibold text-primarydark">Why free</span>
+      <h2 class="text-3xl font-bold text-ink mt-4">Why is it free?</h2>
+      <p class="text-muted mt-5 leading-relaxed">
         Challoupe isn't free to undercut anyone, and it isn't free because it's funded some other way behind the scenes.
         It's free because self-hosting is supposed to mean your infrastructure stays yours: nothing rented back to you one feature at a time, and nothing quietly paid for with your data.
       </p>
     </div>
 
-    <div class="mx-auto max-w-4xl mt-14 grid sm:grid-cols-3 divide-y divide-border sm:divide-y-0 sm:divide-x">
-      <div class="py-8 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0">
-        <div class="flex items-center gap-2.5">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><path d="M7 11V7a5 5 0 0 1 9.5-2.2" stroke-linecap="round"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg>
-          <h3 class="text-white font-semibold">Freedom</h3>
+    <div class="mx-auto max-w-5xl mt-14 grid sm:grid-cols-3 gap-6">
+      <div class="rounded-3xl bg-surface border border-border p-8 shadow-sm shadow-primary/5">
+        <div class="h-11 w-11 rounded-full bg-primarylight flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.8"><path d="M7 11V7a5 5 0 0 1 9.5-2.2" stroke-linecap="round"/><rect x="5" y="11" width="14" height="10" rx="2"/></svg>
         </div>
-        <p class="text-sm text-slate-400 mt-3 leading-relaxed">No license, no seat count, no feature locked behind a paywall. It's open source. Read it, fork it, run it exactly the way you want, for as long as you want.</p>
+        <h3 class="text-ink font-semibold mt-4">Freedom</h3>
+        <p class="text-sm text-muted mt-2 leading-relaxed">No license, no seat count, no feature locked behind a paywall. It's open source. Read it, fork it, run it exactly the way you want, for as long as you want.</p>
       </div>
 
-      <div class="py-8 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0">
-        <div class="flex items-center gap-2.5">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3M1 1l22 22" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <h3 class="text-white font-semibold">Privacy</h3>
+      <div class="rounded-3xl bg-surface border border-border p-8 shadow-sm shadow-primary/5">
+        <div class="h-11 w-11 rounded-full bg-accent/20 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8971e" stroke-width="1.8"><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3M1 1l22 22" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-        <p class="text-sm text-slate-400 mt-3 leading-relaxed">Everything runs on your own infrastructure. Even the AI assistant talks to your own Ollama server. No logs, no prompts, no container data ever leaves your network.</p>
+        <h3 class="text-ink font-semibold mt-4">Privacy</h3>
+        <p class="text-sm text-muted mt-2 leading-relaxed">Everything runs on your own infrastructure. Even the AI assistant talks to your own Ollama server. No logs, no prompts, no container data ever leaves your network.</p>
       </div>
 
-      <div class="py-8 sm:py-0 sm:px-8 sm:first:pl-0 sm:last:pr-0">
-        <div class="flex items-center gap-2.5">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/><line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/></svg>
-          <h3 class="text-white font-semibold">No spying</h3>
+      <div class="rounded-3xl bg-surface border border-border p-8 shadow-sm shadow-primary/5">
+        <div class="h-11 w-11 rounded-full bg-teal/15 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1f9c90" stroke-width="1.8"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/><line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/></svg>
         </div>
-        <p class="text-sm text-slate-400 mt-3 leading-relaxed">No telemetry, no usage analytics, no ads, nothing sold to a third party. Challoupe isn't funded by watching what you do with it, there's simply nothing to fund.</p>
+        <h3 class="text-ink font-semibold mt-4">No spying</h3>
+        <p class="text-sm text-muted mt-2 leading-relaxed">No telemetry, no usage analytics, no ads, nothing sold to a third party. Challoupe isn't funded by watching what you do with it, there's simply nothing to fund.</p>
       </div>
     </div>
   </section>
 
   <!-- features -->
-  <section id="features" class="py-8 px-6">
-    <div class="mx-auto max-w-6xl">
+  <section id="features" class="py-8 px-6 bg-[#F8F8F8]">
+    <div class="mx-auto max-w-6xl py-8">
       <div class="text-center mb-16">
-        <h2 class="text-3xl font-bold text-white">Everything included.</h2>
-        <p class="text-slate-400 mt-4">Every capability below ships in the same free build.</p>
+        <span class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-primarydark shadow-sm">Features</span>
+        <h2 class="text-3xl font-bold text-ink mt-4">Everything included.</h2>
+        <p class="text-muted mt-4">Every capability below ships in the same free build.</p>
       </div>
 
       <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" stroke-linejoin="round"/></svg>
-            <h3 class="text-white font-semibold">Granular RBAC</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Granular RBAC</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Per-capability permissions across containers, images, volumes, networks and stacks, enforced on both API and UI.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Per-capability permissions across containers, images, volumes, networks and stacks, enforced on both API and UI.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><rect x="6" y="10" width="12" height="9" rx="1.5"/><path d="M9 10V7a3 3 0 0 1 6 0v3" stroke-linecap="round"/></svg>
-            <h3 class="text-white font-semibold">Two-factor auth</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><rect x="6" y="10" width="12" height="9" rx="1.5"/><path d="M9 10V7a3 3 0 0 1 6 0v3" stroke-linecap="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Two-factor auth</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">TOTP with any authenticator app, single-use backup codes, and admin-side reset if a device is lost.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">TOTP with any authenticator app, single-use backup codes, and admin-side reset if a device is lost.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><path d="M6 4h9l3 3v13H6V4Z" stroke-linejoin="round"/><path d="M9 10h6M9 13h6M9 16h4" stroke-linecap="round"/></svg>
-            <h3 class="text-white font-semibold">Full audit log</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><path d="M6 4h9l3 3v13H6V4Z" stroke-linejoin="round"/><path d="M9 10h6M9 13h6M9 16h4" stroke-linecap="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Full audit log</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Every mutation, sign-in and denied permission check. Who did what, and when.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Every mutation, sign-in and denied permission check. Who did what, and when.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 12 6 8Z" stroke-linejoin="round"/><path d="M10 18a2 2 0 0 0 4 0" stroke-linecap="round"/></svg>
-            <h3 class="text-white font-semibold">Notifications &amp; alerts</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-accent/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8971e" stroke-width="1.6"><path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 12 6 8Z" stroke-linejoin="round"/><path d="M10 18a2 2 0 0 0 4 0" stroke-linecap="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Notifications &amp; alerts</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Webhook alerts for Discord, Slack or plain JSON, plus ntfy push, on crashes, image updates, resource thresholds and failed backups.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Webhook alerts for Discord, Slack or plain JSON, plus ntfy push, on crashes, image updates, resource thresholds and failed backups.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke-linecap="round"/></svg>
-            <h3 class="text-white font-semibold">OIDC / SSO</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" stroke-linecap="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">OIDC / SSO</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Bring your own identity provider, no per-seat SSO tax.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Bring your own identity provider, no per-seat SSO tax.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><circle cx="8" cy="7.5" r="1"/><circle cx="8" cy="16.5" r="1"/></svg>
-            <h3 class="text-white font-semibold">Multiple hosts</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><circle cx="8" cy="7.5" r="1"/><circle cx="8" cy="16.5" r="1"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Multiple hosts</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Register any number of remote Docker hosts over SSH and switch between them. Logs, stats and terminal all follow along.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Register any number of remote Docker hosts over SSH and switch between them. Logs, stats and terminal all follow along.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><path d="M12 3l1.8 3.9L18 8.5l-3.9 1.8L12 14l-1.8-3.7L6 8.5l4.2-1.6L12 3Z" stroke-linejoin="round"/><path d="M5 17l.8 1.7L7.5 19.5l-1.7.8L5 22l-.8-1.7L2.5 19.5l1.7-.8L5 17Z"/></svg>
-            <h3 class="text-white font-semibold">Local AI assistant</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-accent/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8971e" stroke-width="1.6"><path d="M12 3l1.8 3.9L18 8.5l-3.9 1.8L12 14l-1.8-3.7L6 8.5l4.2-1.6L12 3Z" stroke-linejoin="round"/><path d="M5 17l.8 1.7L7.5 19.5l-1.7.8L5 22l-.8-1.7L2.5 19.5l1.7-.8L5 17Z"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Local AI assistant</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Log diagnosis, compose-file generation, and a chat assistant all via your own Ollama server, nothing sent elsewhere.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Log diagnosis, compose-file generation, and a chat assistant all via your own Ollama server, nothing sent elsewhere.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.3-4.3" stroke-linecap="round"/></svg>
-            <h3 class="text-white font-semibold">Vulnerability scanning</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-accent/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8971e" stroke-width="1.6"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.3-4.3" stroke-linecap="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Vulnerability scanning</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">One-off Trivy scans on any image, severity-sorted CVEs, no persistent scanner service.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">One-off Trivy scans on any image, severity-sorted CVEs, no persistent scanner service.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><path d="M4 12a8 8 0 0 1 14.9-4M20 12a8 8 0 0 1-14.9 4" stroke-linecap="round"/><path d="M17 5v4h-4M7 19v-4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3 class="text-white font-semibold">Stack drift detection</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><path d="M4 12a8 8 0 0 1 14.9-4M20 12a8 8 0 0 1-14.9 4" stroke-linecap="round"/><path d="M17 5v4h-4M7 19v-4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Stack drift detection</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">Flags containers, tags or services that no longer match the compose file they came from.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">Flags containers, tags or services that no longer match the compose file they came from.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5b942" stroke-width="1.6" class="shrink-0"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7Z" stroke-linejoin="round"/></svg>
-            <h3 class="text-white font-semibold">Deploy webhooks</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-accent/20 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c8971e" stroke-width="1.6"><path d="M13 3L4 14h6l-1 7 9-11h-6l1-7Z" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Deploy webhooks</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">A token URL per stack for a build pipeline to call. It redeploys with the freshest images automagically.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">A token URL per stack for a build pipeline to call. It redeploys with the freshest images automagically.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16" /><path d="M9 4v5" /></svg>
-            <h3 class="text-white font-semibold">Backup &amp; restore</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16" /><path d="M9 4v5" /></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Backup &amp; restore</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">One JSON export of every user, setting and stack. On demand or on a schedule.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">One JSON export of every user, setting and stack. On demand or on a schedule.</p>
         </div>
 
-        <div class="rounded-xl border border-border bg-surface/60 p-6 hover:border-primary/40 transition-colors">
-          <div class="flex items-center gap-2.5">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ab3ff" stroke-width="1.6" class="shrink-0"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3 class="text-white font-semibold">Container terminal</h3>
+        <div class="rounded-2xl border border-border bg-white p-6 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="h-10 w-10 shrink-0 rounded-full bg-primarylight flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f53838" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <h3 class="text-ink font-semibold">Container terminal</h3>
           </div>
-          <p class="text-sm text-slate-400 mt-3 leading-relaxed">A real shell into any container, right from the browser.</p>
+          <p class="text-sm text-muted mt-3 leading-relaxed">A real shell into any container, right from the browser.</p>
         </div>
 
       </div>
@@ -286,48 +304,49 @@
   </section>
 
   <!-- screenshots -->
-  <section class="py-24 px-6">
+  <section class="py-12 px-6">
     <div class="mx-auto max-w-6xl">
       <div class="flex flex-col gap-16">
         <div>
-          <div class="rounded-xl border border-border bg-surface shadow-2xl shadow-black/40 overflow-hidden">
+          <div class="rounded-3xl border border-border bg-surface shadow-xl shadow-primary/10 overflow-hidden">
             <img src="screenshots/containers.png" alt="The Containers list, with a running nginx, postgres and redis, and a stopped watchtower" class="w-full block" loading="lazy" />
           </div>
-          <p class="text-sm text-slate-500 mt-3 text-center">Containers</p>
+          <p class="text-sm text-muted mt-3 text-center">Containers</p>
         </div>
         <div>
-          <div class="rounded-xl border border-border bg-surface shadow-2xl shadow-black/40 overflow-hidden">
+          <div class="rounded-3xl border border-border bg-surface shadow-xl shadow-primary/10 overflow-hidden">
             <img src="screenshots/stacks.png" alt="The Stacks list, with two compose stacks deployed and running" class="w-full block" loading="lazy" />
           </div>
-          <p class="text-sm text-slate-500 mt-3 text-center">Stacks</p>
+          <p class="text-sm text-muted mt-3 text-center">Stacks</p>
         </div>
         <div>
-          <div class="rounded-xl border border-border bg-surface shadow-2xl shadow-black/40 overflow-hidden">
+          <div class="rounded-3xl border border-border bg-surface shadow-xl shadow-primary/10 overflow-hidden">
             <img src="screenshots/audit-log.png" alt="The audit log, recording the admin account setup and a stack deployment" class="w-full block" loading="lazy" />
           </div>
-          <p class="text-sm text-slate-500 mt-3 text-center">Audit log</p>
+          <p class="text-sm text-muted mt-3 text-center">Audit log</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- getting started -->
-  <section id="start" class="py-24 px-6">
-    <div class="mx-auto max-w-3xl">
+  <section id="start" class="py-8 px-6 bg-bgalt">
+    <div class="mx-auto max-w-3xl py-16">
       <div class="text-center mb-10">
-        <h2 class="text-3xl font-bold text-white">Just docker compose up.</h2>
-        <p class="text-slate-400 mt-4">Pull the published image directly, or clone the repo and bring it up with Compose.</p>
+        <span class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-primarydark shadow-sm">Get started</span>
+        <h2 class="text-3xl font-bold text-ink mt-4">Just docker compose up.</h2>
+        <p class="text-muted mt-4">Pull the published image directly, or clone the repo and bring it up with Compose.</p>
       </div>
 
-      <div class="rounded-xl border border-border bg-surface overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface2">
-          <span class="text-xs text-slate-500 font-mono">shell</span>
-          <button class="copy-btn text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5" data-copy-target="copy-target-pull">
+      <div class="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-bgalt">
+          <span class="text-xs text-muted font-mono">shell</span>
+          <button class="copy-btn text-xs text-muted hover:text-primary transition-colors flex items-center gap-1.5" data-copy-target="copy-target-pull">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h10" stroke-linecap="round"/></svg>
             <span class="copy-label">Copy</span>
           </button>
         </div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code id="copy-target-pull">docker pull ghcr.io/alexis-coulombe/challoupe:latest
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed"><code id="copy-target-pull">docker pull ghcr.io/alexis-coulombe/challoupe:latest
 docker run -d --name challoupe \
   -p 3001:3001 \
   -v /var/run/docker.sock:/var/run/docker.sock \
@@ -335,17 +354,17 @@ docker run -d --name challoupe \
   ghcr.io/alexis-coulombe/challoupe:latest</code></pre>
       </div>
 
-      <p class="text-slate-500 text-sm text-center mt-6 mb-6">Or, from a clone of this repo, <code>docker-compose.yml</code> already points at the same image:</p>
+      <p class="text-muted text-sm text-center mt-6 mb-6">Or, from a clone of this repo, <code class="text-primarydark">docker-compose.yml</code> already points at the same image:</p>
 
-      <div class="rounded-xl border border-border bg-surface overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface2">
-          <span class="text-xs text-slate-500 font-mono">shell</span>
-          <button class="copy-btn text-xs text-slate-400 hover:text-white transition-colors flex items-center gap-1.5" data-copy-target="copy-target-compose">
+      <div class="rounded-2xl border border-border bg-white overflow-hidden shadow-sm">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-border bg-bgalt">
+          <span class="text-xs text-muted font-mono">shell</span>
+          <button class="copy-btn text-xs text-muted hover:text-primary transition-colors flex items-center gap-1.5" data-copy-target="copy-target-compose">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h10" stroke-linecap="round"/></svg>
             <span class="copy-label">Copy</span>
           </button>
         </div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed"><code id="copy-target-compose">git clone https://github.com/alexis-coulombe/Challoupe.git
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed"><code id="copy-target-compose">git clone https://github.com/alexis-coulombe/Challoupe.git
 cd Challoupe
 docker compose up -d</code></pre>
       </div>
@@ -354,11 +373,11 @@ docker compose up -d</code></pre>
 
   <!-- final cta -->
   <section class="py-24 px-6">
-    <div class="mx-auto max-w-3xl text-center rounded-2xl border border-border bg-surface/50 p-12">
-      <h2 class="text-3xl font-bold text-white">Run it yourself.</h2>
-      <p class="text-slate-400 mt-4">Every feature above ships in the same free build, self-hosted on your own infrastructure. No license, no seat count.</p>
+    <div class="mx-auto max-w-3xl text-center rounded-[2rem] border border-border bg-gradient-to-br from-primarylight to-white p-12 shadow-sm">
+      <h2 class="text-3xl font-bold text-ink">Run it yourself.</h2>
+      <p class="text-muted mt-4">Every feature above ships in the same free build, self-hosted on your own infrastructure. No license, no seat count.</p>
       <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener"
-         class="inline-flex mt-8 rounded-lg bg-primary hover:bg-primarydark px-7 py-3.5 text-sm font-semibold text-white transition-colors shadow-lg shadow-primary/25">
+         class="inline-flex mt-8 rounded-full bg-primary hover:bg-primarydark px-8 py-3.5 text-sm font-semibold text-white transition-colors shadow-lg shadow-primary/30">
         View on GitHub →
       </a>
     </div>
@@ -366,25 +385,25 @@ docker compose up -d</code></pre>
 
 </main>
 
-<footer class="border-t border-border/60 py-10 px-6">
+<footer class="border-t border-border py-10 px-6">
   <div class="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
     <div class="flex items-center gap-2.5">
       <svg width="22" height="22" viewBox="0 0 512 512" class="shrink-0">
-        <polygon points="210,268 256,138 256,268" fill="#bfdbfe"/>
-        <polygon points="256,138 302,268 256,268" fill="#1d4ed8"/>
-        <polygon points="86,268 176,288 256,396 256,268" fill="#60a5fa"/>
-        <polygon points="256,268 256,396 336,288 426,268" fill="#1e40af"/>
-        <g fill="none" stroke="#0b1220" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+        <polygon points="210,268 256,138 256,268" fill="#ffd6d6"/>
+        <polygon points="256,138 302,268 256,268" fill="#f53838"/>
+        <polygon points="86,268 176,288 256,396 256,268" fill="#f2696e"/>
+        <polygon points="256,268 256,396 336,288 426,268" fill="#d01f1f"/>
+        <g fill="none" stroke="#1c1a22" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
           <polyline points="86,268 426,268"/>
           <polyline points="210,268 256,138 302,268"/>
           <polyline points="86,268 176,288 256,396 336,288 426,268"/>
           <line x1="256" y1="138" x2="256" y2="396"/>
         </g>
       </svg>
-      <span class="font-mono font-semibold text-slate-300">Challoupe</span>
-      <span class="text-slate-600 text-sm ml-1">self-hosted, self-owned, always free.</span>
+      <span class="font-mono font-semibold text-ink">Challoupe</span>
+      <span class="text-muted text-sm ml-1">self-hosted, self-owned, always free.</span>
     </div>
-    <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="text-sm text-slate-400 hover:text-white transition-colors">github.com/alexis-coulombe/Challoupe</a>
+    <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="text-sm text-muted hover:text-primary transition-colors">github.com/alexis-coulombe/Challoupe</a>
   </div>
 </footer>
 

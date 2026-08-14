@@ -82,7 +82,7 @@ const SHELL_OPTIONS = [
   { value: '/bin/ash', label: '/bin/ash' },
 ];
 
-const DEFAULT_TERMINAL_THEME = { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' };
+const DEFAULT_TERMINAL_THEME = { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#f53838' };
 
 const SSO_PROVIDER_ICONS: Record<string, ReactNode> = {
   google: <GoogleOutlined />,

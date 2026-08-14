@@ -13,17 +13,22 @@
     theme: {
       extend: {
         colors: {
-          ink: '#0b0e14',
-          sider: '#0e1219',
-          surface: '#161c28',
-          surface2: '#1e2530',
-          border: '#2a3441',
-          bordersoft: '#242e3c',
-          primary: '#3b82f6',
-          primarylight: '#7ab3ff',
-          primarydark: '#1d4ed8',
-          amber: '#f5b942',
-          amberdark: '#b8791f',
+          bg: '#ffffff',
+          bgalt: '#fbf5f7',
+          muted: '#6b7280',
+          ink: '#1c1a22',
+          sider: '#ffffff',
+          surface: '#ffffff',
+          surface2: '#fbf5f7',
+          border: '#f1e3e8',
+          bordersoft: '#f1e3e8',
+          primary: '#f53838',
+          primarylight: '#ffe1e1',
+          primarydark: '#d01f1f',
+          amber: '#ffc93c',
+          amberdark: '#c8971e',
+          accent: '#ffc93c',
+          teal: '#2ec4b6',
         },
         fontFamily: {
           mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
@@ -34,54 +39,54 @@
 </script>
 
 <style>
-  body { background-color: #0b0e14; }
-  ::selection { background: rgba(59, 130, 246, 0.35); }
-  * { scrollbar-width: thin; scrollbar-color: #2a3441 transparent; }
+  body { background-color: #ffffff; }
+  ::selection { background: rgba(245, 56, 56, 0.2); }
+  * { scrollbar-width: thin; scrollbar-color: #f1e3e8 transparent; }
 
-  .doclink { display: block; padding: 0.4rem 1rem; border-radius: 0 999px 999px 0; color: #64748b; font-size: 0.875rem; transition: color .15s ease, background-color .15s ease; }
-  .doclink:hover { color: #e2e8f0; }
-  .doclink.active { background: rgba(59, 130, 246, 0.15); color: #7ab3ff; font-weight: 500; }
+  .doclink { display: block; padding: 0.4rem 1rem; border-radius: 0 999px 999px 0; color: #6b7280; font-size: 0.875rem; transition: color .15s ease, background-color .15s ease; }
+  .doclink:hover { color: #1c1a22; }
+  .doclink.active { background: #ffe1e1; color: #d01f1f; font-weight: 500; }
 
   .docsection { display: none; }
   .docsection.active { display: block; animation: fadein .25s ease; }
   @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-  .docsection p { color: #94a3b8; line-height: 1.75; margin-top: 1rem; max-width: 760px; }
-  .docsection h2 { color: white; font-size: 1.75rem; font-weight: 700; }
-  .docsection h3 { color: white; font-size: 1.1rem; font-weight: 600; margin-top: 2rem; }
-  .docsection code { background: #1e2530; border: 1px solid #242e3c; color: #7ab3ff; padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-size: 0.85em; }
+  .docsection p { color: #6b7280; line-height: 1.75; margin-top: 1rem; max-width: 760px; }
+  .docsection h2 { color: #1c1a22; font-size: 1.75rem; font-weight: 700; }
+  .docsection h3 { color: #1c1a22; font-size: 1.1rem; font-weight: 600; margin-top: 2rem; }
+  .docsection code { background: #fbf5f7; border: 1px solid #f1e3e8; color: #d01f1f; padding: 0.1rem 0.4rem; border-radius: 0.3rem; font-size: 0.85em; }
 </style>
 </head>
-<body class="bg-ink text-slate-300 antialiased">
+<body class="bg-white text-ink antialiased">
 
-<header class="sticky top-0 z-40 border-b border-border bg-ink/95 backdrop-blur-md">
+<header class="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur-md">
   <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
     <a href="index.html" class="flex items-center gap-2.5">
       <svg width="28" height="28" viewBox="0 0 512 512" class="shrink-0">
-        <polygon points="210,268 256,138 256,268" fill="#bfdbfe"/>
-        <polygon points="256,138 302,268 256,268" fill="#1d4ed8"/>
-        <polygon points="86,268 176,288 256,396 256,268" fill="#60a5fa"/>
-        <polygon points="256,268 256,396 336,288 426,268" fill="#1e40af"/>
-        <g fill="none" stroke="#0b1220" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+        <polygon points="210,268 256,138 256,268" fill="#ffd6d6"/>
+        <polygon points="256,138 302,268 256,268" fill="#f53838"/>
+        <polygon points="86,268 176,288 256,396 256,268" fill="#f2696e"/>
+        <polygon points="256,268 256,396 336,288 426,268" fill="#d01f1f"/>
+        <g fill="none" stroke="#1c1a22" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
           <polyline points="86,268 426,268"/>
           <polyline points="210,268 256,138 302,268"/>
           <polyline points="86,268 176,288 256,396 336,288 426,268"/>
           <line x1="256" y1="138" x2="256" y2="396"/>
         </g>
       </svg>
-      <span class="font-mono font-bold text-lg text-white tracking-tight">Challoupe</span>
-      <span class="text-slate-600 hidden sm:inline">/ Documentation</span>
+      <span class="font-mono font-bold text-lg text-ink tracking-tight">Challoupe</span>
+      <span class="text-muted hidden sm:inline">/ Documentation</span>
     </a>
     <div class="flex items-center gap-4 text-sm">
-      <a href="index.html" class="text-slate-400 hover:text-white transition-colors">Home</a>
-      <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="text-slate-400 hover:text-white transition-colors">GitHub</a>
+      <a href="index.html" class="text-muted hover:text-primary transition-colors">Home</a>
+      <a href="https://github.com/alexis-coulombe/Challoupe" target="_blank" rel="noopener" class="text-muted hover:text-primary transition-colors">GitHub</a>
     </div>
   </div>
 </header>
 
 <div class="mx-auto max-w-7xl px-6 py-8 flex flex-col lg:flex-row gap-10 items-start">
 
-  <select id="mobileNav" class="lg:hidden w-full mb-4 rounded-lg border border-border bg-surface text-slate-200 text-sm px-3 py-2">
+  <select id="mobileNav" class="lg:hidden w-full mb-4 rounded-lg border border-border bg-surface text-ink text-sm px-3 py-2">
     <option value="overview">Overview</option>
     <option value="installing">Installing Challoupe</option>
     <option value="containers">Containers</option>
@@ -137,7 +142,7 @@
       <p>The whole application ships as one Docker image. You do not need Node installed on your machine, you do not need to build anything by hand, and you do not need a separate database server running somewhere else. Everything Challoupe needs, its own SQLite file, your compose files, your settings, lives under a single data folder that gets mounted as a volume.</p>
       <div class="mt-6 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
         <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">git clone https://github.com/alexis-coulombe/Challoupe.git
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed">git clone https://github.com/alexis-coulombe/Challoupe.git
 cd Challoupe
 docker compose up -d</pre>
       </div>
@@ -180,12 +185,12 @@ docker compose up -d</pre>
       <p>The address is generated from that stack's own page, while signed in with permission to manage stacks. The call itself is <code>POST /api/webhooks/deploy/:name/:token</code>, no session needed, capped at 20 attempts every 15 minutes per source address.</p>
       <div class="mt-6 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
         <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">curl -X POST https://challoupe.example.com/api/webhooks/deploy/my-stack/&lt;token&gt;</pre>
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed">curl -X POST https://challoupe.example.com/api/webhooks/deploy/my-stack/&lt;token&gt;</pre>
       </div>
       <p>A successful response looks like this, with <code>output</code> holding whatever <code>docker compose</code> itself printed:</p>
       <div class="mt-4 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
         <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">json</div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">{
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed">{
   "ok": true,
   "output": " Container my-stack-web-1  Started"
 }</pre>
@@ -225,7 +230,7 @@ docker compose up -d</pre>
       <p>The token itself is only ever generated or revoked from the Settings UI, while signed in as an administrator. The one endpoint anything outside Challoupe actually calls is <code>GET /api/system-stats/:token</code>, no session or cookie needed, capped at 60 requests a minute.</p>
       <div class="mt-6 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
         <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">shell</div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">curl https://challoupe.example.com/api/system-stats/&lt;token&gt;
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed">curl https://challoupe.example.com/api/system-stats/&lt;token&gt;
 
 # a different registered host, by ID
 curl https://challoupe.example.com/api/system-stats/&lt;token&gt;?host=2</pre>
@@ -233,7 +238,7 @@ curl https://challoupe.example.com/api/system-stats/&lt;token&gt;?host=2</pre>
       <p>A successful response looks like this. Fields stay <code>null</code> for any host but the local one:</p>
       <div class="mt-4 rounded-xl border border-border bg-surface overflow-hidden max-w-xl">
         <div class="px-4 py-2.5 border-b border-border bg-surface2 text-xs text-slate-500 font-mono">json</div>
-        <pre class="p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed">{
+        <pre class="p-5 text-sm font-mono text-ink overflow-x-auto leading-relaxed">{
   "host": "local",
   "serverVersion": "27.3.1",
   "containersTotal": 12,

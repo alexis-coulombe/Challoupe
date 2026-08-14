@@ -37,7 +37,7 @@ export interface PasswordStrength {
   color: string;
 }
 
-const EMPTY_STRENGTH: PasswordStrength = { score: 0, label: '', color: 'rgba(255, 255, 255, 0.08)' };
+const EMPTY_STRENGTH: PasswordStrength = { score: 0, label: '', color: 'rgba(28, 26, 34, 0.08)' };
 
 // A rough entropy estimate (charset-size ^ length, in bits), discounted by how many of the
 // characters are actually unique so a long repeated string doesn't score as strong as a
@@ -108,7 +108,7 @@ export default function PasswordInput({
                   height: 4,
                   width: 27,
                   borderRadius: 2,
-                  background: i < strength.score ? strength.color : 'rgba(255, 255, 255, 0.08)',
+                  background: i < strength.score ? strength.color : 'rgba(28, 26, 34, 0.08)',
                   transition: 'background-color 0.3s ease',
                 }}
               />

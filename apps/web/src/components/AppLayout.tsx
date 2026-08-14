@@ -124,8 +124,8 @@ function AiChatDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                 key={i}
                 style={{
                   alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                  background: m.role === 'user' ? 'rgba(59, 130, 246, 0.16)' : AI_COLOR_SOFT,
-                  border: `1px solid ${m.role === 'user' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
+                  background: m.role === 'user' ? 'rgba(245, 56, 56, 0.12)' : AI_COLOR_SOFT,
+                  border: `1px solid ${m.role === 'user' ? 'rgba(245, 56, 56, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
                   borderRadius: 8,
                   padding: '8px 12px',
                   whiteSpace: 'pre-wrap',
@@ -269,7 +269,7 @@ export default function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider className="app-sider" breakpoint="lg" collapsedWidth={64} style={{ borderRight: '1px solid #1f2733' }}>
+      <Sider className="app-sider" breakpoint="lg" collapsedWidth={64} style={{ borderRight: '1px solid #f1e3e8' }}>
         <div
           style={{
             padding: '16px',
@@ -281,11 +281,10 @@ export default function AppLayout() {
         >
           <img src="/logo.svg" alt="" width={30} height={30} style={{ flexShrink: 0 }} />
           <Typography.Title level={4} style={{ margin: 0, whiteSpace: 'nowrap', letterSpacing: 0.5 }}>
-            <span style={{ color: '#7ab3ff' }}>Challoupe</span>
+            <span style={{ color: '#f53838' }}>Challoupe</span>
           </Typography.Title>
         </div>
         <Menu
-          theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
           openKeys={openKeys}
@@ -298,7 +297,7 @@ export default function AppLayout() {
           <Space size={10} align="center">
             <img src="/logo.svg" alt="" width={26} height={26} />
             <Typography.Title level={4} style={{ margin: 0, letterSpacing: 0.5 }}>
-              <span style={{ color: '#7ab3ff' }}>Challoupe</span>
+              <span style={{ color: '#f53838' }}>Challoupe</span>
             </Typography.Title>
           </Space>
         }
@@ -323,7 +322,7 @@ export default function AppLayout() {
             justifyContent: 'space-between',
             alignItems: 'center',
             paddingInline: 24,
-            borderBottom: '1px solid #1f2733',
+            borderBottom: '1px solid #f1e3e8',
             gap: 12,
           }}
         >

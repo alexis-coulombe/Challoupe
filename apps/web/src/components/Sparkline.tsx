@@ -84,7 +84,7 @@ export default function Sparkline({ series, height = 48, domain, formatValue }: 
               cy={toY(last)}
               r={4}
               fill={s.color}
-              stroke="#0b0e14"
+              stroke="#ffffff"
               strokeWidth={2}
             />
           );
@@ -95,7 +95,7 @@ export default function Sparkline({ series, height = 48, domain, formatValue }: 
             x2={toX(hoverIndex)}
             y1={0}
             y2={height}
-            stroke="rgba(255,255,255,0.25)"
+            stroke="rgba(28,26,34,0.15)"
             strokeWidth={1}
           />
         )}
@@ -108,8 +108,9 @@ export default function Sparkline({ series, height = 48, domain, formatValue }: 
             top: 0,
             left: `${Math.min(85, Math.max(0, (hoverIndex / (count - 1)) * 100))}%`,
             transform: 'translate(4px, 0)',
-            background: '#1a2029',
-            border: '1px solid #2a3441',
+            background: '#ffffff',
+            border: '1px solid #f1e3e8',
+            boxShadow: '0 4px 16px rgba(28,26,34,0.12)',
             borderRadius: 6,
             padding: '4px 8px',
             fontSize: 11,
@@ -122,8 +123,8 @@ export default function Sparkline({ series, height = 48, domain, formatValue }: 
           {series.map((s) => (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ width: 6, height: 6, borderRadius: 3, background: s.color }} />
-              <span style={{ color: 'rgba(255,255,255,0.6)' }}>{s.label}</span>
-              <span style={{ color: '#e6e8eb', fontWeight: 600 }}>
+              <span style={{ color: 'rgba(28,26,34,0.6)' }}>{s.label}</span>
+              <span style={{ color: '#1c1a22', fontWeight: 600 }}>
                 {format(s.points[Math.min(hoverIndex, s.points.length - 1)])}
               </span>
             </div>
@@ -136,8 +137,8 @@ export default function Sparkline({ series, height = 48, domain, formatValue }: 
           {series.map((s) => (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
               <span style={{ width: 6, height: 6, borderRadius: 3, background: s.color }} />
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>{s.label}</span>
-              <span style={{ color: '#e6e8eb', fontWeight: 600 }}>
+              <span style={{ color: 'rgba(28,26,34,0.5)' }}>{s.label}</span>
+              <span style={{ color: '#1c1a22', fontWeight: 600 }}>
                 {format(s.points[s.points.length - 1])}
               </span>
             </div>

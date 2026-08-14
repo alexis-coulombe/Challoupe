@@ -6,8 +6,8 @@ body,
 
 body {
   margin: 0;
-  background: #0b0e14;
-  color-scheme: dark;
+  background: #ffffff;
+  color-scheme: light;
   overflow-x: hidden;
 }
 
@@ -62,11 +62,11 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2a3441 transparent;
+  scrollbar-color: #f1e3e8 transparent;
 }
 
 ::selection {
-  background: rgba(59, 130, 246, 0.35);
+  background: rgba(245, 56, 56, 0.2);
 }
 
 /* Mobile browsers can otherwise treat these scrollable output panels as
@@ -83,12 +83,13 @@ pre {
    another chrome button. */
 .ai-float-btn .ant-float-btn-body {
   background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%) !important;
-  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.5);
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35);
   transition: box-shadow 0.2s ease;
 }
 .ai-float-btn:hover .ant-float-btn-body {
-  box-shadow: 0 4px 28px rgba(139, 92, 246, 0.75);
+  box-shadow: 0 4px 28px rgba(139, 92, 246, 0.55);
 }
-.ai-float-btn .ant-float-btn-body .ant-float-btn-icon {
-  color: #fff;
+.ai-float-btn .ant-float-btn-body .ant-float-btn-icon,
+.ai-float-btn .ant-float-btn-body .ant-float-btn-icon svg {
+  color: #fff !important;
 }

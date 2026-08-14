@@ -12,7 +12,7 @@ const SHELLS: TerminalShell[] = ['/bin/sh', '/bin/bash', '/bin/ash'];
 const DEFAULT_THEME: TerminalThemeSettings = {
   background: '#0b0e14',
   foreground: '#c9d1d9',
-  cursor: '#3b82f6',
+  cursor: '#f53838',
 };
 
 export default function ContainerTerminal({

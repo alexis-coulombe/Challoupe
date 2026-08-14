@@ -16,36 +16,44 @@ const queryClient = new QueryClient({
   },
 });
 
-const darkTheme = {
-  algorithm: theme.darkAlgorithm,
+const lightTheme = {
+  algorithm: theme.defaultAlgorithm,
   token: {
-    colorPrimary: '#3b82f6',
+    colorPrimary: '#f53838',
     colorInfo: '#3b82f6',
-    colorBgLayout: '#0b0e14',
-    colorBgContainer: '#161c28',
-    colorBgElevated: '#1e2530',
-    colorBorder: '#2a3441',
-    colorBorderSecondary: '#242e3c',
-    borderRadius: 8,
+    colorLink: '#1c1a22',
+    colorLinkHover: '#f53838',
+    colorLinkActive: '#d01f1f',
+    colorBgLayout: '#ffffff',
+    colorBgContainer: '#ffffff',
+    colorBgElevated: '#ffffff',
+    colorBorder: '#f1e3e8',
+    colorBorderSecondary: '#f1e3e8',
+    colorText: '#1c1a22',
+    borderRadius: 12,
   },
   components: {
     Layout: {
-      siderBg: '#0e1219',
-      headerBg: '#0e1219',
+      siderBg: '#ffffff',
+      headerBg: '#ffffff',
       headerHeight: 64,
     },
+    // Selection/hover read through background + weight, not red text — red stays
+    // reserved for errors and primary actions so it doesn't get lost among nav noise.
     Menu: {
-      darkItemBg: '#0e1219',
-      darkSubMenuItemBg: '#0e1219',
-      darkItemSelectedBg: 'rgba(59, 130, 246, 0.16)',
-      darkItemSelectedColor: '#7ab3ff',
+      itemBg: '#ffffff',
+      subMenuItemBg: '#ffffff',
+      itemSelectedBg: '#ffe1e1',
+      itemSelectedColor: '#1c1a22',
+      itemHoverBg: '#fdf1f4',
+      itemHoverColor: '#1c1a22',
     },
     Table: {
-      headerBg: '#1b2230',
-      rowHoverBg: '#1d2536',
+      headerBg: '#fbf5f7',
+      rowHoverBg: '#fdf1f4',
     },
     Card: {
-      colorBorderSecondary: '#242e3c',
+      colorBorderSecondary: '#f1e3e8',
     },
   },
 };
@@ -53,7 +61,7 @@ const darkTheme = {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ConfigProvider locale={enUS} theme={darkTheme}>
+      <ConfigProvider locale={enUS} theme={lightTheme}>
         <AntApp>
           <BrowserRouter>
             <AuthProvider>

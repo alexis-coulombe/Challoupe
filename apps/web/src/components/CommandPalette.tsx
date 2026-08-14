@@ -152,7 +152,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       styles={{ body: { padding: 0 } }}
       destroyOnHidden
     >
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid #1f2733' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1e3e8' }}>
         <Input
           ref={inputRef}
           size="large"

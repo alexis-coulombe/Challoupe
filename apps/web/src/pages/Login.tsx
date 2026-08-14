@@ -77,7 +77,7 @@ export default function Login() {
         alignItems: 'center',
         minHeight: '100vh',
         padding: 16,
-        background: '#0b0e14',
+        background: 'linear-gradient(180deg, #fff5f7 0%, #ffffff 100%)',
       }}
     >
       <Card style={{ width: 420, maxWidth: '100%' }}>
@@ -86,7 +86,7 @@ export default function Login() {
         </div>
         
         <Typography.Title level={3} style={{ textAlign: 'center' }}>
-          <span style={{ color: '#7ab3ff' }}>Challoupe</span>
+          <span style={{ color: '#f53838' }}>Challoupe</span>
         </Typography.Title>
         
         {statusError ? (
