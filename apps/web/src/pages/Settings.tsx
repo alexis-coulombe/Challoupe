@@ -1237,18 +1237,19 @@ export default function Settings() {
                     <Form.Item name={['scheduledBackup', 'keepCount']} label="Keep this many">
                       <InputNumber min={1} max={100} disabled={!scheduledBackupEnabled} style={{ width: 160 }} />
                     </Form.Item>
-                  </Space>
 
-                  {isAdmin && (
-                    <Button
-                      icon={<ClockCircleOutlined />}
-                      onClick={() => runBackupMutation.mutate()}
-                      loading={runBackupMutation.isPending}
-                      style={{ marginBottom: 16 }}
-                    >
-                      Back up now
-                    </Button>
-                  )}
+                    {isAdmin && (
+                      <Form.Item label=" ">
+                        <Button
+                          icon={<ClockCircleOutlined />}
+                          onClick={() => runBackupMutation.mutate()}
+                          loading={runBackupMutation.isPending}
+                        >
+                          Back up now
+                        </Button>
+                      </Form.Item>
+                    )}
+                  </Space>
 
                   <List
                     size="small"
