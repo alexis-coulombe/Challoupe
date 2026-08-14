@@ -13,6 +13,7 @@ import Volumes from './pages/Volumes';
 import Networks from './pages/Networks';
 import Stacks from './pages/Stacks';
 import StackEdit from './pages/StackEdit';
+import AppStore from './pages/AppStore';
 import Users from './pages/Users';
 import Hosts from './pages/Hosts';
 import AuditLog from './pages/AuditLog';
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/volumes" element={<Volumes />} />
         <Route path="/networks" element={<Networks />} />
         <Route path="/stacks" element={<Stacks />} />
+        <Route path="/app-store" element={<RequirePermission permission="manageStacks"><AppStore /></RequirePermission>} />
         <Route path="/stacks/new" element={<RequirePermission permission="manageStacks"><StackEdit /></RequirePermission>} />
         <Route path="/stacks/:name" element={<StackEdit />} />
         <Route path="/users" element={<AdminOnly><Users /></AdminOnly>} />

@@ -5,14 +5,7 @@ import { AppstoreOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../auth';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useConnectedAppsVisible } from '../hooks/useConnectedAppsVisible';
-
-const TILE_COLORS = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#14b8a6', '#eab308'];
-
-function tileColor(label: string): string {
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
-  return TILE_COLORS[hash % TILE_COLORS.length];
-}
+import { tileColor } from '../utils';
 
 const tileStyle: CSSProperties = {
   display: 'flex',

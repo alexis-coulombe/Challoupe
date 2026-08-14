@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App as AntApp, Button, Card, Col, Input, Modal, Row, Space, Tag, Tooltip, Typography } from 'antd';
 import {
@@ -150,6 +150,7 @@ export default function StackEdit() {
   const { name: routeName } = useParams<{ name: string }>();
   const isNew = !routeName;
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
@@ -158,8 +159,13 @@ export default function StackEdit() {
   const { data: settings } = useAppSettings();
   const aiEnabled = settings?.featureFlags.aiAssistant !== false && hasPermission(user, 'useAi');
 
-  const [name, setName] = useState(routeName ?? '');
-  const [compose, setCompose] = useState(TEMPLATE);
+  // The App Store hands off a template here (pick app → land in the editor with it loaded)
+  // instead of deploying blind, since a template's placeholder password/port/timezone
+  // almost always needs a look before it's actually deployed.
+  const incomingTemplate = isNew ? (location.state as { name?: string; compose?: string } | null) : null;
+
+  const [name, setName] = useState(routeName ?? incomingTemplate?.name ?? '');
+  const [compose, setCompose] = useState(incomingTemplate?.compose ?? TEMPLATE);
   const [result, setResult] = useState<ComposeResult | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');

@@ -40,6 +40,7 @@ import {
   SearchOutlined,
   SendOutlined,
   SettingOutlined,
+  ShopOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   UserOutlined,
@@ -220,6 +221,9 @@ export default function AppLayout() {
       ],
     },
     { key: '/stacks', icon: <AppstoreOutlined />, label: <Link to="/stacks">Stacks</Link> },
+    ...(hasPermission(user, 'manageStacks')
+      ? [{ key: '/app-store', icon: <ShopOutlined />, label: <Link to="/app-store">App Store</Link> }]
+      : []),
     ...(user?.role === 'admin'
       ? [
           {
@@ -281,7 +285,11 @@ export default function AppLayout() {
           }}
         >
           <img src="/logo.svg" alt="" width={30} height={30} style={{ flexShrink: 0 }} />
-          <Typography.Title level={4} style={{ margin: 0, whiteSpace: 'nowrap', letterSpacing: 0.5 }}>
+          <Typography.Title
+            level={4}
+            className="app-sider-brand"
+            style={{ margin: 0, whiteSpace: 'nowrap', letterSpacing: 0.5 }}
+          >
             <span style={{ color: '#f53838' }}>Challoupe</span>
           </Typography.Title>
         </div>

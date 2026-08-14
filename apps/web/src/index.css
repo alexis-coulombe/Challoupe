@@ -42,6 +42,13 @@ body {
   display: inline;
 }
 
+/* Below the "lg" breakpoint the persistent sidebar auto-collapses to icon-only
+   (see Sider's `breakpoint`/`collapsedWidth` props in AppLayout) — the "Challoupe"
+   wordmark doesn't fit next to the logo at that width, so only the logo stays. */
+.ant-layout-sider-collapsed .app-sider-brand {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .header-stats {
     display: none;

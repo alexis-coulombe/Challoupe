@@ -111,6 +111,16 @@ export const SEVERITY_COLORS: Record<TrivySeverity, string> = {
   UNKNOWN: 'default',
 };
 
+// A deterministic color from an app/link's label, used for the colored-initial tiles in the
+// header app switcher and the app store catalog (no per-app logo assets to keep in sync).
+const TILE_COLORS = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#14b8a6', '#eab308'];
+
+export function tileColor(label: string): string {
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0;
+  return TILE_COLORS[hash % TILE_COLORS.length];
+}
+
 export const STACK_STATUS: Record<StackSummary['status'], { color: string; label: string }> = {
   running: { color: 'green', label: 'running' },
   partial: { color: 'orange', label: 'partial' },
