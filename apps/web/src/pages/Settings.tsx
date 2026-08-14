@@ -408,7 +408,25 @@ export default function Settings() {
         form={form}
         layout="vertical"
         disabled={!isAdmin}
-        onFinish={(values) => saveMutation.mutate(values)}
+        onFinish={(values) => {
+          const resourceAlerts = values.resourceAlerts;
+          saveMutation.mutate({
+            ...values,
+            // Clearing an InputNumber sends null, not undefined; the server's schema requires
+            // a real number when the key is present at all, so null must be normalized away to
+            // mean "leave this threshold unchanged" (matters when alerts are disabled and the
+            // required-when-enabled rules above don't block the blank field).
+            resourceAlerts: resourceAlerts && {
+              ...resourceAlerts,
+              checkIntervalMinutes: resourceAlerts.checkIntervalMinutes ?? undefined,
+              hostCpuPercent: resourceAlerts.hostCpuPercent ?? undefined,
+              hostMemoryPercent: resourceAlerts.hostMemoryPercent ?? undefined,
+              hostDiskPercent: resourceAlerts.hostDiskPercent ?? undefined,
+              containerCpuPercent: resourceAlerts.containerCpuPercent ?? undefined,
+              containerMemoryPercent: resourceAlerts.containerMemoryPercent ?? undefined,
+            },
+          });
+        }}
       >
         <Tabs
           defaultActiveKey={searchParams.get('tab') || 'general'}
@@ -844,7 +862,11 @@ export default function Settings() {
                     </Typography.Paragraph>
 
                     <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
-                      <Form.Item name={['resourceAlerts', 'checkIntervalMinutes']} label="Check interval (minutes)">
+                      <Form.Item
+                        name={['resourceAlerts', 'checkIntervalMinutes']}
+                        label="Check interval (minutes)"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 1440' }]}
+                      >
                         <InputNumber min={1} max={24 * 60} disabled={!resourceAlertsEnabled} style={{ width: 200 }} />
                       </Form.Item>
                     </Space>
@@ -859,15 +881,27 @@ export default function Settings() {
                     </Typography.Text>
 
                     <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
-                      <Form.Item name={['resourceAlerts', 'hostCpuPercent']} label="CPU">
+                      <Form.Item
+                        name={['resourceAlerts', 'hostCpuPercent']}
+                        label="CPU"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
 
-                      <Form.Item name={['resourceAlerts', 'hostMemoryPercent']} label="Memory">
+                      <Form.Item
+                        name={['resourceAlerts', 'hostMemoryPercent']}
+                        label="Memory"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
 
-                      <Form.Item name={['resourceAlerts', 'hostDiskPercent']} label="Disk">
+                      <Form.Item
+                        name={['resourceAlerts', 'hostDiskPercent']}
+                        label="Disk"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
                     </Space>
@@ -881,11 +915,19 @@ export default function Settings() {
                     </Typography.Text>
 
                     <Space size="large" wrap align="start">
-                      <Form.Item name={['resourceAlerts', 'containerCpuPercent']} label="CPU">
+                      <Form.Item
+                        name={['resourceAlerts', 'containerCpuPercent']}
+                        label="CPU"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
 
-                      <Form.Item name={['resourceAlerts', 'containerMemoryPercent']} label="Memory">
+                      <Form.Item
+                        name={['resourceAlerts', 'containerMemoryPercent']}
+                        label="Memory"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
                     </Space>

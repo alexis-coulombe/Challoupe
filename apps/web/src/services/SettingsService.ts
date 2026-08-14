@@ -4,11 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api';
 import { backupApi } from './api/backupApi';
 import { imagesApi } from './api/imagesApi';
-import { settingsApi } from './api/settingsApi';
+import { settingsApi, type SettingsUpdate } from './api/settingsApi';
 import { systemApi } from './api/systemApi';
 import { systemStatsApi } from './api/systemStatsApi';
 import { useAuth } from '../auth';
-import type { AppSettings } from '../models/AppSettings';
 import type { BackupFile } from '../models/BackupFile';
 
 // Framework-agnostic settings-page domain logic: no React, no react-query, no HTTP. Anything
@@ -46,7 +45,7 @@ export function useSettingsService() {
   });
 
   const save = useMutation({
-    mutationFn: (values: AppSettings) => settingsApi.update(values),
+    mutationFn: (values: SettingsUpdate) => settingsApi.update(values),
     onSuccess: () => {
       message.success('Settings saved');
       queryClient.invalidateQueries({ queryKey: ['settings'] });
