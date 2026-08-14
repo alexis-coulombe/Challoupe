@@ -4,6 +4,7 @@ import { Button, Popover, Typography } from 'antd';
 import { AppstoreOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '../auth';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { useConnectedAppsVisible } from '../hooks/useConnectedAppsVisible';
 
 const TILE_COLORS = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ef4444', '#14b8a6', '#eab308'];
 
@@ -53,8 +54,11 @@ export default function AppSwitcher() {
   const { user } = useAuth();
   const { data: settings } = useAppSettings();
   const [open, setOpen] = useState(false);
+  const [visible] = useConnectedAppsVisible();
   const appLinks = settings?.appLinks ?? [];
   const isAdmin = user?.role === 'admin';
+
+  if (!visible) return null;
 
   const caption =
     appLinks.length > 0 ? 'Your apps' : isAdmin ? 'Connect another app to switch between them' : 'No apps linked yet';

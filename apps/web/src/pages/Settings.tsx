@@ -62,6 +62,7 @@ import AiButton from '../components/AiButton';
 import DeleteButton from '../components/DeleteButton';
 import SecurityButton from '../components/SecurityButton';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { useConnectedAppsVisible } from '../hooks/useConnectedAppsVisible';
 import { useAuth } from '../auth';
 import { aiApi } from '../services/api/aiApi';
 import { notificationsApi } from '../services/api/notificationsApi';
@@ -184,6 +185,7 @@ export default function Settings() {
   const { message, modal } = AntApp.useApp();
   const [form] = Form.useForm<AppSettings>();
   const isAdmin = user?.role === 'admin';
+  const [connectedAppsVisible, setConnectedAppsVisible] = useConnectedAppsVisible();
 
   const {
     info,
@@ -1301,6 +1303,15 @@ export default function Settings() {
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Add another app's URL here to jump to it from the grid icon in the header,
                     the same way Google links Gmail, Drive, and its other apps together.
+                  </Typography.Paragraph>
+
+                  <Space align="center" style={{ marginBottom: 16 }}>
+                    <Switch checked={connectedAppsVisible} onChange={setConnectedAppsVisible} disabled={false} />
+                    <Typography.Text strong>Show the grid icon in the header</Typography.Text>
+                  </Space>
+
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640, marginTop: -12 }}>
+                    A preference for this browser only, it doesn't affect other users.
                   </Typography.Paragraph>
 
                   <Form.List name="appLinks">
