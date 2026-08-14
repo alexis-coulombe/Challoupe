@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { Card, Col, Empty, List, Row, Space, Statistic, Tag, Typography } from 'antd';
 import {
   AppstoreOutlined,
   BlockOutlined,
   CheckCircleOutlined,
+  CloudServerOutlined,
   StopOutlined,
 } from '@ant-design/icons';
 import type { ContainerSummary } from '../models/ContainerSummary';
+import type { StackSummary } from '../models/StackSummary';
 import { CONTAINER_STATE_COLORS, STACK_STATUS, usageColor } from '../utils';
 import { useHost } from '../hosts';
 import { useAppSettings } from '../hooks/useAppSettings';
@@ -58,12 +60,14 @@ function StatCard({
   color,
   label,
   value,
+  extra,
 }: {
   to: string;
   icon: ReactNode;
   color: string;
   label: string;
   value: number | string;
+  extra?: ReactNode;
 }) {
   return (
     <Link to={to} style={{ display: 'block', height: '100%' }}>
@@ -87,8 +91,63 @@ function StatCard({
           </div>
           <Statistic title={label} value={value} />
         </Space>
+        {extra && <div style={{ marginTop: 10 }}>{extra}</div>}
       </Card>
     </Link>
+  );
+}
+
+// "local" plus every configured remote host, so the dashboard can offer a
+// one-click overview instead of only the currently-scoped host.
+function HostsOverview() {
+  const { hosts, hostId, setHostId } = useHost();
+  const entries = [{ id: 'local', name: 'Local' }, ...hosts.map((h) => ({ id: String(h.id), name: h.name }))];
+
+  const infoQueries = useQueries({
+    queries: entries.map((h) => ({
+      queryKey: ['system-info', h.id],
+      queryFn: () => systemApi.info(h.id),
+      retry: false,
+      staleTime: 15000,
+    })),
+  });
+
+  if (hosts.length === 0) return null;
+
+  return (
+    <Card title="Hosts" style={{ marginTop: 16 }}>
+      <List
+        size="small"
+        dataSource={entries}
+        renderItem={(h, i) => {
+          const q = infoQueries[i];
+          const isCurrent = h.id === hostId;
+          return (
+            <List.Item style={{ cursor: 'pointer' }} onClick={() => setHostId(h.id)}>
+              <Space style={{ width: '100%', justifyContent: 'space-between' }} wrap>
+                <Space size={8}>
+                  <CloudServerOutlined />
+                  <Typography.Text strong={isCurrent}>{h.name}</Typography.Text>
+                  {isCurrent && <Tag color="blue">current</Tag>}
+                </Space>
+                {q.isLoading ? (
+                  <Typography.Text type="secondary">Checking…</Typography.Text>
+                ) : q.isError ? (
+                  <Tag color="red">Unreachable</Tag>
+                ) : (
+                  <Space size={8}>
+                    <Tag color="green">{q.data?.containersRunning ?? 0} running</Tag>
+                    {(q.data?.containersStopped ?? 0) > 0 && (
+                      <Tag>{q.data?.containersStopped} stopped</Tag>
+                    )}
+                  </Space>
+                )}
+              </Space>
+            </List.Item>
+          );
+        }}
+      />
+    </Card>
   );
 }
 
@@ -120,6 +179,14 @@ export default function Dashboard() {
   }, [info]);
 
   const attention = (containers ?? []).filter(needsAttention);
+
+  const stackStatusCounts = (stacks ?? []).reduce<Partial<Record<StackSummary['status'], number>>>(
+    (acc, s) => {
+      acc[s.status] = (acc[s.status] ?? 0) + 1;
+      return acc;
+    },
+    {}
+  );
 
   const { favorites } = useFavorites();
   // Resolve each pinned id/name against the live lists so a deleted resource's
@@ -188,9 +255,24 @@ export default function Dashboard() {
             color="#8b5cf6"
             label="Stacks"
             value={stacks?.length ?? '…'}
+            extra={
+              stacks && stacks.length > 0 ? (
+                <Space size={4} wrap>
+                  {(Object.keys(STACK_STATUS) as StackSummary['status'][])
+                    .filter((status) => stackStatusCounts[status])
+                    .map((status) => (
+                      <Tag key={status} color={STACK_STATUS[status].color}>
+                        {stackStatusCounts[status]} {STACK_STATUS[status].label}
+                      </Tag>
+                    ))}
+                </Space>
+              ) : undefined
+            }
           />
         </Col>
       </Row>
+
+      <HostsOverview />
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }} align="stretch">
         <Col xs={24} md={12}>
