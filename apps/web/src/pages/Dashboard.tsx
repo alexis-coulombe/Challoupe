@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import type { ContainerSummary } from '../models/ContainerSummary';
 import { CONTAINER_STATE_COLORS, STACK_STATUS, usageColor } from '../utils';
+import { useHost } from '../hosts';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useFavorites } from '../hooks/useFavorites';
 import { containersApi } from '../services/api/containersApi';
@@ -92,11 +93,12 @@ function StatCard({
 }
 
 export default function Dashboard() {
+  const { hostId, currentHost } = useHost();
   const { data: settings } = useAppSettings();
 
   const { data: info } = useQuery({
-    queryKey: ['system-info'],
-    queryFn: () => systemApi.info('local'),
+    queryKey: ['system-info', hostId],
+    queryFn: () => systemApi.info(hostId),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
   const { data: stacks } = useQuery({
@@ -104,15 +106,15 @@ export default function Dashboard() {
     queryFn: () => stacksApi.list(),
   });
   const { data: containers } = useQuery({
-    queryKey: ['containers', 'local'],
-    queryFn: () => containersApi.list('local'),
+    queryKey: ['containers', hostId],
+    queryFn: () => containersApi.list(hostId),
     refetchInterval: settings?.refreshIntervalMs ?? 5000,
   });
 
   const [cpuHistory, setCpuHistory] = useState<number[]>([]);
   const [memHistory, setMemHistory] = useState<number[]>([]);
   useEffect(() => {
-    if (!info) return;
+    if (!info || currentHost) return;
     setCpuHistory((h) => [...h, info.cpuPercent ?? 0].slice(-HISTORY_LENGTH));
     setMemHistory((h) => [...h, info.memoryPercent ?? 0].slice(-HISTORY_LENGTH));
   }, [info]);
@@ -193,19 +195,28 @@ export default function Dashboard() {
       <Row gutter={[16, 16]} style={{ marginTop: 16 }} align="stretch">
         <Col xs={24} md={12}>
           <Card title="Resource usage" style={{ height: '100%' }}>
-            <Trend
-              label="CPU"
-              value={info?.cpuPercent != null ? `${info.cpuPercent.toFixed(1)}%` : '—'}
-              color={usageColor(info?.cpuPercent ?? 0)}
-              points={cpuHistory}
-            />
+            {currentHost ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="CPU and memory usage aren't available for hosts managed over SSH yet"
+              />
+            ) : (
+              <>
+                <Trend
+                  label="CPU"
+                  value={info?.cpuPercent != null ? `${info.cpuPercent.toFixed(1)}%` : '—'}
+                  color={usageColor(info?.cpuPercent ?? 0)}
+                  points={cpuHistory}
+                />
 
-            <Trend
-              label="Memory"
-              value={info?.memoryPercent != null ? `${info.memoryPercent.toFixed(1)}%` : '—'}
-              color={usageColor(info?.memoryPercent ?? 0)}
-              points={memHistory}
-            />
+                <Trend
+                  label="Memory"
+                  value={info?.memoryPercent != null ? `${info.memoryPercent.toFixed(1)}%` : '—'}
+                  color={usageColor(info?.memoryPercent ?? 0)}
+                  points={memHistory}
+                />
+              </>
+            )}
           </Card>
         </Col>
         <Col xs={24} md={12}>

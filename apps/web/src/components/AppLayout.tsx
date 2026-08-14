@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
+  Alert,
   App as AntApp,
   Avatar,
   Button,
@@ -168,7 +169,7 @@ function AiChatDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { hostId, setHostId, hosts } = useHost();
+  const { hostId, setHostId, hosts, currentHost } = useHost();
   const location = useLocation();
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
@@ -421,6 +422,16 @@ export default function AppLayout() {
             </Dropdown>
           </Space>
         </Header>
+        {currentHost && (
+          <Alert
+            banner
+            type="warning"
+            showIcon
+            icon={<CloudServerOutlined />}
+            message={`Currently managing remote host "${currentHost.name}" (${currentHost.sshHost})`}
+            style={{ borderRadius: 0, justifyContent: 'center' }}
+          />
+        )}
         <Content style={{ padding: 24 }}>
           <Outlet />
         </Content>
