@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { App as AntApp, Alert, Button, Form, Input, Modal, Space, Table, Typography } from 'antd';
 import { ImportOutlined, LinkOutlined } from '@ant-design/icons';
-import type { PortainerStackRef } from '../api';
-import { stacksApi } from '../services/stacksApi';
+import type { PortainerStackRef } from '../models/PortainerStackRef';
+import { stacksApi } from '../services/api/stacksApi';
 
 interface Props {
   open: boolean;

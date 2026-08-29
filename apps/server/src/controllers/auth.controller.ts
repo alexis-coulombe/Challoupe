@@ -1,6 +1,5 @@
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { db } from '../db.js';
 import { hashPassword, userRepository, verifyPassword } from '../auth.js';
 import { auditLog } from '../audit.js';
@@ -12,36 +11,52 @@ import {
   totpKeyUri,
   verifyTotpToken,
 } from '../totp.js';
+import {
+  changePasswordSchema,
+  loginSchema,
+  passwordConfirmSchema,
+  setupSchema,
+  totpConfirmSchema,
+  totpVerifySchema,
+} from './schemas/auth.schema.js';
 
-const usernameSchema = z.string().trim().min(1).max(64);
-
-const newPasswordSchema = z.string().min(8).max(128);
-
-const setupSchema = z.object({ username: usernameSchema, password: newPasswordSchema });
-const loginSchema = z.object({ username: usernameSchema, password: z.string().min(1).max(128) });
-
-// A login for a username that doesn't exist is still bcrypt-verified against this, so that
-// path takes the same ~100ms as a real one instead of returning near-instantly.
+/**
+ * Prevent timing attack.
+ * A login for a username that doesn't exist is still bcrypt-verified, so that path takes the same ~100ms as a real one instead of returning near-instantly.
+ */
 const DUMMY_PASSWORD_HASH = hashPassword(crypto.randomBytes(32).toString('hex'));
 
-export class AuthController {
+class AuthController {
+  /**
+   * Get the current authentication status
+   * @param req Request
+   * @param res Response
+   */
   status = (req: Request, res: Response): void => {
     const user = req.session.userId ? userRepository.getById(req.session.userId) : null;
+
     res.json({ setupRequired: userRepository.count() === 0, user: user ?? null });
   };
 
-  // First run: create the initial admin account.
+  /**
+   * On first run create the initial admin account.
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   setup = (req: Request, res: Response): void => {
     if (userRepository.count() > 0) {
       res.status(409).json({ error: 'An account already exists' });
       return;
     }
+
     const body = setupSchema.parse(req.body);
     const info = db
       .prepare('INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)')
       .run(body.username, hashPassword(body.password), 'admin');
     const user = userRepository.getById(Number(info.lastInsertRowid))!;
     req.session.userId = user.id;
+
     auditLog.record({
       userId: user.id,
       username: user.username,
@@ -53,10 +68,17 @@ export class AuthController {
     res.json({ user });
   };
 
+  /**
+   * Attempt login of an account
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   login = (req: Request, res: Response): void => {
     const body = loginSchema.parse(req.body);
     const user = userRepository.findByUsername(body.username);
     const passwordOk = verifyPassword(body.password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
+
     if (!user || !passwordOk) {
       auditLog.record({
         userId: user?.id ?? null,
@@ -66,18 +88,22 @@ export class AuthController {
         detail: 'Invalid username or password',
         ip: req.ip,
       });
-      res.status(401).json({ error: 'Invalid username or password' });
+      res.status(401).json({ error: 'Giver credentials are invalid' });
       return;
     }
+
     req.session.regenerate((err) => {
-      if (err) throw err;
+      if (err) {
+        throw err;
+      }
+
+      // TOTP needed
       if (user.totpEnabled) {
-        // Password alone isn't enough, so hold the session in a pending state (distinct from
-        // `userId`, which is what requireAuth actually checks) until /totp/verify passes.
         req.session.pendingTotpUserId = user.id;
         res.json({ requiresTotp: true });
         return;
       }
+
       req.session.userId = user.id;
       auditLog.record({
         userId: user.id,
@@ -86,21 +112,29 @@ export class AuthController {
         status: 'success',
         ip: req.ip,
       });
+
       res.json({ user: userRepository.getById(user.id) });
     });
   };
 
-  // Completes a login that /login left pending on a second factor. Accepts either a 6-digit
-  // TOTP code or one of the account's single-use backup codes.
+  /**
+   * Completes a login that /login left pending on a second factor.
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   totpVerify = async (req: Request, res: Response): Promise<void> => {
     const pendingUserId = req.session.pendingTotpUserId;
+
     if (!pendingUserId) {
       res.status(400).json({ error: 'No sign-in is awaiting a two-factor code' });
       return;
     }
-    const body = z.object({ token: z.string().trim().min(6).max(11) }).parse(req.body);
+
+    const body = totpVerifySchema.parse(req.body);
     const user = userRepository.getById(pendingUserId);
     const totp = user && userRepository.getTotpSecret(user.id);
+
     if (!user || !totp) {
       delete req.session.pendingTotpUserId;
       res.status(400).json({ error: 'Two-factor authentication is no longer available for this account' });
@@ -109,6 +143,7 @@ export class AuthController {
 
     let usedBackupCode = false;
     let valid = await verifyTotpToken(totp.secret, body.token);
+
     if (!valid) {
       const remaining = consumeBackupCode(totp.backupCodes, body.token.toUpperCase());
       if (remaining) {
@@ -117,6 +152,7 @@ export class AuthController {
         userRepository.replaceTotpBackupCodes(user.id, remaining);
       }
     }
+    
     if (!valid) {
       auditLog.record({
         userId: user.id,
@@ -126,13 +162,17 @@ export class AuthController {
         detail: 'Invalid code',
         ip: req.ip,
       });
+
       res.status(401).json({ error: 'Invalid code' });
       return;
     }
 
     delete req.session.pendingTotpUserId;
     req.session.regenerate((err) => {
-      if (err) throw err;
+      if (err) {
+        throw err;
+      }
+      
       req.session.userId = user.id;
       auditLog.record({
         userId: user.id,
@@ -142,39 +182,53 @@ export class AuthController {
         detail: usedBackupCode ? 'via backup code' : undefined,
         ip: req.ip,
       });
+
       res.json({ user: userRepository.getById(user.id) });
     });
   };
 
-  // Starts enabling TOTP: generates a secret and stashes it in the session (not the DB yet)
-  // until /totp/confirm proves the user actually has it loaded in an authenticator app.
+  /**
+   * Starts enabling TOTP
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   totpSetup = (req: Request, res: Response): void => {
     if (req.user!.authProvider !== 'local') {
       res.status(400).json({ error: 'Two-factor authentication is not available for SSO accounts' });
       return;
     }
+
     if (req.user!.totpEnabled) {
       res.status(400).json({ error: 'Two-factor authentication is already enabled' });
       return;
     }
+
     const secret = generateTotpSecret();
     req.session.pendingTotpSecret = secret;
     res.json({ secret, otpauthUrl: totpKeyUri(req.user!.username, secret) });
   };
 
-  // Confirms setup: the caller must prove they can generate a valid code from the pending
-  // secret before it's persisted and TOTP actually starts being required at login.
+  /**
+   * Confirm TOTP setup with test code
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   totpConfirm = async (req: Request, res: Response): Promise<void> => {
     const secret = req.session.pendingTotpSecret;
+
     if (!secret) {
       res.status(400).json({ error: 'No two-factor setup is in progress' });
       return;
     }
-    const body = z.object({ token: z.string().trim().length(6) }).parse(req.body);
+
+    const body = totpConfirmSchema.parse(req.body);
     if (!(await verifyTotpToken(secret, body.token))) {
       res.status(400).json({ error: 'Invalid code. Check that your device clock is correct and try again' });
       return;
     }
+
     const backupCodes = generateBackupCodes();
     userRepository.enableTotp(req.user!.id, secret, hashBackupCodes(backupCodes));
     delete req.session.pendingTotpSecret;
@@ -185,14 +239,20 @@ export class AuthController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ backupCodes });
   };
 
-  // Requires the current password so a hijacked, still-logged-in session can't silently
-  // turn off the extra factor protecting it.
+  /**
+   * Disable TOTP for an account
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   totpDisable = (req: Request, res: Response): void => {
-    const body = z.object({ password: z.string() }).parse(req.body);
+    const body = passwordConfirmSchema.parse(req.body);
     const user = userRepository.findByUsername(req.user!.username)!;
+
     if (!verifyPassword(body.password, user.password_hash)) {
       auditLog.record({
         userId: req.user!.id,
@@ -202,9 +262,11 @@ export class AuthController {
         detail: 'Incorrect password',
         ip: req.ip,
       });
+
       res.status(401).json({ error: 'Incorrect password' });
       return;
     }
+
     userRepository.disableTotp(req.user!.id);
     auditLog.record({
       userId: req.user!.id,
@@ -213,22 +275,30 @@ export class AuthController {
       status: 'success',
       ip: req.ip,
     });
+    
     res.json({ ok: true });
   };
 
-  // Regenerating invalidates every previous backup code. The fresh set is shown once, same
-  // as at initial setup, since only hashes are ever stored.
+  /**
+   * Generate TOTP backup codes
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   totpBackupCodes = (req: Request, res: Response): void => {
-    const body = z.object({ password: z.string() }).parse(req.body);
+    const body = passwordConfirmSchema.parse(req.body);
     const user = userRepository.findByUsername(req.user!.username)!;
+
     if (!verifyPassword(body.password, user.password_hash)) {
       res.status(401).json({ error: 'Incorrect password' });
       return;
     }
+
     if (!req.user!.totpEnabled) {
       res.status(400).json({ error: 'Two-factor authentication is not enabled' });
       return;
     }
+
     const backupCodes = generateBackupCodes();
     userRepository.replaceTotpBackupCodes(req.user!.id, hashBackupCodes(backupCodes));
     auditLog.record({
@@ -238,11 +308,19 @@ export class AuthController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ backupCodes });
   };
 
+  /**
+   * Logout action
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   logout = (req: Request, res: Response): void => {
     const loggedOutUser = req.session.userId ? userRepository.getById(req.session.userId) : undefined;
+
     req.session.destroy(() => {
       if (loggedOutUser) {
         auditLog.record({
@@ -253,14 +331,21 @@ export class AuthController {
           ip: req.ip,
         });
       }
+
       res.json({ ok: true });
     });
   };
 
-  // Change own password.
+  /**
+   * Change account password
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   changePassword = (req: Request, res: Response): void => {
-    const body = z.object({ current: z.string(), next: newPasswordSchema }).parse(req.body);
+    const body = changePasswordSchema.parse(req.body);
     const user = userRepository.findByUsername(req.user!.username)!;
+
     if (!verifyPassword(body.current, user.password_hash)) {
       auditLog.record({
         userId: user.id,
@@ -270,13 +355,16 @@ export class AuthController {
         detail: 'Current password was incorrect',
         ip: req.ip,
       });
+
       res.status(400).json({ error: 'Current password is incorrect' });
       return;
     }
+
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
       hashPassword(body.next),
       user.id
     );
+
     auditLog.record({
       userId: user.id,
       username: user.username,
@@ -284,6 +372,7 @@ export class AuthController {
       status: 'success',
       ip: req.ip,
     });
+    
     res.json({ ok: true });
   };
 }

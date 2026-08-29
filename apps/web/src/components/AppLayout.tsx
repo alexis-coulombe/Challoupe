@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
+  Alert,
   App as AntApp,
   Avatar,
   Button,
@@ -39,20 +40,22 @@ import {
   SearchOutlined,
   SendOutlined,
   SettingOutlined,
+  ShopOutlined,
   TeamOutlined,
   ThunderboltOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
-import { hasPermission } from '../api';
-import { authApi } from '../services/authApi';
-import { systemApi } from '../services/systemApi';
+import { hasPermission } from '../models/permissions';
+import { authApi } from '../services/api/authApi';
+import { systemApi } from '../services/api/systemApi';
 import { AI_COLOR, AI_COLOR_SOFT, formatBytes } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useDockerEventNotifications } from '../hooks/useDockerEventNotifications';
 import { useOllamaChat } from '../hooks/useOllamaChat';
 import AiButton from './AiButton';
+import AppSwitcher from './AppSwitcher';
 import CommandPalette from './CommandPalette';
 import PasswordInput from './PasswordInput';
 import TwoFactorModal from './TwoFactorModal';
@@ -123,8 +126,8 @@ function AiChatDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                 key={i}
                 style={{
                   alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-                  background: m.role === 'user' ? 'rgba(59, 130, 246, 0.16)' : AI_COLOR_SOFT,
-                  border: `1px solid ${m.role === 'user' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
+                  background: m.role === 'user' ? 'rgba(245, 56, 56, 0.12)' : AI_COLOR_SOFT,
+                  border: `1px solid ${m.role === 'user' ? 'rgba(245, 56, 56, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
                   borderRadius: 8,
                   padding: '8px 12px',
                   whiteSpace: 'pre-wrap',
@@ -167,7 +170,7 @@ function AiChatDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 
 export default function AppLayout() {
   const { user, logout } = useAuth();
-  const { hostId, setHostId, hosts } = useHost();
+  const { hostId, setHostId, hosts, currentHost } = useHost();
   const location = useLocation();
   const navigate = useNavigate();
   const { message } = AntApp.useApp();
@@ -218,6 +221,9 @@ export default function AppLayout() {
       ],
     },
     { key: '/stacks', icon: <AppstoreOutlined />, label: <Link to="/stacks">Stacks</Link> },
+    ...(hasPermission(user, 'manageStacks')
+      ? [{ key: '/app-store', icon: <ShopOutlined />, label: <Link to="/app-store">App Store</Link> }]
+      : []),
     ...(user?.role === 'admin'
       ? [
           {
@@ -268,7 +274,7 @@ export default function AppLayout() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider className="app-sider" breakpoint="lg" collapsedWidth={64} style={{ borderRight: '1px solid #1f2733' }}>
+      <Sider className="app-sider" breakpoint="lg" collapsedWidth={64} style={{ borderRight: '1px solid #f1e3e8' }}>
         <div
           style={{
             padding: '16px',
@@ -279,12 +285,15 @@ export default function AppLayout() {
           }}
         >
           <img src="/logo.svg" alt="" width={30} height={30} style={{ flexShrink: 0 }} />
-          <Typography.Title level={4} style={{ margin: 0, whiteSpace: 'nowrap', letterSpacing: 0.5 }}>
-            <span style={{ color: '#7ab3ff' }}>Challoupe</span>
+          <Typography.Title
+            level={4}
+            className="app-sider-brand"
+            style={{ margin: 0, whiteSpace: 'nowrap', letterSpacing: 0.5 }}
+          >
+            <span style={{ color: '#f53838' }}>Challoupe</span>
           </Typography.Title>
         </div>
         <Menu
-          theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
           openKeys={openKeys}
@@ -297,7 +306,7 @@ export default function AppLayout() {
           <Space size={10} align="center">
             <img src="/logo.svg" alt="" width={26} height={26} />
             <Typography.Title level={4} style={{ margin: 0, letterSpacing: 0.5 }}>
-              <span style={{ color: '#7ab3ff' }}>Challoupe</span>
+              <span style={{ color: '#f53838' }}>Challoupe</span>
             </Typography.Title>
           </Space>
         }
@@ -322,7 +331,7 @@ export default function AppLayout() {
             justifyContent: 'space-between',
             alignItems: 'center',
             paddingInline: 24,
-            borderBottom: '1px solid #1f2733',
+            borderBottom: '1px solid #f1e3e8',
             gap: 12,
           }}
         >
@@ -381,6 +390,7 @@ export default function AppLayout() {
                 />
               </Tooltip>
             )}
+            <AppSwitcher />
             <Dropdown
               menu={{
                 items: [
@@ -420,6 +430,16 @@ export default function AppLayout() {
             </Dropdown>
           </Space>
         </Header>
+        {currentHost && (
+          <Alert
+            banner
+            type="warning"
+            showIcon
+            icon={<CloudServerOutlined />}
+            message={`Currently managing remote host "${currentHost.name}" (${currentHost.sshHost})`}
+            style={{ borderRadius: 0, justifyContent: 'center' }}
+          />
+        )}
         <Content style={{ padding: 24 }}>
           <Outlet />
         </Content>

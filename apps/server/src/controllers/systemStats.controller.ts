@@ -1,13 +1,16 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { auditLog } from '../audit.js';
 import { hostManager } from '../hostManager.js';
 import { cpuUsagePercent, diskUsage, ramUsage } from '../hostStats.js';
 import { systemStatsTokenRepository } from '../systemStatsToken.js';
+import { hostQuerySchema } from './schemas/systemStats.schema.js';
 
-const hostQuerySchema = z.object({ host: z.string().trim().min(1).default('local') });
-
-export class SystemStatsController {
+class SystemStatsController {
+  /**
+   * Get the current token status
+   * @param req Request
+   * @param res Response
+   */
   getToken = (_req: Request, res: Response): void => {
     res.json(systemStatsTokenRepository.status());
   };
@@ -26,6 +29,7 @@ export class SystemStatsController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ token });
   };
 
@@ -43,6 +47,7 @@ export class SystemStatsController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 
@@ -60,6 +65,7 @@ export class SystemStatsController {
 
     const { host } = hostQuerySchema.parse(req.query);
     const client = await hostManager.getClient(host);
+
     if (!client) {
       res.status(404).json({ error: 'Not found' });
       return;
@@ -77,8 +83,6 @@ export class SystemStatsController {
       memoryTotal: info.MemTotal,
     };
 
-    // Host-level CPU/memory/disk utilization comes from Challoupe's own OS,
-    // It can't reach through the SSH-tunneled Engine API to a remote host's OS.
     if (host !== 'local') {
       res.json({
         ...base,
@@ -99,6 +103,7 @@ export class SystemStatsController {
       used: 0,
       percent: 0,
     }));
+
     res.json({
       ...base,
       cpuPercent,

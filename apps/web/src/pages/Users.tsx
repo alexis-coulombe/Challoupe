@@ -1,7 +1,5 @@
 import { useState, type Key } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  App as AntApp,
   Button,
   Checkbox,
   Form,
@@ -16,62 +14,27 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, PlusOutlined, SafetyOutlined } from '@ant-design/icons';
-import { PERMISSIONS, type Permission, type Permissions, type User } from '../api';
+import { PERMISSIONS } from '../models/permissions';
+import type { User } from '../models/User';
+import type { UserFormValues } from '../models/UserFormValues';
 import { fromISO, TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
-import { useBulkAction } from '../hooks/useBulkAction';
-import { usersApi } from '../services/usersApi';
+import { useUsersService, usersService } from '../services/UsersService';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
 import PasswordInput from '../components/PasswordInput';
 
-const PERMISSION_LABELS: Record<Permission, string> = {
-  manageContainers: 'Manage containers: create & delete',
-  manageImages: 'Manage images: pull, delete, prune',
-  manageVolumes: 'Manage volumes: create, delete, prune',
-  manageNetworks: 'Manage networks: create & delete',
-  manageStacks: 'Manage stacks: create, edit, delete',
-  exec: 'Terminal: shell access into containers',
-  useAi: 'AI Assistant',
-  useSecurityScanner: 'Vulnerability scanner',
-};
-
-const PERMISSION_SHORT_LABELS: Record<Permission, string> = {
-  manageContainers: 'Containers',
-  manageImages: 'Images',
-  manageVolumes: 'Volumes',
-  manageNetworks: 'Networks',
-  manageStacks: 'Stacks',
-  exec: 'Terminal',
-  useAi: 'AI',
-  useSecurityScanner: 'Security',
-};
-
-// Mirrors the server's defaults: AI and the security scanner stay on since every
-// authenticated user could already use them (gated only by the app-wide feature flag);
-// everything that creates/destroys Docker resources or opens a shell starts off.
-const DEFAULT_FORM_PERMISSIONS: Permissions = {
-  manageContainers: false,
-  manageImages: false,
-  manageVolumes: false,
-  manageNetworks: false,
-  manageStacks: false,
-  exec: false,
-  useAi: true,
-  useSecurityScanner: true,
-};
-
-function PermissionFields({ disabled }: { disabled: boolean }) {
+function PermissionFields({ disabled, tooltip }: { disabled: boolean; tooltip?: string }) {
   return (
     <Form.Item
       label="Permissions"
-      tooltip={disabled ? 'Administrators always have every permission' : undefined}
+      tooltip={disabled ? tooltip ?? 'Administrators always have every permission' : undefined}
     >
       <Space direction="vertical" size={4}>
         {PERMISSIONS.map((p) => (
           <Form.Item key={p} name={['permissions', p]} valuePropName="checked" noStyle>
-            <Checkbox disabled={disabled}>{PERMISSION_LABELS[p]}</Checkbox>
+            <Checkbox disabled={disabled}>{usersService.permissionLabel(p)}</Checkbox>
           </Form.Item>
         ))}
       </Space>
@@ -79,17 +42,8 @@ function PermissionFields({ disabled }: { disabled: boolean }) {
   );
 }
 
-interface UserFormValues {
-  username: string;
-  password: string;
-  role: 'admin' | 'user';
-  permissions: Permissions;
-}
-
 export default function Users() {
   const { user: me } = useAuth();
-  const queryClient = useQueryClient();
-  const { message } = AntApp.useApp();
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [editing, setEditing] = useState<User | null>(null);
@@ -98,60 +52,15 @@ export default function Users() {
   const createRole = Form.useWatch('role', createForm);
   const editRole = Form.useWatch('role', editForm);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => usersApi.list(),
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
-
-  const createMutation = useMutation({
-    mutationFn: (values: UserFormValues) => usersApi.create(values),
-    onSuccess: () => {
-      message.success('User created');
-      setCreateOpen(false);
-      createForm.resetFields();
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, ...values }: { id: number; password?: string; role: 'admin' | 'user'; permissions: Permissions }) =>
-      usersApi.update(id, values),
-    onSuccess: () => {
-      message.success('User updated');
-      setEditing(null);
-      editForm.resetFields();
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => usersApi.remove(id),
-    onSuccess: () => {
-      message.success('User deleted');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const resetTotpMutation = useMutation({
-    mutationFn: (id: number) => usersApi.disableTotp(id),
-    onSuccess: () => {
-      message.success('Two-factor authentication reset for this user');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const bulkRemoveMutation = useBulkAction<number>({
-    queryKey: ['users'],
-    run: (id) => usersApi.remove(id),
-    successLabel: (count) => `${count} user(s) deleted`,
-    onSettled: () => setSelectedKeys([]),
-  });
+  const {
+    users: data,
+    isLoading,
+    create: createMutation,
+    update: updateMutation,
+    remove: deleteMutation,
+    resetTotp: resetTotpMutation,
+    bulkRemove: bulkRemoveMutation,
+  } = useUsersService({ onBulkRemoved: () => setSelectedKeys([]) });
 
   const columns: ColumnsType<User> = [
     {
@@ -182,7 +91,7 @@ export default function Users() {
         return (
           <Space size={4} wrap>
             {granted.map((p) => (
-              <Tag key={p}>{PERMISSION_SHORT_LABELS[p]}</Tag>
+              <Tag key={p}>{usersService.permissionShortLabel(p)}</Tag>
             ))}
           </Space>
         );
@@ -201,6 +110,7 @@ export default function Users() {
               editForm.setFieldsValue({ role: record.role, password: undefined, permissions: record.permissions });
             }}
           />
+
           {record.totpEnabled && (
             <Popconfirm
               title="Reset two-factor authentication?"
@@ -210,6 +120,7 @@ export default function Users() {
               <Button size="small" icon={<SafetyOutlined />} loading={resetTotpMutation.isPending} />
             </Popconfirm>
           )}
+          
           {record.id !== me?.id && (
             <DeleteButton
               confirmTitle="Delete this user?"
@@ -229,15 +140,17 @@ export default function Users() {
           Create user
         </Button>
       </ListPageHeader>
+
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
         <DeleteButton
           confirmTitle={`Delete ${selectedKeys.length} user(s)?`}
           onConfirm={() => bulkRemoveMutation.mutate(selectedKeys as number[])}
           loading={bulkRemoveMutation.isPending}
         >
-          Delete
+          Permanently delete
         </DeleteButton>
       </BulkBar>
+
       <Table
         rowKey="id"
         columns={columns}
@@ -264,15 +177,24 @@ export default function Users() {
         <Form
           form={createForm}
           layout="vertical"
-          initialValues={{ role: 'user', permissions: DEFAULT_FORM_PERMISSIONS }}
-          onFinish={(values) => createMutation.mutate(values)}
+          initialValues={{ role: 'user', permissions: usersService.defaultPermissions() }}
+          onFinish={(values) =>
+            createMutation.mutate(values, {
+              onSuccess: () => {
+                setCreateOpen(false);
+                createForm.resetFields();
+              },
+            })
+          }
         >
           <Form.Item name="username" label="Username" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
+
           <Form.Item name="password" label="Password" rules={[{ required: true, min: 8 }]}>
             <PasswordInput />
           </Form.Item>
+
           <Form.Item name="role" label="Role">
             <Select
               options={[
@@ -280,13 +202,14 @@ export default function Users() {
                 { value: 'admin', label: 'Administrator' },
               ]}
             />
-          </Form.Item>
+          </Form.Item>Delete
+
           <PermissionFields disabled={createRole === 'admin'} />
         </Form>
       </Modal>
 
       <Modal
-        title={`Edit ${editing?.username ?? ''}`}
+        title={`Editing user: ${editing?.username ?? ''}`}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={() => editForm.submit()}
@@ -297,12 +220,20 @@ export default function Users() {
           form={editForm}
           layout="vertical"
           onFinish={(values) =>
-            updateMutation.mutate({
-              id: editing!.id,
-              role: values.role,
-              password: values.password || undefined,
-              permissions: values.permissions,
-            })
+            updateMutation.mutate(
+              {
+                id: editing!.id,
+                role: values.role,
+                password: values.password || undefined,
+                permissions: values.permissions,
+              },
+              {
+                onSuccess: () => {
+                  setEditing(null);
+                  editForm.resetFields();
+                },
+              }
+            )
           }
         >
           <Form.Item
@@ -319,15 +250,29 @@ export default function Users() {
           >
             <PasswordInput />
           </Form.Item>
-          <Form.Item name="role" label="Role">
+
+          <Form.Item
+            name="role"
+            label="Role"
+            tooltip={editing?.id === me?.id ? 'You cannot change your own role' : undefined}
+          >
             <Select
+              disabled={editing?.id === me?.id}
               options={[
                 { value: 'user', label: 'User' },
                 { value: 'admin', label: 'Administrator' },
               ]}
             />
           </Form.Item>
-          <PermissionFields disabled={editRole === 'admin'} />
+
+          <PermissionFields
+            disabled={editRole === 'admin' || editing?.id === me?.id}
+            tooltip={
+              editing?.id === me?.id
+                ? 'You cannot edit your own permissions'
+                : undefined
+            }
+          />
         </Form>
       </Modal>
     </div>

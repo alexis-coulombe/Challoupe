@@ -11,8 +11,9 @@ interface DeleteButtonProps {
   children?: ReactNode;
 }
 
-// A danger button behind a confirmation prompt. Icon-only for table rows and
-// bulk bars, or with a label when passed children (e.g. page-level actions).
+/**
+ * A danger button behind a confirmation prompt.
+ */
 export default function DeleteButton({
   confirmTitle,
   onConfirm,

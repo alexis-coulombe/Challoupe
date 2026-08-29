@@ -2,7 +2,13 @@ import type { Request, Response } from 'express';
 import { DATA_DIR, DOCKER_SOCK } from '../config.js';
 import { cpuUsagePercent, diskUsage, ramUsage } from '../hostStats.js';
 
-export class SystemController {
+class SystemController {
+  /**
+   * Get system information for the current host
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   info = async (req: Request, res: Response): Promise<void> => {
     const [info, version] = await Promise.all([req.dockerClient!.info(), req.dockerClient!.version()]);
 
@@ -22,7 +28,6 @@ export class SystemController {
       memory: info.MemTotal,
     };
 
-    // Host-level CPU/memory/disk utilization comes from Challoupe's own OS via node:os/
     if (req.hostId !== 'local') {
       res.json({
         ...base,
@@ -40,12 +45,12 @@ export class SystemController {
 
     const cpuPercent = await cpuUsagePercent();
     const ram = ramUsage();
-
     const disk = await diskUsage(info.DockerRootDir as string).catch(() => ({
       total: 0,
       used: 0,
       percent: 0,
     }));
+
     res.json({
       ...base,
       cpuPercent,

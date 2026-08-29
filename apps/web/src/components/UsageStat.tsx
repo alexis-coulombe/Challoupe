@@ -17,7 +17,7 @@ export default function UsageStat({ icon, label, percent, detail }: UsageStatPro
   return (
     <Tooltip title={detail}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 108 }}>
-        <span style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.65)' }}>{icon}</span>
+        <span style={{ fontSize: 16, color: 'rgba(28, 26, 34, 0.55)' }}>{icon}</span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 76 }}>
           <div
             style={{
@@ -25,11 +25,11 @@ export default function UsageStat({ icon, label, percent, detail }: UsageStatPro
               justifyContent: 'space-between',
               fontSize: 11,
               lineHeight: 1,
-              color: 'rgba(255, 255, 255, 0.5)',
+              color: 'rgba(28, 26, 34, 0.5)',
             }}
           >
             <span>{label}</span>
-            <span style={{ color: '#e6e8eb', fontWeight: 600 }}>
+            <span style={{ color: '#1c1a22', fontWeight: 600 }}>
               {percent === undefined ? '—' : `${value.toFixed(0)}%`}
             </span>
           </div>
@@ -37,7 +37,7 @@ export default function UsageStat({ icon, label, percent, detail }: UsageStatPro
             style={{
               height: 4,
               borderRadius: 2,
-              background: 'rgba(255, 255, 255, 0.08)',
+              background: 'rgba(28, 26, 34, 0.08)',
               overflow: 'hidden',
             }}
           >

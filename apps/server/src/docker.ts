@@ -148,11 +148,19 @@ export interface StatsSample {
   memoryPercent: number;
   networkRx: number;
   networkTx: number;
+  blockRead: number;
+  blockWrite: number;
+  pids: number;
 }
 
 interface RawCpuUsage {
   total_usage: number;
   percpu_usage?: number[];
+}
+
+interface RawBlkioEntry {
+  op: string;
+  value: number;
 }
 
 export interface RawStats {
@@ -161,6 +169,9 @@ export interface RawStats {
   precpu_stats: { cpu_usage: RawCpuUsage; system_cpu_usage?: number };
   memory_stats?: { usage?: number; limit?: number; stats?: { cache?: number; inactive_file?: number } };
   networks?: Record<string, { rx_bytes?: number; tx_bytes?: number }>;
+  // Null on some cgroup v2 hosts instead of an empty array, hence the optional+nullable type.
+  blkio_stats?: { io_service_bytes_recursive?: RawBlkioEntry[] | null };
+  pids_stats?: { current?: number };
 }
 
 /**
@@ -188,6 +199,13 @@ export function summarizeStats(raw: RawStats): StatsSample {
     networkTx += iface.tx_bytes ?? 0;
   }
 
+  let blockRead = 0;
+  let blockWrite = 0;
+  for (const entry of raw.blkio_stats?.io_service_bytes_recursive ?? []) {
+    if (entry.op.toLowerCase() === 'read') blockRead += entry.value;
+    else if (entry.op.toLowerCase() === 'write') blockWrite += entry.value;
+  }
+
   return {
     timestamp: raw.read,
     cpuPercent: Math.round(cpuPercent * 10) / 10,
@@ -196,5 +214,8 @@ export function summarizeStats(raw: RawStats): StatsSample {
     memoryPercent: Math.round(memoryPercent * 10) / 10,
     networkRx,
     networkTx,
+    blockRead,
+    blockWrite,
+    pids: raw.pids_stats?.current ?? 0,
   };
 }

@@ -11,9 +11,7 @@ export interface FavoriteItem {
 const STORAGE_KEY = 'challoupe.favorites';
 
 /**
- * Persists favorites to localStorage and fans out changes to every subscriber (e.g. a star
- * button in a table row and the Dashboard's Favorites card). A module-level singleton,
- * since this is a per-browser preference with no need for a React context provider.
+ * Persists favorites to localStorage
  */
 class FavoritesStore {
   private items: FavoriteItem[];

@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   App as AntApp,
@@ -28,6 +27,7 @@ import type { Color } from 'antd/es/color-picker';
 import {
   AlertOutlined,
   ApiOutlined,
+  AppstoreOutlined,
   BellOutlined,
   ClockCircleOutlined,
   CloudDownloadOutlined,
@@ -42,6 +42,7 @@ import {
   EyeOutlined,
   LinkOutlined,
   NotificationOutlined,
+  PlusOutlined,
   ReloadOutlined,
   RobotOutlined,
   SafetyCertificateOutlined,
@@ -52,21 +53,20 @@ import {
   WarningOutlined,
   WindowsOutlined,
 } from '@ant-design/icons';
-import { ApiError, type AppSettings, type BackupFile, type NotificationFormat } from '../api';
+import type { AppSettings } from '../models/AppSettings';
+import type { NotificationFormat } from '../models/NotificationFormat';
+import type { BackupFile } from '../models/BackupFile';
 import { AI_COLOR, AI_COLOR_BORDER, fromISO, SECURITY_COLOR, SECURITY_COLOR_BORDER, formatBytes } from '../utils';
 import { findSsoProvider, guessSsoProvider, parseKnownSsoProvider, SSO_PROVIDERS } from '../data/ssoProviders';
 import AiButton from '../components/AiButton';
 import DeleteButton from '../components/DeleteButton';
 import SecurityButton from '../components/SecurityButton';
 import { useAppSettings } from '../hooks/useAppSettings';
+import { useConnectedAppsVisible } from '../hooks/useConnectedAppsVisible';
 import { useAuth } from '../auth';
-import { aiApi } from '../services/aiApi';
-import { backupApi } from '../services/backupApi';
-import { imagesApi } from '../services/imagesApi';
-import { notificationsApi } from '../services/notificationsApi';
-import { settingsApi } from '../services/settingsApi';
-import { systemApi } from '../services/systemApi';
-import { systemStatsApi } from '../services/systemStatsApi';
+import { aiApi } from '../services/api/aiApi';
+import { notificationsApi } from '../services/api/notificationsApi';
+import { useSettingsService, useSystemStatsTokenService, settingsService } from '../services/SettingsService';
 
 const REFRESH_INTERVAL_OPTIONS = [
   { value: 3000, label: '3 seconds' },
@@ -83,10 +83,8 @@ const SHELL_OPTIONS = [
   { value: '/bin/ash', label: '/bin/ash' },
 ];
 
-const DEFAULT_TERMINAL_THEME = { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#3b82f6' };
+const DEFAULT_TERMINAL_THEME = { background: '#0b0e14', foreground: '#c9d1d9', cursor: '#f53838' };
 
-// Only providers with a real ant-design brand icon get one; the rest (Okta, Auth0,
-// Keycloak, Authentik, Authelia) are plain text rather than an invented/approximate logo.
 const SSO_PROVIDER_ICONS: Record<string, ReactNode> = {
   google: <GoogleOutlined />,
   microsoft: <WindowsOutlined />,
@@ -107,34 +105,13 @@ const SSO_PROVIDER_OPTIONS = SSO_PROVIDERS.map((p) => ({
 }));
 
 function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
-  const { message } = AntApp.useApp();
-  const queryClient = useQueryClient();
   const [newToken, setNewToken] = useState<string | null>(null);
 
-  const { data: tokenStatus } = useQuery({
-    queryKey: ['system-stats-token'],
-    queryFn: () => systemStatsApi.getToken(),
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['system-stats-token'] });
-
-  const regenerateMutation = useMutation({
-    mutationFn: () => systemStatsApi.regenerateToken(),
-    onSuccess: ({ token }) => {
-      setNewToken(token);
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const revokeMutation = useMutation({
-    mutationFn: () => systemStatsApi.revokeToken(),
-    onSuccess: () => {
-      message.success('System stats token revoked');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
+  const {
+    tokenStatus,
+    regenerate: regenerateMutation,
+    revoke: revokeMutation,
+  } = useSystemStatsTokenService({ onRegenerated: setNewToken });
 
   const url = newToken ? `${window.location.origin}/api/system-stats/${newToken}` : '';
 
@@ -144,11 +121,13 @@ function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
         <ApiOutlined style={{ marginRight: 8 }} />
         System stats API
       </Typography.Title>
+
       <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
         An endpoint returning system information as JSON. Meant for a script, status page,
         or monitoring tool to poll on its own schedule. Add <code>?host=&lt;id&gt;</code> to read a
         different registered host, using the ID shown on the <Link to="/hosts">Hosts</Link> page.
       </Typography.Paragraph>
+
       {isAdmin && (
         <Space wrap>
           <Button
@@ -160,7 +139,7 @@ function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
           </Button>
           {tokenStatus?.configured && (
             <DeleteButton
-              confirmTitle="Revoke the system stats token? Anything polling it will start getting 404s."
+              confirmTitle="Revoke token? Anything polling it will start getting 404s."
               onConfirm={() => revokeMutation.mutate()}
               loading={revokeMutation.isPending}
             >
@@ -191,6 +170,7 @@ function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
           style={{ marginBottom: 12 }}
           message="This key is only shown once. Make sure to save it now."
         />
+
         <Typography.Text code copyable={{ text: url }} style={{ wordBreak: 'break-all' }}>
           {url}
         </Typography.Text>
@@ -200,17 +180,23 @@ function SystemStatsCard({ isAdmin }: { isAdmin: boolean }) {
 }
 
 export default function Settings() {
-  const { user, logout, refresh } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const { message, modal } = AntApp.useApp();
-  const queryClient = useQueryClient();
   const [form] = Form.useForm<AppSettings>();
   const isAdmin = user?.role === 'admin';
+  const [connectedAppsVisible, setConnectedAppsVisible] = useConnectedAppsVisible();
 
-  const { data: info } = useQuery({
-    queryKey: ['system-info'],
-    queryFn: () => systemApi.info('local'),
-  });
+  const {
+    info,
+    pullTrivy: pullTrivyMutation,
+    save: saveMutation,
+    reset: resetMutation,
+    restore: restoreMutation,
+    scheduledBackups,
+    runBackup: runBackupMutation,
+    deleteBackup: deleteBackupMutation,
+  } = useSettingsService();
 
   const { data: settings } = useAppSettings();
 
@@ -224,20 +210,15 @@ export default function Settings() {
   const [ssoProvider, setSsoProvider] = useState('custom');
   const [ssoProviderValues, setSsoProviderValues] = useState<Record<string, string>>({});
 
-  const pullTrivyMutation = useMutation({
-    mutationFn: (reference: string) => imagesApi.pull('local', reference),
-    onSuccess: () => message.success('Trivy image pulled and ready to scan'),
-    onError: (err) => message.error(err.message),
-  });
-
   useEffect(() => {
     if (settings) form.setFieldsValue(settings);
   }, [settings, form]);
 
-  // Restore which SSO provider template (if any) is behind the stored issuer URL, so
-  // reopening Settings shows the right picker selection instead of always falling back to
-  // "Custom". The stored `providerId` names the template directly once one has been saved;
-  // for settings saved before that field existed, fall back to a best-effort URL guess.
+  /** 
+   * Restore which SSO provider template (if any) is behind the stored issuer URL, so
+   * reopening Settings shows the right picker selection instead of always falling back to
+   * "Custom"
+   */
   useEffect(() => {
     if (!settings) return;
     const { providerId, issuerUrl } = settings.oidc;
@@ -270,25 +251,6 @@ export default function Settings() {
     form.setFieldValue(['oidc', 'issuerUrl'], findSsoProvider(ssoProvider).buildIssuerUrl(next));
   };
 
-  const saveMutation = useMutation({
-    mutationFn: (values: AppSettings) => settingsApi.update(values),
-    onSuccess: () => {
-      message.success('Settings saved');
-      queryClient.invalidateQueries({ queryKey: ['settings'] });
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const resetMutation = useMutation({
-    mutationFn: () => settingsApi.reset(),
-    onSuccess: async () => {
-      message.success('Factory reset complete. Create a new administrator account to continue.');
-      await refresh();
-      navigate('/login', { replace: true });
-    },
-    onError: (err) => message.error(err.message),
-  });
-
   const handleResetToDefaults = () => {
     modal.confirm({
       title: 'Factory reset Challoupe?',
@@ -299,16 +261,6 @@ export default function Settings() {
       onOk: () => resetMutation.mutate(),
     });
   };
-
-  const restoreMutation = useMutation({
-    mutationFn: (data: BackupFile) => backupApi.restore(data),
-    onSuccess: async () => {
-      message.success('Restore complete. Please sign in again.');
-      await logout().catch(() => {}); // the server session is already destroyed; this just clears local state
-      navigate('/login', { replace: true });
-    },
-    onError: (err) => message.error(err.message),
-  });
 
   const handleRestoreFile = (file: File): boolean => {
     file.text().then((text) => {
@@ -323,49 +275,26 @@ export default function Settings() {
         message.error('Unsupported backup file version');
         return;
       }
+
       modal.confirm({
         title: 'Restore this backup?',
-        content: `This replaces all ${parsed.users.length} user(s), every setting, and ${parsed.stacks.length} stack(s) with the ones in this file, it cannot be undone.`,
+        content: `This replaces every user(s), setting and stack(s) with the ones in this file, it cannot be undone.`,
         okText: 'Restore',
         okButtonProps: { danger: true },
         onOk: () => restoreMutation.mutate(parsed),
       });
     });
+
     return false; // prevent antd's Upload from trying to actually upload the file anywhere
   };
 
-  const { data: scheduledBackups } = useQuery({
-    queryKey: ['scheduled-backups'],
-    queryFn: () => backupApi.listScheduled(),
-  });
-
-  const invalidateScheduledBackups = () =>
-    queryClient.invalidateQueries({ queryKey: ['scheduled-backups'] });
-
-  const runBackupMutation = useMutation({
-    mutationFn: () => backupApi.runScheduled(),
-    onSuccess: (res) => {
-      message.success(`Wrote ${res.filename}`);
-      invalidateScheduledBackups();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const deleteBackupMutation = useMutation({
-    mutationFn: (filename: string) => backupApi.removeScheduled(filename),
-    onSuccess: () => {
-      message.success('Backup deleted');
-      invalidateScheduledBackups();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
+  /**
+   * Tests the URL currently typed in the field
+   */
   const testOllama = async () => {
     setTestStatus('testing');
     setTestError('');
     try {
-      // Tests the URL currently typed in the field, not whatever was last saved. Otherwise
-      // editing the Base URL and testing before hitting Save would silently test the old value.
       const baseUrl = form.getFieldValue('ollamaBaseUrl') as string;
       const res = await aiApi.models(baseUrl);
       setModels(res.models);
@@ -373,19 +302,21 @@ export default function Settings() {
       if (res.models.length === 0) {
         message.warning('Connected, but no models are pulled yet. Run "ollama pull <model>".');
       } else {
-        message.success(`Connected. Found ${res.models.length} model${res.models.length === 1 ? '' : 's'}.`);
+        message.success(`Connected. Found ${res.models.length} model(s).`);
       }
     } catch (err) {
       setTestStatus('error');
-      setTestError(err instanceof ApiError ? err.message : 'Could not reach Ollama');
+      setTestError(settingsService.errorMessage(err, 'Could not reach Ollama'));
     }
   };
 
+  /**
+   * Tests the value currently typed in the field
+   */
   const testWebhook = async () => {
     setNotifTestStatus('testing');
     setNotifTestError('');
     try {
-      // Tests the values currently typed in the form, not whatever was last saved.
       const webhookUrl = form.getFieldValue(['notifications', 'webhookUrl']) as string;
       const format = form.getFieldValue(['notifications', 'format']) as NotificationFormat;
       await notificationsApi.test(webhookUrl, format);
@@ -393,15 +324,17 @@ export default function Settings() {
       message.success('Test notification sent.');
     } catch (err) {
       setNotifTestStatus('error');
-      setNotifTestError(err instanceof ApiError ? err.message : 'Could not reach the webhook');
+      setNotifTestError(settingsService.errorMessage(err, 'Could not reach the webhook'));
     }
   };
 
+  /**
+   * Tests the value currently typed in the field
+   */
   const testNtfy = async () => {
     setNtfyTestStatus('testing');
     setNtfyTestError('');
     try {
-      // Tests the values currently typed in the form, not whatever was last saved.
       const serverUrl = form.getFieldValue(['ntfy', 'serverUrl']) as string;
       const topic = form.getFieldValue(['ntfy', 'topic']) as string;
       const username = form.getFieldValue(['ntfy', 'username']) as string;
@@ -411,7 +344,7 @@ export default function Settings() {
       message.success('Test notification sent.');
     } catch (err) {
       setNtfyTestStatus('error');
-      setNtfyTestError(err instanceof ApiError ? err.message : 'Could not reach ntfy');
+      setNtfyTestError(settingsService.errorMessage(err, 'Could not reach ntfy'));
     }
   };
 
@@ -430,8 +363,6 @@ export default function Settings() {
   const ntfyEnabled = Form.useWatch(['ntfy', 'enabled'], form) ?? false;
   const watchdogEnabled = Form.useWatch(['aiWatchdog', 'enabled'], form) ?? false;
   const watchdogAuditEnabled = Form.useWatch(['aiWatchdog', 'checkAuditLog'], form) ?? false;
-  // The Ollama connection is shared by the manual AI Assistant and the background AI
-  // Watchdog; either one needing it should unlock the fields, not just the Assistant.
   const ollamaConfigEnabled = aiEnabled || watchdogEnabled;
   const resourceAlertsEnabled = Form.useWatch(['resourceAlerts', 'enabled'], form) ?? false;
   const trivyImage = Form.useWatch('trivyImage', form);
@@ -464,6 +395,13 @@ export default function Settings() {
     </Space>
   );
 
+  const appLinksTabLabel = (
+    <Space size={6}>
+      <AppstoreOutlined />
+      App links
+    </Space>
+  );
+
   return (
     <div>
       <Typography.Title level={3}>Settings</Typography.Title>
@@ -472,10 +410,28 @@ export default function Settings() {
         form={form}
         layout="vertical"
         disabled={!isAdmin}
-        onFinish={(values) => saveMutation.mutate(values)}
+        onFinish={(values) => {
+          const resourceAlerts = values.resourceAlerts;
+          saveMutation.mutate({
+            ...values,
+            // Clearing an InputNumber sends null, not undefined; the server's schema requires
+            // a real number when the key is present at all, so null must be normalized away to
+            // mean "leave this threshold unchanged" (matters when alerts are disabled and the
+            // required-when-enabled rules above don't block the blank field).
+            resourceAlerts: resourceAlerts && {
+              ...resourceAlerts,
+              checkIntervalMinutes: resourceAlerts.checkIntervalMinutes ?? undefined,
+              hostCpuPercent: resourceAlerts.hostCpuPercent ?? undefined,
+              hostMemoryPercent: resourceAlerts.hostMemoryPercent ?? undefined,
+              hostDiskPercent: resourceAlerts.hostDiskPercent ?? undefined,
+              containerCpuPercent: resourceAlerts.containerCpuPercent ?? undefined,
+              containerMemoryPercent: resourceAlerts.containerMemoryPercent ?? undefined,
+            },
+          });
+        }}
       >
         <Tabs
-          defaultActiveKey="general"
+          defaultActiveKey={searchParams.get('tab') || 'general'}
           items={[
             {
               key: 'general',
@@ -501,7 +457,7 @@ export default function Settings() {
                       <Descriptions.Item label="Kernel">{info?.kernel}</Descriptions.Item>
                       <Descriptions.Item label="Architecture">{info?.arch}</Descriptions.Item>
                       <Descriptions.Item label="CPU / Memory">
-                        {info ? `${info.cpus} CPU · ${formatBytes(info.memory)}` : ''}
+                        {info ? `${info.cpus} Cores / ${formatBytes(info.memory)}` : ''}
                       </Descriptions.Item>
                       <Descriptions.Item label="Docker socket">{info?.dockerSock}</Descriptions.Item>
                       <Descriptions.Item label="Data directory">{info?.dataDir}</Descriptions.Item>
@@ -513,9 +469,11 @@ export default function Settings() {
                       <SettingOutlined style={{ marginRight: 8 }} />
                       Defaults
                     </Typography.Title>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                       Applied when browsing containers and creating new ones.
                     </Typography.Paragraph>
+
                     <Space size="large" wrap align="start">
                       <Form.Item
                         name="refreshIntervalMs"
@@ -524,6 +482,7 @@ export default function Settings() {
                       >
                         <Select style={{ width: 200 }} options={REFRESH_INTERVAL_OPTIONS} />
                       </Form.Item>
+
                       <Form.Item
                         name="defaultLogTail"
                         label="Default log backlog"
@@ -544,6 +503,7 @@ export default function Settings() {
                           ]}
                         />
                       </Form.Item>
+
                       <Form.Item
                         name="defaultTerminalShell"
                         label="Default terminal shell"
@@ -559,15 +519,18 @@ export default function Settings() {
                       <DashboardOutlined style={{ marginRight: 8 }} />
                       Resource quotas
                     </Typography.Title>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                      Caps applied when a non-admin user creates a container. Administrators are
-                      never limited. Leave blank for unlimited.
+                      Caps applied when a user creates a container.
+                      Leave blank for unlimited.
                     </Typography.Paragraph>
+
                     <Space size="large" wrap align="start">
-                      <Form.Item name="maxContainerMemoryMb" label="Max memory for non-admins (MB)">
+                      <Form.Item name="maxContainerMemoryMb" label="Max memory (MB)">
                         <InputNumber min={1} placeholder="Unlimited" style={{ width: 200 }} />
                       </Form.Item>
-                      <Form.Item name="maxContainerCpus" label="Max CPU cores for non-admins">
+
+                      <Form.Item name="maxContainerCpus" label="Max CPU cores">
                         <InputNumber min={0.1} step={0.1} placeholder="Unlimited" style={{ width: 200 }} />
                       </Form.Item>
                     </Space>
@@ -578,16 +541,19 @@ export default function Settings() {
                       <SyncOutlined style={{ marginRight: 8 }} />
                       Image update checks
                     </Typography.Title>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                      A manual "Check for updates" is always available on the Images page. Turning
-                      this on also checks every pulled image against its registry on a timer.
+                      A manual "Check for updates" is always available on the Images page.
+                      Turning this on also checks every pulled image against its registry on a timer.
                     </Typography.Paragraph>
+
                     <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
                       <Form.Item name={['imageUpdateCheck', 'enabled']} valuePropName="checked" noStyle>
                         <Switch />
                       </Form.Item>
                       <Typography.Text strong>Check for image updates automatically</Typography.Text>
                     </Space>
+
                     <Space size="large" wrap align="start">
                       <Form.Item name={['imageUpdateCheck', 'intervalHours']} label="Check interval (hours)">
                         <InputNumber
@@ -605,9 +571,11 @@ export default function Settings() {
                       <BgColorsOutlined style={{ marginRight: 8 }} />
                       Terminal appearance
                     </Typography.Title>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                       Colors used by every container's Terminal tab.
                     </Typography.Paragraph>
+
                     <Space size="large" wrap align="end">
                       <Form.Item
                         name={['terminalTheme', 'background']}
@@ -616,6 +584,7 @@ export default function Settings() {
                       >
                         <ColorPicker disabledAlpha />
                       </Form.Item>
+
                       <Form.Item
                         name={['terminalTheme', 'foreground']}
                         label="Text"
@@ -623,6 +592,7 @@ export default function Settings() {
                       >
                         <ColorPicker disabledAlpha />
                       </Form.Item>
+
                       <Form.Item
                         name={['terminalTheme', 'cursor']}
                         label="Cursor"
@@ -630,15 +600,16 @@ export default function Settings() {
                       >
                         <ColorPicker disabledAlpha />
                       </Form.Item>
+
                       <Form.Item label=" ">
                         <Button onClick={() => form.setFieldValue('terminalTheme', DEFAULT_TERMINAL_THEME)}>
                           Reset to default
                         </Button>
                       </Form.Item>
                     </Space>
+
                     <div
                       style={{
-                        maxWidth: 360,
                         padding: '8px 12px',
                         borderRadius: 6,
                         fontFamily: 'monospace',
@@ -648,7 +619,7 @@ export default function Settings() {
                       }}
                     >
                       <span style={{ borderLeft: `2px solid ${terminalTheme.cursor}` }}>
-                        user@challoupe:~$ echo hello
+                        user@challoupe:~$ echo "127.0.0.1 localhost" {'>>'} /etc/hosts
                       </span>
                     </div>
                   </Card>
@@ -668,6 +639,7 @@ export default function Settings() {
                       <RobotOutlined style={{ color: AI_COLOR, marginRight: 8 }} />
                       AI Assistant
                     </Typography.Title>
+
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item
                         name={['featureFlags', 'aiAssistant']}
@@ -676,18 +648,18 @@ export default function Settings() {
                       >
                         <Switch />
                       </Form.Item>
+
                       <Typography.Text strong>Enable AI features</Typography.Text>
                     </Space>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                      Point this at a local or LAN{' '}
+                      Point this at a{' '}
                       <a href="https://ollama.com" target="_blank" rel="noreferrer">
                         Ollama
                       </a>{' '}
-                      server to unlock log diagnosis, AI stack generation, and the chat assistant.
-                      Nothing leaves this address. Turning this off hides those entry points from
-                      every user; the AI Watchdog below is separate and keeps working off the same
-                      connection if you enable it.
+                      server to unlock AI features.
                     </Typography.Paragraph>
+
                     <Space size="large" wrap align="start">
                       <Form.Item name="ollamaBaseUrl" label="Base URL">
                         <Input
@@ -696,18 +668,20 @@ export default function Settings() {
                           disabled={!ollamaConfigEnabled}
                         />
                       </Form.Item>
+
                       <Form.Item
                         name="ollamaModel"
                         label="Model"
-                        tooltip="Also used by the AI watchdog below: a 20B+ parameter, non-reasoning model is recommended there to avoid false positives and slow responses"
+                        tooltip="A 20B+ parameter, non-reasoning model is recommended to avoid false positives and slow responses"
                       >
                         <AutoComplete
                           style={{ width: 200 }}
                           options={modelOptions}
-                          placeholder="e.g. llama3.1"
+                          placeholder="qwen3-coder:30b"
                           disabled={!ollamaConfigEnabled}
                         />
                       </Form.Item>
+
                       {isAdmin && (
                         <Form.Item label=" ">
                           <AiButton
@@ -720,6 +694,7 @@ export default function Settings() {
                         </Form.Item>
                       )}
                     </Space>
+
                     {testStatus === 'error' && (
                       <Alert
                         type="error"
@@ -736,48 +711,46 @@ export default function Settings() {
                       <EyeOutlined style={{ marginRight: 8 }} />
                       AI Watchdog
                     </Typography.Title>
+
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item name={['aiWatchdog', 'enabled']} valuePropName="checked" noStyle>
                         <Switch />
                       </Form.Item>
                       <Typography.Text strong>Enable AI watchdog</Typography.Text>
                     </Space>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                       Watches for problems in the background and sends a finding over the
-                      notification channels below.
+                      notification channels.
                     </Typography.Paragraph>
+
                     <Space direction="vertical">
                       <Form.Item name={['aiWatchdog', 'checkContainerEvents']} valuePropName="checked" noStyle>
                         <Checkbox disabled={!watchdogEnabled}>
                           Diagnose containers that crash, are OOM-killed, or fail their health
-                          check with the model above (needs a model configured, independent of
-                          the AI Assistant toggle)
+                          check
                         </Checkbox>
                       </Form.Item>
+
                       <Form.Item name={['aiWatchdog', 'checkAuditLog']} valuePropName="checked" noStyle>
                         <Checkbox disabled={!watchdogEnabled}>
-                          Scan the audit log for repeated failed logins or permission denials
+                          Scan the audit log for repeated failed logins and suspicious activity
                         </Checkbox>
                       </Form.Item>
                     </Space>
-                    <Typography.Paragraph type="secondary" style={{ maxWidth: 640, marginTop: 8 }}>
-                      For reliable container diagnosis, use a model with at least 20B parameters
-                      and no extended "thinking"/reasoning step: smaller or reasoning models are
-                      more prone to false positives and hallucinations, and are slower to respond.
-                    </Typography.Paragraph>
-                    <Space size="large" wrap align="start">
-                      <Form.Item
-                        name={['aiWatchdog', 'auditCheckIntervalMinutes']}
-                        label="Audit scan interval (minutes)"
-                      >
-                        <InputNumber
-                          min={1}
-                          max={24 * 60}
-                          disabled={!watchdogEnabled || !watchdogAuditEnabled}
-                          style={{ width: 200 }}
-                        />
-                      </Form.Item>
-                    </Space>
+
+                    <Form.Item
+                      name={['aiWatchdog', 'auditCheckIntervalMinutes']}
+                      label="Audit scan interval (minutes)"
+                      style={{ marginTop: 16 }}
+                    >
+                      <InputNumber
+                        min={1}
+                        max={24 * 60}
+                        disabled={!watchdogEnabled || !watchdogAuditEnabled}
+                        style={{ width: 200 }}
+                      />
+                    </Form.Item>
                   </Card>
 
                   <Card style={{ border: `1px solid ${SECURITY_COLOR_BORDER}` }}>
@@ -785,6 +758,7 @@ export default function Settings() {
                       <SecurityScanOutlined style={{ color: SECURITY_COLOR, marginRight: 8 }} />
                       Security Scanner
                     </Typography.Title>
+
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item
                         name={['featureFlags', 'vulnerabilityScanner']}
@@ -793,18 +767,19 @@ export default function Settings() {
                       >
                         <Switch />
                       </Form.Item>
+
                       <Typography.Text strong>Enable vulnerability scanning</Typography.Text>
                     </Space>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                       Runs{' '}
                       <a href="https://trivy.dev" target="_blank" rel="noreferrer">
                         Trivy
                       </a>{' '}
                       as a one-off local container (mounted against the Docker socket) to unlock the
-                      "Scan" action on the Images page. The first scan downloads a vulnerability
-                      database, cached locally so later scans are fast. Turning this off hides the
-                      scan button and disables it on the server too.
+                      "Scan" action on the Images page.
                     </Typography.Paragraph>
+
                     <Space size="large" wrap align="start">
                       <Form.Item
                         name="trivyImage"
@@ -813,6 +788,7 @@ export default function Settings() {
                       >
                         <Input style={{ width: 260 }} placeholder="aquasec/trivy:latest" disabled={!securityEnabled} />
                       </Form.Item>
+
                       {isAdmin && (
                         <Form.Item label=" ">
                           <SecurityButton
@@ -840,23 +816,28 @@ export default function Settings() {
                       <BellOutlined style={{ marginRight: 8 }} />
                       Notifications
                     </Typography.Title>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                      Which background events are worth being notified about. Shared by every
-                      channel below, so both send the same set of events, whichever is enabled.
+                      Choose which background events are worth being notified about.
                     </Typography.Paragraph>
+
                     <Space direction="vertical">
                       <Form.Item name={['notifyEvents', 'onContainerCrash']} valuePropName="checked" noStyle>
                         <Checkbox>A container crashes, is OOM-killed, or fails its health check</Checkbox>
                       </Form.Item>
+
                       <Form.Item name={['notifyEvents', 'onImageUpdate']} valuePropName="checked" noStyle>
                         <Checkbox>A scheduled image update check finds something new</Checkbox>
                       </Form.Item>
+
                       <Form.Item name={['notifyEvents', 'onBackupFailure']} valuePropName="checked" noStyle>
                         <Checkbox>A scheduled backup fails</Checkbox>
                       </Form.Item>
+
                       <Form.Item name={['notifyEvents', 'onAuditAnomaly']} valuePropName="checked" noStyle>
                         <Checkbox>When AI watchdog flags suspicious activity</Checkbox>
                       </Form.Item>
+
                       <Form.Item name={['notifyEvents', 'onResourceThreshold']} valuePropName="checked" noStyle>
                         <Checkbox>A container or host resource (CPU, memory, disk) crosses its configured threshold</Checkbox>
                       </Form.Item>
@@ -868,52 +849,87 @@ export default function Settings() {
                       <AlertOutlined style={{ marginRight: 8 }} />
                       Resource Alerts
                     </Typography.Title>
+
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item name={['resourceAlerts', 'enabled']} valuePropName="checked" noStyle>
                         <Switch />
                       </Form.Item>
+
                       <Typography.Text strong>Enable resource alerts</Typography.Text>
                     </Space>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                       Periodically checks host and per-container CPU, memory, and disk usage
-                      against the thresholds below, and sends a notification over the channels
-                      below when one is crossed.
+                      against the thresholds, and sends a notification when one is crossed.
                     </Typography.Paragraph>
+
                     <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
-                      <Form.Item name={['resourceAlerts', 'checkIntervalMinutes']} label="Check interval (minutes)">
+                      <Form.Item
+                        name={['resourceAlerts', 'checkIntervalMinutes']}
+                        label="Check interval (minutes)"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 1440' }]}
+                      >
                         <InputNumber min={1} max={24 * 60} disabled={!resourceAlertsEnabled} style={{ width: 200 }} />
                       </Form.Item>
                     </Space>
+
                     <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
                       Host thresholds
                     </Typography.Text>
+
                     <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                      Only ever measures this Challoupe machine — CPU/memory/disk of a remote host
-                      isn't reachable this way, so these thresholds don't apply to hosts added under
-                      Hosts.
+                      Only ever measures this machine. CPU/memory/disk of a remote host
+                      isn't reachable this way, so these thresholds don't apply to remove Hosts.
                     </Typography.Text>
+
                     <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
-                      <Form.Item name={['resourceAlerts', 'hostCpuPercent']} label="CPU">
+                      <Form.Item
+                        name={['resourceAlerts', 'hostCpuPercent']}
+                        label="CPU"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
-                      <Form.Item name={['resourceAlerts', 'hostMemoryPercent']} label="Memory">
+
+                      <Form.Item
+                        name={['resourceAlerts', 'hostMemoryPercent']}
+                        label="Memory"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
-                      <Form.Item name={['resourceAlerts', 'hostDiskPercent']} label="Disk">
+
+                      <Form.Item
+                        name={['resourceAlerts', 'hostDiskPercent']}
+                        label="Disk"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
                     </Space>
+
                     <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
                       Per-container thresholds
                     </Typography.Text>
+
                     <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                      Applies across every host — local and every host added under Hosts.
+                      Applies across every host.
                     </Typography.Text>
+
                     <Space size="large" wrap align="start">
-                      <Form.Item name={['resourceAlerts', 'containerCpuPercent']} label="CPU">
+                      <Form.Item
+                        name={['resourceAlerts', 'containerCpuPercent']}
+                        label="CPU"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
-                      <Form.Item name={['resourceAlerts', 'containerMemoryPercent']} label="Memory">
+
+                      <Form.Item
+                        name={['resourceAlerts', 'containerMemoryPercent']}
+                        label="Memory"
+                        rules={[{ required: resourceAlertsEnabled, message: 'Enter a value between 1 and 100' }]}
+                      >
                         <InputNumber min={1} max={100} suffix="%" disabled={!resourceAlertsEnabled} style={{ width: 160 }} />
                       </Form.Item>
                     </Space>
@@ -924,26 +940,30 @@ export default function Settings() {
                       <ApiOutlined style={{ marginRight: 8 }} />
                       Webhook
                     </Typography.Title>
+
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item name={['notifications', 'enabled']} valuePropName="checked" noStyle>
                         <Switch />
                       </Form.Item>
                       <Typography.Text strong>Send webhook notifications</Typography.Text>
                     </Space>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                      Posts a message to a Discord, Slack, or generic JSON webhook.
+                      Posts a message to Discord, Slack, or generic JSON webhook.
                     </Typography.Paragraph>
+
                     <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
                       <Form.Item
                         name={['notifications', 'webhookUrl']}
                         label="Webhook URL"
-                        tooltip="Never sent back to the browser, leave blank to keep the currently stored URL"
+                        tooltip="Leave blank to keep the currently stored URL"
                       >
                         <Input.Password
                           placeholder="Leave blank to keep current"
                           disabled={!notificationsEnabled}
                         />
                       </Form.Item>
+
                       <Space size="large" wrap align="end">
                         <Form.Item name={['notifications', 'format']} label="Format">
                           <Select
@@ -956,6 +976,7 @@ export default function Settings() {
                             ]}
                           />
                         </Form.Item>
+
                         {isAdmin && (
                           <Form.Item label=" ">
                             <Button
@@ -970,6 +991,7 @@ export default function Settings() {
                         )}
                       </Space>
                     </Space>
+
                     {notifTestStatus === 'error' && (
                       <Alert
                         type="error"
@@ -986,12 +1008,15 @@ export default function Settings() {
                       <NotificationOutlined style={{ marginRight: 8 }} />
                       ntfy
                     </Typography.Title>
+
                     <Space align="center" style={{ marginBottom: 16 }}>
                       <Form.Item name={['ntfy', 'enabled']} valuePropName="checked" noStyle>
                         <Switch />
                       </Form.Item>
+
                       <Typography.Text strong>Send ntfy notifications</Typography.Text>
                     </Space>
+
                     <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                       Publishes to a topic on{' '}
                       <a href="https://ntfy.sh" target="_blank" rel="noreferrer">
@@ -999,23 +1024,27 @@ export default function Settings() {
                       </a>{' '}
                       (public or a self-hosted server).
                     </Typography.Paragraph>
+
                     <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
                       <Space size="large" wrap align="start">
                         <Form.Item name={['ntfy', 'serverUrl']} label="Server URL">
                           <Input style={{ width: 220 }} placeholder="https://ntfy.sh" disabled={!ntfyEnabled} />
                         </Form.Item>
+
                         <Form.Item name={['ntfy', 'topic']} label="Topic">
                           <Input style={{ width: 200 }} placeholder="challoupe-alerts" disabled={!ntfyEnabled} />
                         </Form.Item>
                       </Space>
+
                       <Space size="large" wrap align="start">
                         <Form.Item name={['ntfy', 'username']} label="Username (optional)">
                           <Input style={{ width: 200 }} disabled={!ntfyEnabled} />
                         </Form.Item>
+
                         <Form.Item
                           name={['ntfy', 'password']}
                           label="Password (optional)"
-                          tooltip="Never sent back to the browser, leave blank to keep the currently stored password"
+                          tooltip="Leave blank to keep the currently stored password"
                         >
                           <Input.Password
                             style={{ width: 200 }}
@@ -1023,6 +1052,7 @@ export default function Settings() {
                             disabled={!ntfyEnabled}
                           />
                         </Form.Item>
+
                         {isAdmin && (
                           <Form.Item label=" ">
                             <Button
@@ -1037,6 +1067,7 @@ export default function Settings() {
                         )}
                       </Space>
                     </Space>
+
                     {ntfyTestStatus === 'error' && (
                       <Alert
                         type="error"
@@ -1060,16 +1091,20 @@ export default function Settings() {
                     <Form.Item name={['oidc', 'enabled']} valuePropName="checked" noStyle>
                       <Switch />
                     </Form.Item>
+
                     <Typography.Text strong>Enable single sign-on</Typography.Text>
                   </Space>
+
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Lets users sign in through an external OpenID Connect provider in addition
                     to a local username/password.
                   </Typography.Paragraph>
+
                   <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 480 }}>
                     <Form.Item name={['oidc', 'providerId']} hidden>
                       <Input />
                     </Form.Item>
+
                     <Form.Item label="Provider" tooltip="Fills in the issuer URL for a known provider.">
                       <Select
                         value={ssoProvider}
@@ -1078,6 +1113,7 @@ export default function Settings() {
                         options={SSO_PROVIDER_OPTIONS}
                       />
                     </Form.Item>
+
                     {findSsoProvider(ssoProvider).fields.map((field) => (
                       <Form.Item key={field.key} label={field.label} tooltip={field.tooltip}>
                         <Input
@@ -1088,6 +1124,7 @@ export default function Settings() {
                         />
                       </Form.Item>
                     ))}
+
                     <Form.Item
                       name={['oidc', 'issuerUrl']}
                       label="Issuer URL"
@@ -1103,19 +1140,23 @@ export default function Settings() {
                         readOnly={ssoProvider !== 'custom'}
                       />
                     </Form.Item>
+
                     <Form.Item name={['oidc', 'clientId']} label="Client ID">
                       <Input disabled={!ssoEnabled} />
                     </Form.Item>
+
                     <Form.Item
                       name={['oidc', 'clientSecret']}
                       label="Client secret"
-                      tooltip="Never sent back to the browser — leave blank to keep the currently stored secret"
+                      tooltip="Leave blank to keep the currently stored secret"
                     >
                       <Input.Password placeholder="Leave blank to keep current" disabled={!ssoEnabled} />
                     </Form.Item>
+
                     <Form.Item name={['oidc', 'buttonLabel']} label="Login button label">
                       <Input placeholder="Single Sign-On" disabled={!ssoEnabled} />
                     </Form.Item>
+
                     <Form.Item
                       label="Callback URL"
                       tooltip="Register this exact URL as an allowed redirect URI at your identity provider"
@@ -1135,11 +1176,13 @@ export default function Settings() {
                   <Typography.Title level={5} style={{ marginTop: 0 }}>
                     Download a backup
                   </Typography.Title>
+
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-                    Exports every user (with their permissions), all settings, and every stack's
-                    compose file as one JSON file. Running containers, images, volumes, and
-                    networks are not included.
+                    Exports every user (with their permissions), settings, and stack's
+                    compose file as one JSON file. 
+                    Running containers, images, volumes, and networks are not included.
                   </Typography.Paragraph>
+
                   <Alert
                     type="warning"
                     showIcon
@@ -1147,6 +1190,7 @@ export default function Settings() {
                     message="Backups contains credentials, store it securely!"
                     description="The file includes password hashes and any configured secret (such as the SSO client secret) needed to make a restore fully functional. Treat it like you would a database backup."
                   />
+
                   {isAdmin && (
                     <Button icon={<CloudDownloadOutlined />} href="/api/backup">
                       Download backup
@@ -1156,14 +1200,16 @@ export default function Settings() {
                   <Divider />
 
                   <Typography.Title level={5}>Restore from a backup</Typography.Title>
+
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Replaces every current user, setting, and stack definition with the ones in
                     the file. This cannot be undone, and everyone will need to sign in again afterward.
                   </Typography.Paragraph>
+
                   {isAdmin && (
                     <Upload accept="application/json" showUploadList={false} beforeUpload={handleRestoreFile}>
                       <Button icon={<UploadOutlined />} loading={restoreMutation.isPending}>
-                        Choose backup file…
+                        Choose backup file...
                       </Button>
                     </Upload>
                   )}
@@ -1171,34 +1217,42 @@ export default function Settings() {
                   <Divider />
 
                   <Typography.Title level={5}>Scheduled backups</Typography.Title>
+
                   <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
                     Writes the same export to <code>data/backups/</code> on a timer, keeping only
                     the most recent files below.
                   </Typography.Paragraph>
+
                   <Space align="center" style={{ display: 'flex', marginBottom: 16 }}>
                     <Form.Item name={['scheduledBackup', 'enabled']} valuePropName="checked" noStyle>
                       <Switch />
                     </Form.Item>
+
                     <Typography.Text strong>Back up automatically</Typography.Text>
                   </Space>
+
                   <Space size="large" wrap align="start" style={{ marginBottom: 16 }}>
                     <Form.Item name={['scheduledBackup', 'intervalHours']} label="Interval (hours)">
                       <InputNumber min={1} max={24 * 30} disabled={!scheduledBackupEnabled} style={{ width: 160 }} />
                     </Form.Item>
+
                     <Form.Item name={['scheduledBackup', 'keepCount']} label="Keep this many">
                       <InputNumber min={1} max={100} disabled={!scheduledBackupEnabled} style={{ width: 160 }} />
                     </Form.Item>
+
+                    {isAdmin && (
+                      <Form.Item label=" ">
+                        <Button
+                          icon={<ClockCircleOutlined />}
+                          onClick={() => runBackupMutation.mutate()}
+                          loading={runBackupMutation.isPending}
+                        >
+                          Back up now
+                        </Button>
+                      </Form.Item>
+                    )}
                   </Space>
-                  {isAdmin && (
-                    <Button
-                      icon={<ClockCircleOutlined />}
-                      onClick={() => runBackupMutation.mutate()}
-                      loading={runBackupMutation.isPending}
-                      style={{ marginBottom: 16 }}
-                    >
-                      Back up now
-                    </Button>
-                  )}
+
                   <List
                     size="small"
                     bordered
@@ -1224,6 +1278,7 @@ export default function Settings() {
                       >
                         <Space direction="vertical" size={0}>
                           <Typography.Text code>{file.filename}</Typography.Text>
+
                           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                             {formatBytes(file.size)} · {fromISO(file.createdAt)}
                           </Typography.Text>
@@ -1231,6 +1286,76 @@ export default function Settings() {
                       </List.Item>
                     )}
                   />
+                </Card>
+              ),
+            },
+            {
+              key: 'applinks',
+              label: appLinksTabLabel,
+              forceRender: true,
+              children: (
+                <Card>
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    <AppstoreOutlined style={{ marginRight: 8 }} />
+                    Connected apps
+                  </Typography.Title>
+
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
+                    Add another app's URL here to jump to it from the grid icon in the header,
+                    the same way Google links Gmail, Drive, and its other apps together.
+                  </Typography.Paragraph>
+
+                  <Space align="center" style={{ marginBottom: 16 }}>
+                    <Switch checked={connectedAppsVisible} onChange={setConnectedAppsVisible} disabled={false} />
+                    <Typography.Text strong>Show the grid icon in the header</Typography.Text>
+                  </Space>
+
+                  <Typography.Paragraph type="secondary" style={{ maxWidth: 640, marginTop: -12 }}>
+                    A preference for this browser only, it doesn't affect other users.
+                  </Typography.Paragraph>
+
+                  <Form.List name="appLinks">
+                    {(fields, { add, remove }) => (
+                      <>
+                        {fields.map((field) => (
+                          <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }} wrap>
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'label']}
+                              rules={[{ required: true, message: 'Name is required' }]}
+                            >
+                              <Input placeholder="Display name" style={{ width: 200 }} />
+                            </Form.Item>
+
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'url']}
+                              rules={[
+                                { required: true, message: 'URL is required' },
+                                { pattern: /^https?:\/\//, message: 'Must start with http:// or https://' },
+                              ]}
+                            >
+                              <Input placeholder="https://my-app.domain.com" style={{ width: 320 }} />
+                            </Form.Item>
+
+                            {isAdmin && (
+                              <Button
+                                icon={<DeleteOutlined />}
+                                aria-label="Remove app link"
+                                onClick={() => remove(field.name)}
+                              />
+                            )}
+                          </Space>
+                        ))}
+
+                        {isAdmin && fields.length < 12 && (
+                          <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>
+                            Add link
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </Form.List>
                 </Card>
               ),
             },
@@ -1242,6 +1367,7 @@ export default function Settings() {
             Save
           </Button>
         )}
+
         {!isAdmin && (
           <Typography.Text type="secondary" style={{ display: 'block', marginTop: 16 }}>
             Only administrators can change global settings.
@@ -1255,10 +1381,12 @@ export default function Settings() {
             <WarningOutlined style={{ marginRight: 8 }} />
             Danger zone
           </Typography.Title>
+
           <Typography.Paragraph type="secondary" style={{ maxWidth: 640 }}>
-            Deletes every users, stack and settings to its default values. 
+            Reset everything to its default values. 
             Backups already written to disk are not affected.
           </Typography.Paragraph>
+          
           <Button danger loading={resetMutation.isPending} onClick={handleResetToDefaults}>
             Factory reset
           </Button>

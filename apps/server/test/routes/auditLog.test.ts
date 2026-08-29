@@ -53,3 +53,27 @@ describe('GET /api/audit-log', () => {
     expect(res.body.some((e: { action: string }) => e.action === 'user.create')).toBe(false);
   });
 });
+
+describe('DELETE /api/audit-log', () => {
+  it('requires authentication', async () => {
+    const res = await request(app).delete('/api/audit-log');
+    expect(res.status).toBe(401);
+  });
+
+  it('is forbidden for a non-admin user', async () => {
+    const { agent: admin } = await createAdminAgent(app);
+    const agent = await createUserAgent(app, admin, 'viewer');
+    const res = await agent.delete('/api/audit-log');
+    expect(res.status).toBe(403);
+  });
+
+  it('wipes all recorded entries for an admin', async () => {
+    const { agent } = await createAdminAgent(app);
+    expect((await agent.get('/api/audit-log')).body.length).toBeGreaterThan(0);
+
+    const res = await agent.delete('/api/audit-log');
+    expect(res.status).toBe(204);
+
+    expect((await agent.get('/api/audit-log')).body).toEqual([]);
+  });
+});

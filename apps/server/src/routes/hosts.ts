@@ -20,7 +20,6 @@ declare global {
 
 const router = Router();
 
-// Any authenticated user can see which hosts exist
 router.get('/', c.list);
 router.post('/', requireAdmin, c.create);
 router.post('/test', requireAdmin, c.test);

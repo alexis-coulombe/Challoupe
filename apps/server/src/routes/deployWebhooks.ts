@@ -4,8 +4,6 @@ import { deployWebhookController as c } from '../controllers/deployWebhook.contr
 
 const router = Router();
 
-// Keyed by IP, same pattern as routes/auth.ts's login limiter — bounds how many token
-// guesses a single source can throw at any stack's deploy endpoint.
 const deployLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,

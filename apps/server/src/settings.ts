@@ -158,6 +158,14 @@ const AI_WATCHDOG_DEFAULTS: AiWatchdogSettings = {
   auditCheckIntervalMinutes: 15,
 };
 
+/**
+ * A link to another self-hosted app's URL, shown in the app-switcher grid in the header.
+ */
+export interface AppLink {
+  label: string;
+  url: string;
+}
+
 export interface ResourceAlertSettings {
   enabled: boolean;
   checkIntervalMinutes: number;
@@ -200,6 +208,7 @@ export interface AppSettings {
   ntfy: NtfySettings;
   aiWatchdog: AiWatchdogSettings;
   resourceAlerts: ResourceAlertSettings;
+  appLinks: AppLink[];
 }
 
 const NESTED_KEYS = [
@@ -225,7 +234,20 @@ const DEFAULTS: Omit<AppSettings, (typeof NESTED_KEYS)[number]> = {
   trivyImage: 'aquasec/trivy:latest',
   maxContainerMemoryMb: null,
   maxContainerCpus: null,
+  appLinks: [],
 };
+
+// Falls back to an empty list rather than throwing, in case a hand-edited or restored
+// backup row isn't valid JSON.
+function parseAppLinks(raw: string | undefined): AppLink[] {
+  if (raw === undefined) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as AppLink[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 export type SettingsUpdate = Partial<Omit<AppSettings, (typeof NESTED_KEYS)[number]>> & {
   featureFlags?: Partial<FeatureFlags>;
@@ -366,6 +388,7 @@ export class SettingsService {
       ntfy,
       aiWatchdog,
       resourceAlerts,
+      appLinks: parseAppLinks(stored.appLinks),
     };
   }
 
@@ -458,6 +481,11 @@ export class SettingsService {
           if (val === undefined) continue;
           upsert.run(`resourceAlerts.${field}`, String(val));
         }
+        continue;
+      }
+      if (key === 'appLinks') {
+        const normalized = (value as AppLink[]).map((link) => ({ label: link.label.trim(), url: link.url.trim() }));
+        upsert.run('appLinks', JSON.stringify(normalized));
         continue;
       }
       if (value === null) {

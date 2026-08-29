@@ -130,4 +130,38 @@ describe('summarizeStats', () => {
     expect(sample.cpuPercent).toBe(0);
     expect(sample.memoryPercent).toBe(0);
   });
+
+  it('sums block I/O bytes by op and reads the PID count', () => {
+    const sample = summarizeStats({
+      read: '2026-01-01T00:00:00Z',
+      cpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 0, online_cpus: 1 },
+      precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 0 },
+      memory_stats: { usage: 0, limit: 0 },
+      blkio_stats: {
+        io_service_bytes_recursive: [
+          { op: 'Read', value: 1000 },
+          { op: 'Write', value: 200 },
+          { op: 'Read', value: 500 },
+          { op: 'Total', value: 1700 },
+        ],
+      },
+      pids_stats: { current: 7 },
+    });
+    expect(sample.blockRead).toBe(1500);
+    expect(sample.blockWrite).toBe(200);
+    expect(sample.pids).toBe(7);
+  });
+
+  it('defaults block I/O and PIDs to zero when Docker reports them as null (cgroup v2 quirk)', () => {
+    const sample = summarizeStats({
+      read: '2026-01-01T00:00:00Z',
+      cpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 0, online_cpus: 1 },
+      precpu_stats: { cpu_usage: { total_usage: 0 }, system_cpu_usage: 0 },
+      memory_stats: { usage: 0, limit: 0 },
+      blkio_stats: { io_service_bytes_recursive: null },
+    });
+    expect(sample.blockRead).toBe(0);
+    expect(sample.blockWrite).toBe(0);
+    expect(sample.pids).toBe(0);
+  });
 });

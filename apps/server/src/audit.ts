@@ -71,6 +71,13 @@ export class AuditLogRepository {
     const capped = Math.min(Math.max(limit, 1), 1000);
     return this.db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT ?').all(capped) as AuditLogRow[];
   }
+
+  /**
+   * Delete every recorded entry.
+   */
+  clear(): void {
+    this.db.prepare('DELETE FROM audit_log').run();
+  }
 }
 
 export const auditLog = new AuditLogRepository(db, settingsService);

@@ -3,14 +3,16 @@ import { Button, Card, Select, Space, Typography } from 'antd';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import { wsUrl, type TerminalShell, type TerminalThemeSettings } from '../api';
+import { wsUrl } from '../api';
+import type { TerminalShell } from '../models/docker';
+import type { TerminalThemeSettings } from '../models/TerminalThemeSettings';
 
 const SHELLS: TerminalShell[] = ['/bin/sh', '/bin/bash', '/bin/ash'];
 
 const DEFAULT_THEME: TerminalThemeSettings = {
   background: '#0b0e14',
   foreground: '#c9d1d9',
-  cursor: '#3b82f6',
+  cursor: '#f53838',
 };
 
 export default function ContainerTerminal({

@@ -1,7 +1,6 @@
 import { useState, type Key } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, App as AntApp, Button, Space, Table, Tag, Tooltip } from 'antd';
+import { Alert, Button, Space, Table, Tag, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
   CaretRightOutlined,
@@ -11,12 +10,12 @@ import {
   StopOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import { hasPermission, type ComposeResult, type StackSummary } from '../api';
-import { runBulk, STACK_STATUS, TABLE_PAGINATION } from '../utils';
-import { useAppSettings } from '../hooks/useAppSettings';
+import { hasPermission } from '../models/permissions';
+import type { StackSummary } from '../models/StackSummary';
+import { STACK_STATUS, TABLE_PAGINATION } from '../utils';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
-import { stacksApi } from '../services/stacksApi';
+import { useStacksService } from '../services/StacksService';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
@@ -25,80 +24,20 @@ import ListPageHeader from '../components/ListPageHeader';
 
 export default function Stacks() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { message, modal } = AntApp.useApp();
   const { user } = useAuth();
   const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageStacks');
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [importOpen, setImportOpen] = useState(false);
 
-  const { data: settings } = useAppSettings();
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['stacks'],
-    queryFn: () => stacksApi.list(),
-    refetchInterval: settings?.refreshIntervalMs ?? 5000,
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['stacks'] });
-
-  const showResult = (title: string, result: ComposeResult) => {
-    if (result.ok) {
-      message.success(title);
-    } else {
-      modal.error({
-        title: `${title}: failed`,
-        width: 720,
-        content: (
-          <pre style={{ maxHeight: 400, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 12 }}>
-            {result.output}
-          </pre>
-        ),
-      });
-    }
-    invalidate();
-  };
-
-  const deployMutation = useMutation({
-    mutationFn: (name: string) => stacksApi.deploy(name),
-    onSuccess: (result) => showResult('Deployment', result),
-    onError: (err) => message.error(err.message),
-  });
-
-  const downMutation = useMutation({
-    mutationFn: (name: string) => stacksApi.down(name),
-    onSuccess: (result) => showResult('Stop', result),
-    onError: (err) => message.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (name: string) => stacksApi.remove(name),
-    onSuccess: () => {
-      message.success('Stack deleted');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const bulkMutation = useMutation({
-    mutationFn: (action: 'deploy' | 'down' | 'delete') =>
-      runBulk(selectedKeys as string[], async (name) => {
-        if (action === 'delete') {
-          await stacksApi.remove(name);
-          return;
-        }
-        const result = action === 'deploy' ? await stacksApi.deploy(name) : await stacksApi.down(name);
-        if (!result.ok) throw new Error(`${name}: ${result.output.slice(0, 200)}`);
-      }),
-    onSuccess: ({ ok, errors }, action) => {
-      const labels = { deploy: 'deployed', down: 'stopped', delete: 'deleted' };
-      if (ok) message.success(`${ok} stack(s) ${labels[action]}`);
-      if (errors.length) message.error(`${errors.length} failure(s) : ${errors[0]}`);
-      setSelectedKeys([]);
-      invalidate();
-    },
-  });
+  const {
+    stacks: data,
+    isLoading,
+    deploy: deployMutation,
+    down: downMutation,
+    remove: deleteMutation,
+    bulk: bulkMutation,
+  } = useStacksService({ onBulkDone: () => setSelectedKeys([]) });
 
   const busy = deployMutation.isPending || downMutation.isPending || bulkMutation.isPending;
 
@@ -121,7 +60,7 @@ export default function Stacks() {
         <Space size={4}>
           <Tag color={STACK_STATUS[status].color}>{STACK_STATUS[status].label}</Tag>
           {record.drifted && (
-            <Tooltip title="Running containers no longer match this stack's compose file — open the stack for details">
+            <Tooltip title="Running containers no longer match this stack's compose file">
               <Tag color="orange" icon={<WarningOutlined />}>
                 Drifted
               </Tag>
@@ -139,7 +78,7 @@ export default function Stacks() {
       render: (_, record) => (
         <Space size="small">
           {canManage && (
-            <Tooltip title="Deploy (up -d)">
+            <Tooltip title="Deploy">
               <Button
                 size="small"
                 icon={<CaretRightOutlined />}
@@ -149,8 +88,9 @@ export default function Stacks() {
               />
             </Tooltip>
           )}
+
           {canManage && (
-            <Tooltip title="Stop (down)">
+            <Tooltip title="Stop">
               <Button
                 size="small"
                 icon={<StopOutlined />}
@@ -160,6 +100,7 @@ export default function Stacks() {
               />
             </Tooltip>
           )}
+
           <Tooltip title="Edit">
             <Button
               size="small"
@@ -167,6 +108,7 @@ export default function Stacks() {
               onClick={() => navigate(`/stacks/${record.name}`)}
             />
           </Tooltip>
+
           {canManage && (
             <DeleteButton
               confirmTitle="Delete this stack? Its containers will be stopped."
@@ -187,55 +129,62 @@ export default function Stacks() {
             <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
               Import from Portainer
             </Button>
+
             <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/stacks/new')}>
               New stack
             </Button>
           </Space>
         )}
       </ListPageHeader>
+
       {hostId !== 'local' && (
         <Alert
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="Stacks always run on the local Docker host"
+          message="Stacks always run on the local host"
           description="Compose deployments shell out to the docker compose CLI directly, which can't ride the SSH connection used for remote hosts yet. This list and its actions only ever affect stacks on Local, regardless of the host selected above."
         />
       )}
+
       {canManage && <ImportFromPortainerModal open={importOpen} onClose={() => setImportOpen(false)} />}
+
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
         {canManage && (
           <Button
             size="small"
             icon={<CaretRightOutlined />}
-            loading={bulkMutation.isPending && bulkMutation.variables === 'deploy'}
+            loading={bulkMutation.isPending && bulkMutation.variables?.action === 'deploy'}
             disabled={busy}
-            onClick={() => bulkMutation.mutate('deploy')}
+            onClick={() => bulkMutation.mutate({ action: 'deploy', names: selectedKeys as string[] })}
           >
-            Deploy
+            Deploy all
           </Button>
         )}
+
         {canManage && (
           <Button
             size="small"
             icon={<StopOutlined />}
-            loading={bulkMutation.isPending && bulkMutation.variables === 'down'}
+            loading={bulkMutation.isPending && bulkMutation.variables?.action === 'down'}
             disabled={busy}
-            onClick={() => bulkMutation.mutate('down')}
+            onClick={() => bulkMutation.mutate({ action: 'down', names: selectedKeys as string[] })}
           >
-            Stop
+            Stop all
           </Button>
         )}
+
         {canManage && (
           <DeleteButton
             confirmTitle={`Delete ${selectedKeys.length} stack(s)? Their containers will be stopped.`}
-            onConfirm={() => bulkMutation.mutate('delete')}
-            loading={bulkMutation.isPending && bulkMutation.variables === 'delete'}
+            onConfirm={() => bulkMutation.mutate({ action: 'delete', names: selectedKeys as string[] })}
+            loading={bulkMutation.isPending && bulkMutation.variables?.action === 'delete'}
             disabled={busy}
           >
-            Delete
+            Permanently delete
           </DeleteButton>
         )}
+
       </BulkBar>
       <Table
         rowKey="name"

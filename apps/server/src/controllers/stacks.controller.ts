@@ -1,38 +1,34 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { auditLog } from '../audit.js';
 import { getPortainerStackFile, listPortainerStacks } from '../integrations/portainer/portainer.js';
-import { STACK_NAME_RE, stackService } from '../stacks.js';
+import { stackService } from '../stacks.js';
 import { stackWebhookRepository } from '../stackWebhooks.js';
+import { createSchema, portainerCredsSchema, portainerImportSchema, updateSchema } from './schemas/stacks.schema.js';
 
-const createSchema = z.object({
-  name: z.string().regex(STACK_NAME_RE, 'Lowercase letters, digits, - and _ only'),
-  compose: z.string().min(1),
-  deploy: z.boolean().default(false),
-});
-
-const portainerCredsSchema = z.object({
-  baseUrl: z.string().trim().url(),
-  username: z.string().trim().min(1),
-  password: z.string().min(1),
-});
-
-const portainerImportSchema = portainerCredsSchema.extend({
-  id: z.number().int(),
-  name: z.string().regex(STACK_NAME_RE, 'Lowercase letters, digits, - and _ only'),
-});
-
-export class StacksController {
+class StacksController {
+  /**
+   * List all stacks
+   * @param req Request
+   * @param res Response
+   */
   list = async (_req: Request, res: Response): Promise<void> => {
     res.json(await stackService.list());
   };
 
+  /**
+   * Create stack
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
+
     if (await stackService.exists(body.name)) {
       res.status(409).json({ error: 'A stack with this name already exists' });
       return;
     }
+
     await stackService.write(body.name, body.compose);
     const result = body.deploy ? await stackService.deploy(body.name) : null;
     auditLog.record({
@@ -44,11 +40,18 @@ export class StacksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.status(201).json({ name: body.name, deploy: result });
   };
 
+  /**
+   * List stacks available on a Portainer instance
+   * @param req Request
+   * @param res Response
+   */
   listPortainer = async (req: Request, res: Response): Promise<void> => {
     const creds = portainerCredsSchema.parse(req.body);
+
     try {
       res.json(await listPortainerStacks(creds.baseUrl, creds.username, creds.password));
     } catch (err) {
@@ -56,19 +59,29 @@ export class StacksController {
     }
   };
 
+  /**
+   * Import a stack from a Portainer instance
+   * @param req Request
+   * @param res Response
+   * @returns void
+   */
   importPortainer = async (req: Request, res: Response): Promise<void> => {
     const body = portainerImportSchema.parse(req.body);
+
     if (await stackService.exists(body.name)) {
       res.status(409).json({ error: 'A stack with this name already exists' });
       return;
     }
+
     let compose: string;
+
     try {
       compose = await getPortainerStackFile(body.baseUrl, body.username, body.password, body.id);
     } catch (err) {
       res.status(502).json({ error: (err as Error).message });
       return;
     }
+
     await stackService.write(body.name, compose);
     auditLog.record({
       userId: req.user!.id,
@@ -79,21 +92,35 @@ export class StacksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.status(201).json({ name: body.name });
   };
 
+  /**
+   * Get a stack's compose file
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   getOne = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     res.json({ name: req.params.name, compose: await stackService.read(req.params.name) });
   };
 
-  // Read-only, same access level as GET /:name. Surfaces what redeploying would change
-  // without actually running `docker compose up`.
+  /**
+   * Get what redeploying a stack would change
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   drift = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     res.json(await stackService.drift(req.params.name));
   };
 
+  /**
+   * Update a stack's compose file
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   update = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
-    const body = z.object({ compose: z.string().min(1) }).parse(req.body);
+    const body = updateSchema.parse(req.body);
     await stackService.write(req.params.name, body.compose);
     auditLog.record({
       userId: req.user!.id,
@@ -103,13 +130,15 @@ export class StacksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 
-  // Unlike a container start/stop (bounded by config only a manageContainers holder could
-  // have set), deploying a stack that was created-but-never-deployed effectively creates
-  // brand-new containers from whatever the compose file says. Equivalent to container
-  // create, not container start. So this needs manageStacks, not just stack existence.
+  /**
+   * Deploy a stack
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   deploy = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     const result = await stackService.deploy(req.params.name);
     auditLog.record({
@@ -121,9 +150,15 @@ export class StacksController {
       status: result.ok ? 'success' : 'failure',
       ip: req.ip,
     });
+
     res.json(result);
   };
 
+  /**
+   * Take a stack down
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   down = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     const result = await stackService.down(req.params.name);
     auditLog.record({
@@ -135,9 +170,15 @@ export class StacksController {
       status: result.ok ? 'success' : 'failure',
       ip: req.ip,
     });
+
     res.json(result);
   };
 
+  /**
+   * Remove a stack
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   remove = async (req: Request<{ name: string }>, res: Response): Promise<void> => {
     await stackService.delete(req.params.name);
     stackWebhookRepository.revoke(req.params.name);
@@ -149,15 +190,24 @@ export class StacksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 
+  /**
+   * Get a stack's deploy webhook status
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   getWebhook = (req: Request<{ name: string }>, res: Response): void => {
     res.json(stackWebhookRepository.status(req.params.name));
   };
 
-  // Returns the plaintext token exactly once — only its hash is ever persisted, so this is
-  // the only chance to see or copy it. Calling this again invalidates the previous token.
+  /**
+   * Regenerate a stack's deploy webhook token
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   regenerateWebhook = (req: Request<{ name: string }>, res: Response): void => {
     const token = stackWebhookRepository.regenerate(req.params.name);
     auditLog.record({
@@ -168,9 +218,15 @@ export class StacksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ token });
   };
 
+  /**
+   * Revoke a stack's deploy webhook token
+   * @param req Request<{ name: string }>
+   * @param res Response
+   */
   revokeWebhook = (req: Request<{ name: string }>, res: Response): void => {
     stackWebhookRepository.revoke(req.params.name);
     auditLog.record({
@@ -181,6 +237,7 @@ export class StacksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 }

@@ -1,8 +1,6 @@
 import { useState, type Key } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
-  App as AntApp,
   Button,
   Form,
   Input,
@@ -16,107 +14,52 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { EditOutlined, PlusOutlined, SyncOutlined } from '@ant-design/icons';
-import { ApiError, type HostSummary } from '../api';
+import { ApiError } from '../api';
+import type { HostSummary } from '../models/HostSummary';
+import type { HostTestState } from '../models/HostTestState';
 import { fromISO, TABLE_PAGINATION } from '../utils';
-import { useBulkAction } from '../hooks/useBulkAction';
-import { hostsApi, type HostFormValues } from '../services/hostsApi';
+import { hostsApi } from '../services/api/hostsApi';
+import { useHostsService, hostsService } from '../services/HostsService';
+import type { HostFormValues } from '../models/HostFormValues';
 import BulkBar from '../components/BulkBar';
 import DeleteButton from '../components/DeleteButton';
 import ListPageHeader from '../components/ListPageHeader';
 
-interface TestState {
-  status: 'idle' | 'testing' | 'ok' | 'error';
-  error?: string;
-}
-
-const IDLE: TestState = { status: 'idle' };
-
 export default function Hosts() {
-  const queryClient = useQueryClient();
-  const { message } = AntApp.useApp();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<HostSummary | null>(null);
   const [selectedKeys, setSelectedKeys] = useState<Key[]>([]);
   const [createForm] = Form.useForm<HostFormValues>();
   const [editForm] = Form.useForm<HostFormValues>();
-  const [createTest, setCreateTest] = useState<TestState>(IDLE);
-  const [editTest, setEditTest] = useState<TestState>(IDLE);
-  const [rowTestingId, setRowTestingId] = useState<number | null>(null);
+  const [createTest, setCreateTest] = useState<HostTestState>(hostsService.idleTestState);
+  const [editTest, setEditTest] = useState<HostTestState>(hostsService.idleTestState);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['hosts'],
-    queryFn: () => hostsApi.list(),
-  });
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['hosts'] });
-
-  const createMutation = useMutation({
-    mutationFn: (values: HostFormValues) => hostsApi.create(values),
-    onSuccess: () => {
-      message.success('Host added');
-      setCreateOpen(false);
-      createForm.resetFields();
-      setCreateTest(IDLE);
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, ...values }: HostFormValues & { id: number }) => hostsApi.update(id, values),
-    onSuccess: () => {
-      message.success('Host updated');
-      setEditing(null);
-      editForm.resetFields();
-      setEditTest(IDLE);
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => hostsApi.remove(id),
-    onSuccess: () => {
-      message.success('Host deleted');
-      invalidate();
-    },
-    onError: (err) => message.error(err.message),
-  });
-
-  const bulkRemoveMutation = useBulkAction<number>({
-    queryKey: ['hosts'],
-    run: (id) => hostsApi.remove(id),
-    successLabel: (count) => `${count} host(s) deleted`,
-    onSettled: () => setSelectedKeys([]),
-  });
+  const {
+    hosts: data,
+    isLoading,
+    create: createMutation,
+    update: updateMutation,
+    remove: deleteMutation,
+    testStored: testStoredMutation,
+    bulkRemove: bulkRemoveMutation,
+  } = useHostsService({ onBulkRemoved: () => setSelectedKeys([]) });
 
   const testDraft = async () => {
     setCreateTest({ status: 'testing' });
     try {
       const values = await createForm.validateFields();
       const result = await hostsApi.test(values);
-      setCreateTest(result.ok ? { status: 'ok' } : { status: 'error', error: result.error });
+      setCreateTest(hostsService.testResultState(result));
     } catch (err) {
       if (err instanceof ApiError) setCreateTest({ status: 'error', error: err.message });
     }
   };
 
-  const testStoredMutation = useMutation({
-    mutationFn: (id: number) => hostsApi.testExisting(id),
-    onMutate: (id) => setRowTestingId(id),
-    onSettled: () => setRowTestingId(null),
-    onSuccess: (result) => {
-      if (result.ok) message.success('Connected successfully');
-      else message.error(result.error ?? 'Could not connect');
-    },
-    onError: (err) => message.error(err.message),
-  });
-
   const testEditing = async () => {
     if (!editing) return;
     setEditTest({ status: 'testing' });
     const result = await hostsApi.testExisting(editing.id);
-    setEditTest(result.ok ? { status: 'ok' } : { status: 'error', error: result.error });
+    setEditTest(hostsService.testResultState(result));
   };
 
   const columns: ColumnsType<HostSummary> = [
@@ -157,16 +100,17 @@ export default function Hosts() {
             <Button
               size="small"
               icon={<SyncOutlined />}
-              loading={testStoredMutation.isPending && rowTestingId === record.id}
+              loading={testStoredMutation.isPending && testStoredMutation.variables === record.id}
               onClick={() => testStoredMutation.mutate(record.id)}
             />
           </Tooltip>
+
           <Button
             size="small"
             icon={<EditOutlined />}
             onClick={() => {
               setEditing(record);
-              setEditTest(IDLE);
+              setEditTest(hostsService.idleTestState);
               editForm.setFieldsValue({
                 name: record.name,
                 sshHost: record.sshHost,
@@ -177,6 +121,7 @@ export default function Hosts() {
               });
             }}
           />
+
           <DeleteButton
             confirmTitle="Delete this host? Containers running there are unaffected, only Challoupe's connection to it is removed."
             onConfirm={() => deleteMutation.mutate(record.id)}
@@ -194,22 +139,24 @@ export default function Hosts() {
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => {
-            setCreateTest(IDLE);
+            setCreateTest(hostsService.idleTestState);
             setCreateOpen(true);
           }}
         >
-          Add host
+          Add SSH host
         </Button>
       </ListPageHeader>
+
       <BulkBar count={selectedKeys.length} onClear={() => setSelectedKeys([])}>
         <DeleteButton
           confirmTitle={`Delete ${selectedKeys.length} host(s)?`}
           onConfirm={() => bulkRemoveMutation.mutate(selectedKeys as number[])}
           loading={bulkRemoveMutation.isPending}
         >
-          Delete
+          Permanently delete
         </DeleteButton>
       </BulkBar>
+
       <Table
         rowKey="id"
         columns={columns}
@@ -231,26 +178,38 @@ export default function Hosts() {
         width={640}
       >
         <Typography.Paragraph type="secondary">
-          Connects over SSH to run Docker commands remotely — no need to expose the remote
-          daemon's API. The connecting user needs the <code>docker</code> CLI in <code>PATH</code>{' '}
+          Connects over SSH to run Docker commands remotely.
+          The connecting user needs the <code>docker</code> CLI in <code>PATH</code>{' '}
           and access to the Docker socket (root or the <code>docker</code> group) on that host.
         </Typography.Paragraph>
+
         <Form
           form={createForm}
           layout="vertical"
           initialValues={{ sshPort: 22 }}
-          onFinish={(values) => createMutation.mutate(values)}
+          onFinish={(values) =>
+            createMutation.mutate(values, {
+              onSuccess: () => {
+                setCreateOpen(false);
+                createForm.resetFields();
+                setCreateTest(hostsService.idleTestState);
+              },
+            })
+          }
         >
           <Form.Item name="name" label="Display name" rules={[{ required: true }]}>
-            <Input placeholder="e.g. Production server" />
+            <Input placeholder="Production server" />
           </Form.Item>
+
           <Space size="large" wrap align="start">
             <Form.Item name="sshHost" label="Hostname or IP" rules={[{ required: true }]}>
               <Input placeholder="192.168.1.50" style={{ width: 220 }} />
             </Form.Item>
+
             <Form.Item name="sshPort" label="Port" rules={[{ required: true }]}>
-              <InputNumber min={1} max={65535} style={{ width: 100 }} />
+              <InputNumber min={1} max={65535} step={1} style={{ width: 100 }} />
             </Form.Item>
+
             <Form.Item name="sshUsername" label="SSH username" rules={[{ required: true }]}>
               <Input placeholder="deploy" style={{ width: 160 }} />
             </Form.Item>
@@ -258,7 +217,7 @@ export default function Hosts() {
           <Form.Item
             name="sshPrivateKey"
             label="Private key"
-            tooltip="Generate a dedicated keypair for this host, e.g. ssh-keygen -t ed25519 -N ''"
+            tooltip="Generate a dedicated keypair for this host using ssh-keygen -t ed25519 -N ''"
             rules={[{ required: true }]}
           >
             <Input.TextArea
@@ -267,6 +226,7 @@ export default function Hosts() {
               placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
             />
           </Form.Item>
+
           <Form.Item name="sshPassphrase" label="Passphrase (optional)">
             <Input.Password placeholder="Only if the key above is encrypted" />
           </Form.Item>
@@ -275,8 +235,10 @@ export default function Hosts() {
           <Button loading={createTest.status === 'testing'} onClick={testDraft}>
             Test connection
           </Button>
+
           {createTest.status === 'ok' && <Tag color="green">Connected</Tag>}
         </Space>
+
         {createTest.status === 'error' && (
           <Alert
             type="error"
@@ -289,7 +251,7 @@ export default function Hosts() {
       </Modal>
 
       <Modal
-        title={`Edit ${editing?.name ?? ''}`}
+        title={`Editing: ${editing?.name ?? ''}`}
         open={editing !== null}
         onCancel={() => setEditing(null)}
         onOk={() => editForm.submit()}
@@ -300,26 +262,41 @@ export default function Hosts() {
         <Form
           form={editForm}
           layout="vertical"
-          onFinish={(values) => updateMutation.mutate({ id: editing!.id, ...values })}
+          onFinish={(values) =>
+            updateMutation.mutate(
+              { id: editing!.id, ...values },
+              {
+                onSuccess: () => {
+                  setEditing(null);
+                  editForm.resetFields();
+                  setEditTest(hostsService.idleTestState);
+                },
+              }
+            )
+          }
         >
           <Form.Item name="name" label="Display name" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
+
           <Space size="large" wrap align="start">
             <Form.Item name="sshHost" label="Hostname or IP" rules={[{ required: true }]}>
               <Input style={{ width: 220 }} />
             </Form.Item>
+
             <Form.Item name="sshPort" label="Port" rules={[{ required: true }]}>
-              <InputNumber min={1} max={65535} style={{ width: 100 }} />
+              <InputNumber min={1} max={65535} step={1} style={{ width: 100 }} />
             </Form.Item>
+
             <Form.Item name="sshUsername" label="SSH username" rules={[{ required: true }]}>
               <Input style={{ width: 160 }} />
             </Form.Item>
           </Space>
+
           <Form.Item
             name="sshPrivateKey"
             label="Private key"
-            tooltip="Never sent back to the browser, leave blank to keep the currently stored key"
+            tooltip="Leave blank to keep the currently stored key"
           >
             <Input.TextArea
               rows={6}
@@ -327,10 +304,11 @@ export default function Hosts() {
               placeholder="Leave blank to keep current"
             />
           </Form.Item>
+
           <Form.Item
             name="sshPassphrase"
             label="Passphrase"
-            tooltip="Never sent back to the browser, leave blank to keep the currently stored passphrase"
+            tooltip="Leave blank to keep the currently stored passphrase"
           >
             <Input.Password placeholder="Leave blank to keep current" />
           </Form.Item>
@@ -339,8 +317,10 @@ export default function Hosts() {
           <Button loading={editTest.status === 'testing'} onClick={testEditing}>
             Test connection
           </Button>
+
           {editTest.status === 'ok' && <Tag color="green">Connected</Tag>}
         </Space>
+        
         {editTest.status === 'error' && (
           <Alert
             type="error"

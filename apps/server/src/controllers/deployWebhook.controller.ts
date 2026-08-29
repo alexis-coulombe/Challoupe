@@ -3,12 +3,16 @@ import { auditLog } from '../audit.js';
 import { STACK_NAME_RE, stackService } from '../stacks.js';
 import { stackWebhookRepository } from '../stackWebhooks.js';
 
-export class DeployWebhookController {
+class DeployWebhookController {
+  /**
+   * Trigger a stack deploy via webhook token
+   * @param req Request<{ name: string; token: string }>
+   * @param res Response
+   * @returns void
+   */
   trigger = async (req: Request<{ name: string; token: string }>, res: Response): Promise<void> => {
     const { name, token } = req.params;
-    // Same response for a malformed name, an unknown stack, and a wrong token — an
-    // unauthenticated caller shouldn't be able to distinguish "no such stack" from "wrong
-    // token" for one that exists.
+
     if (
       !STACK_NAME_RE.test(name) ||
       !(await stackService.exists(name)) ||
@@ -23,11 +27,12 @@ export class DeployWebhookController {
         status: 'failure',
         ip: req.ip,
       });
+
       res.status(404).json({ error: 'Not found' });
       return;
     }
 
-    const result = await stackService.deployWithPull(name);
+    const result = await stackService.deploy(name);
     auditLog.record({
       userId: null,
       username: 'webhook',
@@ -37,6 +42,7 @@ export class DeployWebhookController {
       status: result.ok ? 'success' : 'failure',
       ip: req.ip,
     });
+
     res.json(result);
   };
 }

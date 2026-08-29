@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Divider, Form, Input, Spin, Typography } from 'antd';
 import { LockOutlined, LoginOutlined, SafetyOutlined, UserOutlined } from '@ant-design/icons';
-import { authApi } from '../services/authApi';
+import { authApi } from '../services/api/authApi';
 import { useAuth } from '../auth';
 import PasswordInput from '../components/PasswordInput';
 
@@ -12,7 +12,6 @@ export default function Login() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  // Set once /auth/login reports the password was correct but a TOTP code is still needed.
   const [awaitingTotp, setAwaitingTotp] = useState(false);
 
   const { data: oidc } = useQuery({
@@ -22,6 +21,7 @@ export default function Login() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
     if (params.get('error') === 'oidc_failed') {
       setError('Single sign-on failed. The account may already exist locally, or the sign-in was cancelled.');
     }
@@ -30,12 +30,15 @@ export default function Login() {
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true);
     setError(null);
+
     try {
       const res = setupRequired ? await authApi.setup(values) : await authApi.login(values);
+      
       if (res.requiresTotp) {
         setAwaitingTotp(true);
         return;
       }
+
       await refresh();
       navigate('/', { replace: true });
     } catch (err) {
@@ -48,6 +51,7 @@ export default function Login() {
   const onTotpFinish = async (values: { token: string }) => {
     setLoading(true);
     setError(null);
+    
     try {
       await authApi.totpVerify(values);
       await refresh();
@@ -73,18 +77,18 @@ export default function Login() {
         alignItems: 'center',
         minHeight: '100vh',
         padding: 16,
-        boxSizing: 'border-box',
-        background:
-          'radial-gradient(1000px circle at 15% -10%, #16233a 0%, transparent 55%), radial-gradient(800px circle at 90% 110%, #131f33 0%, transparent 50%), #0b0e14',
+        background: 'linear-gradient(180deg, #fff5f7 0%, #ffffff 100%)',
       }}
     >
-      <Card style={{ width: 380, maxWidth: '100%', boxShadow: '0 12px 40px rgba(0, 0, 0, 0.45)' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
-          <img src="/logo.svg" alt="" width={56} height={56} />
+      <Card style={{ width: 420, maxWidth: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <img src="/logo.svg" alt="" width={128} height={128} />
         </div>
+        
         <Typography.Title level={3} style={{ textAlign: 'center' }}>
-          <span style={{ color: '#7ab3ff' }}>Challoupe</span>
+          <span style={{ color: '#f53838' }}>Challoupe</span>
         </Typography.Title>
+        
         {statusError ? (
           <>
             <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
@@ -108,11 +112,11 @@ export default function Login() {
             <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
               {awaitingTotp
                 ? 'Enter the code from your authenticator app'
-                : setupRequired
-                  ? 'Create the administrator account to get started'
-                  : 'Sign in to manage your Docker environment'}
+                : setupRequired ? 'Create the administrator account to get started' : ''}
             </Typography.Paragraph>
-            {error && <Alert type="error" message={error} style={{ marginBottom: 16 }} />}
+            
+            {error && <Alert type="error" message={error} style={{ marginBottom: 24 }} />}
+            
             {awaitingTotp ? (
               <Form onFinish={onTotpFinish} layout="vertical">
                 <Form.Item name="token" rules={[{ required: true, message: 'Enter a code' }]}>
@@ -133,7 +137,11 @@ export default function Login() {
             ) : (
               <>
                 <Form onFinish={onFinish} layout="vertical">
-                  <Form.Item name="username" rules={[{ required: true, message: 'Username is required' }]}>
+                  <Form.Item 
+                    name="username" 
+                    rules={[{ required: true, message: 'A username is required' }]}
+                    style={{ marginBottom: 24 }}
+                  >
                     <Input prefix={<UserOutlined />} placeholder="Username" autoFocus />
                   </Form.Item>
                   <Form.Item
@@ -141,8 +149,9 @@ export default function Login() {
                     rules={
                       setupRequired
                         ? [{ required: true, min: 8, message: 'At least 8 characters' }]
-                        : [{ required: true, message: 'Password is required' }]
+                        : [{ required: true, message: 'A password is required' }]
                     }
+                    style={{ marginBottom: 24 }}
                   >
                     {setupRequired ? (
                       <PasswordInput prefix={<LockOutlined />} placeholder="Password" />
@@ -150,6 +159,7 @@ export default function Login() {
                       <Input.Password prefix={<LockOutlined />} placeholder="Password" />
                     )}
                   </Form.Item>
+
                   <Button type="primary" htmlType="submit" block loading={loading}>
                     {setupRequired ? 'Create account' : 'Sign in'}
                   </Button>
@@ -159,6 +169,7 @@ export default function Login() {
                     <Divider plain style={{ fontSize: 12, margin: '16px 0' }}>
                       or
                     </Divider>
+
                     <Button
                       block
                       icon={<LoginOutlined />}

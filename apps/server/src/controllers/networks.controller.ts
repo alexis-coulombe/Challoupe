@@ -1,16 +1,16 @@
 import type { Request, Response } from 'express';
-import { z } from 'zod';
 import { auditLog } from '../audit.js';
-import { DOCKER_NAME_RE } from '../validators.js';
+import { createSchema } from './schemas/networks.schema.js';
 
-const createSchema = z.object({
-  name: z.string().regex(DOCKER_NAME_RE),
-  driver: z.enum(['bridge', 'overlay', 'macvlan', 'ipvlan', 'host', 'none']).default('bridge'),
-});
-
-export class NetworksController {
+class NetworksController {
+  /**
+   * List all networks
+   * @param req Request
+   * @param res Response
+   */
   list = async (req: Request, res: Response): Promise<void> => {
     const list = await req.dockerClient!.listNetworks();
+
     res.json(
       list.map((n) => ({
         id: n.Id,
@@ -23,6 +23,11 @@ export class NetworksController {
     );
   };
 
+  /**
+   * Create network
+   * @param req Request
+   * @param res Response
+   */
   create = async (req: Request, res: Response): Promise<void> => {
     const body = createSchema.parse(req.body);
     const network = await req.dockerClient!.createNetwork({ Name: body.name, Driver: body.driver });
@@ -34,9 +39,15 @@ export class NetworksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.status(201).json({ id: network.id });
   };
 
+  /**
+   * Remove network
+   * @param req Request<{ id: string }>
+   * @param res Response
+   */
   remove = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     await req.dockerClient!.getNetwork(req.params.id).remove();
     auditLog.record({
@@ -47,6 +58,7 @@ export class NetworksController {
       status: 'success',
       ip: req.ip,
     });
+
     res.json({ ok: true });
   };
 }

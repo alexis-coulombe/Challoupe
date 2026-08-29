@@ -1,8 +1,9 @@
 import { Button, Form, Input, Space } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
-// A repeatable "KEY=value" row: used for container env vars, container labels,
-// and image build arguments.
+/**
+ * A repeatable "KEY=value" row
+ */
 export default function KeyValueFormList({ name, addLabel }: { name: string; addLabel: string }) {
   return (
     <Form.List name={name}>
@@ -16,9 +17,11 @@ export default function KeyValueFormList({ name, addLabel }: { name: string; add
               >
                 <Input placeholder="KEY=value" style={{ width: 400 }} />
               </Form.Item>
+
               <MinusCircleOutlined onClick={() => remove(field.name)} />
             </Space>
           ))}
+          
           <Button block icon={<PlusOutlined />} onClick={() => add()}>
             {addLabel}
           </Button>

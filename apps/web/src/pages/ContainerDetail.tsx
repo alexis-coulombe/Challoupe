@@ -26,8 +26,8 @@ import {
   RobotOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import { hasPermission } from '../api';
-import { containersApi } from '../services/containersApi';
+import { hasPermission } from '../models/permissions';
+import { containersApi } from '../services/api/containersApi';
 import {
   AI_COLOR,
   AI_COLOR_BORDER,
@@ -119,12 +119,14 @@ function LogsPanel({
   const [tail, setTail] = useState(defaultTail);
   const [tailTouched, setTailTouched] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
-  const logs = useContainerLogStream(hostId, containerId, tail, true);
+  const { text: logs, loading: logsLoading } = useContainerLogStream(hostId, containerId, tail, true);
   const preRef = useRef<HTMLPreElement>(null);
 
-  // Adopt the configured default once it loads, unless the user already picked a value.
   useEffect(() => {
-    if (!tailTouched) setTail(defaultTail);
+    // Adopt the configured default once it loads, unless the user already picked a value.
+    if (!tailTouched) {
+      setTail(defaultTail);
+    }
   }, [defaultTail, tailTouched]);
 
   useEffect(() => {
@@ -140,6 +142,7 @@ function LogsPanel({
       extra={
         <Space wrap size={8}>
           {aiEnabled && <DiagnoseButton hostId={hostId} containerId={containerId} />}
+
           <span>Backlog:</span>
           <Select
             size="small"
@@ -150,6 +153,7 @@ function LogsPanel({
             }}
             options={[100, 200, 500, 1000, 5000].map((v) => ({ value: v, label: v }))}
           />
+
           <span>Auto-scroll</span>
           <Switch size="small" checked={autoScroll} onChange={setAutoScroll} />
         </Space>
@@ -160,6 +164,7 @@ function LogsPanel({
           Container is stopped. Showing the last available logs.
         </Typography.Text>
       )}
+
       <pre
         ref={preRef}
         style={{
@@ -168,7 +173,7 @@ function LogsPanel({
           color: CONSOLE_TEXT,
           padding: 12,
           borderRadius: 8,
-          maxHeight: 480,
+          maxHeight: 500,
           overflow: 'auto',
           fontSize: 12,
           whiteSpace: 'pre-wrap',
@@ -176,7 +181,13 @@ function LogsPanel({
           marginTop: running ? 0 : 8,
         }}
       >
-        {logs || '(no logs yet)'}
+        {logsLoading ? (
+          <Typography.Text type="secondary">
+            <LoadingOutlined /> Pulling logs…
+          </Typography.Text>
+        ) : (
+          logs || '(no logs yet)'
+        )}
       </pre>
     </Card>
   );
@@ -230,7 +241,9 @@ export default function ContainerDetail() {
     .map(([key, bindings]) => `${bindings![0].HostPort}→${key}`)
     .join(', ');
 
-  if (!id) return null;
+  if (!id) {
+    return null;
+  }
 
   return (
     <div>
@@ -238,11 +251,15 @@ export default function ContainerDetail() {
         <Link to="/containers">
           <Button icon={<ArrowLeftOutlined />}>Back</Button>
         </Link>
+
         <Typography.Title level={3} style={{ margin: 0 }}>
           {name ?? '…'}
         </Typography.Title>
+
         {state && <Tag color={CONTAINER_STATE_COLORS[state] ?? 'default'}>{state}</Tag>}
+
         {name && <FavoriteButton type="container" id={id} label={name} />}
+
         {canManageStacks && (
           <Button
             icon={<AppstoreOutlined />}
@@ -252,6 +269,7 @@ export default function ContainerDetail() {
             Create stack from container
           </Button>
         )}
+
         {canManage &&
           (running ? (
             <>
@@ -274,6 +292,7 @@ export default function ContainerDetail() {
               Start
             </Button>
           ))}
+
         {canManage && (running || state === 'paused') && (
           <Popconfirm
             title="Force kill this container?"
@@ -285,6 +304,7 @@ export default function ContainerDetail() {
             </Button>
           </Popconfirm>
         )}
+
         {canManage && (
           <DeleteButton
             size="middle"
@@ -292,25 +312,40 @@ export default function ContainerDetail() {
             onConfirm={() => removeMutation.mutate()}
             loading={removeMutation.isPending}
           >
-            Delete
+            Permanently delete
           </DeleteButton>
         )}
       </Space>
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Descriptions column={{ xs: 1, md: 2 }} size="small">
-          <Descriptions.Item label="Image">{info?.Config.Image}</Descriptions.Item>
+          <Descriptions.Item label="Image">
+            {info?.Config.Image && <Link to="/images">{info.Config.Image}</Link>}
+          </Descriptions.Item>
+
           <Descriptions.Item label="Created">
             {info ? new Date(info.Created).toLocaleString() : ''}
           </Descriptions.Item>
-          <Descriptions.Item label="Ports">{ports || '—'}</Descriptions.Item>
+
+          <Descriptions.Item label="Ports">{ports || 'n/a'}</Descriptions.Item>
+
           <Descriptions.Item label="Restart policy">
             {info?.HostConfig.RestartPolicy.Name || 'no'}
           </Descriptions.Item>
+          
           <Descriptions.Item label="Mounts" span={2}>
-            {info?.Mounts.length
-              ? info.Mounts.map((m) => `${m.Name ?? m.Source}→${m.Destination}`).join(', ')
-              : '—'}
+            {info?.Mounts.length ? (
+              <Space size={4} wrap split=",">
+                {info.Mounts.map((m, i) => (
+                  <span key={i}>
+                    {m.Name ? <Link to="/volumes">{m.Name}</Link> : m.Source}
+                    {`→${m.Destination}`}
+                  </span>
+                ))}
+              </Space>
+            ) : (
+              '—'
+            )}
           </Descriptions.Item>
         </Descriptions>
       </Card>

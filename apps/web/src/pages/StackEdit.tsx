@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, App as AntApp, Button, Card, Col, Input, Modal, Row, Space, Tag, Typography } from 'antd';
+import { Alert, App as AntApp, Button, Card, Col, Input, Modal, Row, Space, Tag, Tooltip, Typography } from 'antd';
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
@@ -16,14 +16,15 @@ import {
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { diffLines } from 'diff';
-import { hasPermission, type ComposeResult } from '../api';
+import { hasPermission } from '../models/permissions';
+import type { ComposeResult } from '../models/ComposeResult';
 import { STACK_TEMPLATES } from '../data/stackTemplates';
 import { AI_COLOR, AI_COLOR_BORDER, CONSOLE_BG, CONSOLE_BORDER, CONSOLE_TEXT, stripCodeFence } from '../utils';
 import { useAppSettings } from '../hooks/useAppSettings';
 import { useAuth } from '../auth';
 import { useHost } from '../hosts';
 import { useOllamaStream } from '../hooks/useOllamaStream';
-import { stacksApi } from '../services/stacksApi';
+import { stacksApi } from '../services/api/stacksApi';
 import AiButton from '../components/AiButton';
 import DeleteButton from '../components/DeleteButton';
 import FavoriteButton from '../components/FavoriteButton';
@@ -149,8 +150,7 @@ export default function StackEdit() {
   const { name: routeName } = useParams<{ name: string }>();
   const isNew = !routeName;
   const navigate = useNavigate();
-  // "Create stack from container" navigates here with a seeded name and compose file.
-  const seed = useLocation().state as { name?: string; compose?: string } | null;
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
@@ -159,8 +159,14 @@ export default function StackEdit() {
   const { data: settings } = useAppSettings();
   const aiEnabled = settings?.featureFlags.aiAssistant !== false && hasPermission(user, 'useAi');
 
-  const [name, setName] = useState(routeName ?? seed?.name ?? '');
-  const [compose, setCompose] = useState(seed?.compose ?? TEMPLATE);
+  // The App Store and a container's "Create stack from container" button both hand
+  // off a compose file here (pick app / container → land in the editor with it
+  // loaded) instead of deploying blind, since placeholder passwords, ports and
+  // bind-mount paths almost always need a look before it's actually deployed.
+  const incomingTemplate = isNew ? (location.state as { name?: string; compose?: string } | null) : null;
+
+  const [name, setName] = useState(routeName ?? incomingTemplate?.name ?? '');
+  const [compose, setCompose] = useState(incomingTemplate?.compose ?? TEMPLATE);
   const [result, setResult] = useState<ComposeResult | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -185,7 +191,11 @@ export default function StackEdit() {
     if (existing) setCompose(existing.compose);
   }, [existing]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['stacks'] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['stacks'] });
+    queryClient.invalidateQueries({ queryKey: ['stack', routeName] });
+    queryClient.invalidateQueries({ queryKey: ['stack-drift', routeName] });
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (deploy: boolean) => {
@@ -271,23 +281,27 @@ export default function StackEdit() {
         <Link to="/stacks">
           <Button icon={<ArrowLeftOutlined />}>Back</Button>
         </Link>
+        
         <Typography.Title level={3} style={{ margin: 0 }}>
           {isNew ? 'New stack' : `Stack: ${routeName}`}
         </Typography.Title>
+
         {!isNew && routeName && <FavoriteButton type="stack" id={routeName} label={routeName} />}
       </Space>
 
       {isNew && (
-        <Space style={{ marginBottom: 16 }} wrap>
+        <Space style={{ marginBottom: 16, marginLeft: 8 }} wrap>
           <Input
             placeholder="stack-name (lowercase letters, digits, - and _)"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            style={{ width: 340 }}
+            style={{ width: 320 }}
           />
+
           <Button icon={<AppstoreOutlined />} onClick={() => setCatalogOpen(true)}>
             Browse templates
           </Button>
+          
           {aiEnabled && <AiButton onClick={() => setAiOpen(true)}>Generate with AI</AiButton>}
         </Space>
       )}
@@ -298,7 +312,7 @@ export default function StackEdit() {
           showIcon
           style={{ marginBottom: 16 }}
           message="Stacks always run on the local Docker host"
-          description="Deploying or stopping this stack affects Local regardless of the host selected above — compose deployments can't ride the SSH connection used for remote hosts yet."
+          description="Deploying or stopping this stack affects Local only. Deployments can't ride the SSH connection used for remote hosts yet."
         />
       )}
 
@@ -350,7 +364,7 @@ export default function StackEdit() {
           onChange={setCompose}
           extensions={[yaml()]}
           theme="dark"
-          height="440px"
+          height="500px"
           editable={canManage}
         />
       </Card>
@@ -365,17 +379,21 @@ export default function StackEdit() {
             >
               Save
             </Button>
-            <Button
-              type="primary"
-              icon={<CaretRightOutlined />}
-              onClick={deployClick}
-              loading={saveMutation.isPending}
-              disabled={busy || (isNew && !name)}
-            >
-              {isNew ? 'Create and deploy' : 'Save and deploy'}
-            </Button>
+
+            <Tooltip title="Pulls the latest version of every image before (re)creating containers">
+              <Button
+                type="primary"
+                icon={<CaretRightOutlined />}
+                onClick={deployClick}
+                loading={saveMutation.isPending}
+                disabled={busy || (isNew && !name)}
+              >
+                Save and deploy
+              </Button>
+            </Tooltip>
           </>
         )}
+
         {!isNew && (
           <>
             {canManage && (
@@ -385,9 +403,10 @@ export default function StackEdit() {
                 loading={downMutation.isPending}
                 disabled={busy}
               >
-                Stop (down)
+                Stop
               </Button>
             )}
+
             {canManage && (
               <DeleteButton
                 size="middle"
@@ -396,7 +415,7 @@ export default function StackEdit() {
                 loading={deleteMutation.isPending}
                 disabled={busy}
               >
-                Delete
+                Permanently delete
               </DeleteButton>
             )}
           </>
@@ -434,7 +453,7 @@ export default function StackEdit() {
             border: `1px solid ${CONSOLE_BORDER}`,
             borderRadius: 8,
             padding: 12,
-            maxHeight: 420,
+            maxHeight: 500,
             overflow: 'auto',
             fontSize: 12,
             fontFamily: 'monospace',
@@ -461,13 +480,14 @@ export default function StackEdit() {
         width={720}
       >
         <Input.Search
-          placeholder="Search templates…"
+          placeholder="Search templates"
           value={catalogSearch}
           onChange={(e) => setCatalogSearch(e.target.value)}
           style={{ marginBottom: 16 }}
           allowClear
         />
-        <Row gutter={[12, 12]} style={{ maxHeight: 480, overflow: 'auto' }}>
+
+        <Row gutter={[12, 12]} style={{ maxHeight: 500, overflow: 'auto' }}>
           {filteredTemplates.map((template) => (
             <Col xs={24} sm={12} key={template.id}>
               <Card
@@ -481,6 +501,7 @@ export default function StackEdit() {
               </Card>
             </Col>
           ))}
+
           {filteredTemplates.length === 0 && (
             <Col span={24}>
               <Typography.Text type="secondary">No templates match your search.</Typography.Text>
@@ -502,12 +523,14 @@ export default function StackEdit() {
         footer={
           <Space>
             <Button onClick={() => setAiOpen(false)}>Cancel</Button>
+
             <Button
               onClick={useGenerated}
               disabled={aiStream.status !== 'done' || !aiStream.text.trim()}
             >
               Use this
             </Button>
+
             <AiButton
               variant="solid"
               loading={aiStream.status === 'connecting' || aiStream.status === 'streaming'}
@@ -521,12 +544,14 @@ export default function StackEdit() {
       >
         <Input.TextArea
           rows={2}
-          placeholder="Describe the app you want to deploy, e.g. 'a Postgres database with pgAdmin'"
+          placeholder="Describe the app you want to deploy"
           value={aiPrompt}
           onChange={(e) => setAiPrompt(e.target.value)}
           style={{ marginBottom: 12 }}
         />
+
         {aiStream.status === 'error' && <Alert type="error" showIcon message={aiStream.error} />}
+        
         {(aiStream.status === 'connecting' || aiStream.status === 'streaming' || aiStream.status === 'done') && (
           <pre
             style={{
