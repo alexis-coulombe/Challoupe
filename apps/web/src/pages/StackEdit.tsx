@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App as AntApp, Button, Card, Col, Input, Modal, Row, Space, Tag, Typography } from 'antd';
 import {
@@ -149,6 +149,8 @@ export default function StackEdit() {
   const { name: routeName } = useParams<{ name: string }>();
   const isNew = !routeName;
   const navigate = useNavigate();
+  // "Create stack from container" navigates here with a seeded name and compose file.
+  const seed = useLocation().state as { name?: string; compose?: string } | null;
   const queryClient = useQueryClient();
   const { message } = AntApp.useApp();
   const { user } = useAuth();
@@ -157,8 +159,8 @@ export default function StackEdit() {
   const { data: settings } = useAppSettings();
   const aiEnabled = settings?.featureFlags.aiAssistant !== false && hasPermission(user, 'useAi');
 
-  const [name, setName] = useState(routeName ?? '');
-  const [compose, setCompose] = useState(TEMPLATE);
+  const [name, setName] = useState(routeName ?? seed?.name ?? '');
+  const [compose, setCompose] = useState(seed?.compose ?? TEMPLATE);
   const [result, setResult] = useState<ComposeResult | null>(null);
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');

@@ -28,6 +28,13 @@ export class ContainersApi {
     return api.get<ContainerInspect>(`/hosts/${hostId}/containers/${id}`);
   }
 
+  // A single-service compose file derived from this container, plus a suggested stack name.
+  compose(hostId: string, id: string) {
+    return api.get<{ name: string; compose: string }>(
+      `/hosts/${hostId}/containers/${id}/compose`
+    );
+  }
+
   create(hostId: string, body: ContainerCreateRequest) {
     return api.post<{ id: string }>(`/hosts/${hostId}/containers`, body);
   }

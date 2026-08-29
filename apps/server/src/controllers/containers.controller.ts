@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
+import type Docker from 'dockerode';
 import { z } from 'zod';
 import { auditLog } from '../audit.js';
+import { containerToCompose } from '../containerCompose.js';
 import { demuxLogs, pullImage } from '../docker.js';
 import { RESTART_POLICIES, settingsService } from '../settings.js';
 import { imageUpdateService } from '../imageUpdates.js';
@@ -156,6 +158,21 @@ export class ContainersController {
 
   getOne = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
     res.json(await req.dockerClient!.getContainer(req.params.id).inspect());
+  };
+
+  // Translates a container into a single-service compose file the Stacks editor
+  // can pick up. Read-only, and the resulting stack still goes through the
+  // manageStacks-gated create endpoint.
+  compose = async (req: Request<{ id: string }>, res: Response): Promise<void> => {
+    const info = await req.dockerClient!.getContainer(req.params.id).inspect();
+    let image: Docker.ImageInspectInfo | undefined;
+    try {
+      image = await req.dockerClient!.getImage(info.Config.Image).inspect();
+    } catch {
+      // Image removed or retagged out from under the container: fall back to a
+      // straight translation without the image-diff cleanup.
+    }
+    res.json(containerToCompose(info, image));
   };
 
   logs = async (req: Request<{ id: string }>, res: Response): Promise<void> => {

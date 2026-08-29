@@ -11,10 +11,15 @@ const mockContainer = {
   remove: vi.fn().mockResolvedValue(undefined),
 };
 
+const mockImage = {
+  inspect: vi.fn().mockResolvedValue({ Config: {} }),
+};
+
 const mockDocker = {
   listContainers: vi.fn(),
   createContainer: vi.fn().mockResolvedValue(mockContainer),
   getContainer: vi.fn(() => mockContainer),
+  getImage: vi.fn(() => mockImage),
 };
 
 vi.mock('../../src/docker.js', async (importOriginal) => {
@@ -31,6 +36,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockDocker.createContainer.mockResolvedValue(mockContainer);
   mockDocker.getContainer.mockReturnValue(mockContainer);
+  mockDocker.getImage.mockReturnValue(mockImage);
+  mockContainer.inspect.mockResolvedValue({ Config: { Tty: false } });
+  mockImage.inspect.mockResolvedValue({ Config: {} });
 });
 
 describe('GET /api/hosts/local/containers', () => {
@@ -253,6 +261,49 @@ describe('DELETE /api/hosts/local/containers/:id', () => {
     const res = await agent.delete('/api/hosts/local/containers/container-123');
     expect(res.status).toBe(200);
     expect(mockContainer.remove).toHaveBeenCalledOnce();
+  });
+});
+
+describe('GET /api/hosts/local/containers/:id/compose', () => {
+  const fullInspect = {
+    Name: '/web',
+    Image: 'sha256:abc',
+    Config: { Image: 'nginx:alpine', Env: ['TZ=UTC'], Cmd: ['nginx'], Labels: {} },
+    HostConfig: {
+      PortBindings: { '80/tcp': [{ HostIp: '', HostPort: '8080' }] },
+      RestartPolicy: { Name: 'unless-stopped' },
+      NetworkMode: 'bridge',
+    },
+    NetworkSettings: { Networks: { bridge: {} } },
+    Mounts: [],
+  };
+
+  it('requires authentication', async () => {
+    const res = await request(app).get('/api/hosts/local/containers/container-123/compose');
+    expect(res.status).toBe(401);
+  });
+
+  it('translates the container into a suggested name and compose file', async () => {
+    mockContainer.inspect.mockResolvedValueOnce(fullInspect);
+    mockImage.inspect.mockResolvedValueOnce({ Config: { Cmd: ['nginx'], Env: [] } });
+    const { agent } = await createAdminAgent(app);
+    const res = await agent.get('/api/hosts/local/containers/container-123/compose');
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('web');
+    expect(res.body.compose).toContain('image: nginx:alpine');
+    expect(res.body.compose).toContain('8080:80');
+    expect(res.body.compose).toContain('restart: unless-stopped');
+    // Command matches the image default, so it is left out.
+    expect(res.body.compose).not.toContain('command:');
+  });
+
+  it('still returns a compose file when the image inspect is unavailable', async () => {
+    mockContainer.inspect.mockResolvedValueOnce(fullInspect);
+    mockImage.inspect.mockRejectedValueOnce(new Error('no such image'));
+    const { agent } = await createAdminAgent(app);
+    const res = await agent.get('/api/hosts/local/containers/container-123/compose');
+    expect(res.status).toBe(200);
+    expect(res.body.compose).toContain('command:');
   });
 });
 
