@@ -318,12 +318,14 @@ export default function ContainerDetail() {
           <Descriptions.Item label="Mounts" span={2}>
             {info?.Mounts.length ? (
               <Space size={4} wrap split=",">
-                {info.Mounts.map((m, i) => (
-                  <span key={i}>
-                    {m.Name ? <Link to="/volumes">{m.Name}</Link> : m.Source}
-                    {`→${m.Destination}`}
-                  </span>
-                ))}
+                {[...info.Mounts]
+                  .sort((a, b) => a.Destination.localeCompare(b.Destination))
+                  .map((m) => (
+                    <span key={m.Destination}>
+                      {m.Name ? <Link to="/volumes">{m.Name}</Link> : m.Source}
+                      {`→${m.Destination}`}
+                    </span>
+                  ))}
               </Space>
             ) : (
               '—'

@@ -29,10 +29,11 @@ class Api {
       window.location.href = '/login';
     }
 
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    const data = (await res.json().catch(() => null)) as { error?: string; details?: string[] } | null;
 
     if (!res.ok) {
-      throw new ApiError(res.status, data?.error ?? `Error ${res.status}`);
+      const detail = data?.details?.length ? data.details.join('; ') : undefined;
+      throw new ApiError(res.status, detail ?? data?.error ?? `Error ${res.status}`);
     }
 
     return data as T;
