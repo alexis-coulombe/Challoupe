@@ -36,6 +36,16 @@ class ContainersApi {
   }
 
   /**
+   * Build a single-service compose file from this container, plus a suggested stack name
+   * @param hostId string
+   * @param id string
+   * @returns { name, compose }
+   */
+  compose(hostId: string, id: string) {
+    return api.get<{ name: string; compose: string }>(`/hosts/${hostId}/containers/${id}/compose`);
+  }
+
+  /**
    * Create a new container
    * @param hostId string
    * @param body ContainerCreateRequest

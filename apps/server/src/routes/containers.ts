@@ -7,6 +7,7 @@ const router = Router();
 router.get('/', c.list);
 router.post('/', requirePermission('manageContainers'), c.create);
 router.get('/:id', c.getOne);
+router.get('/:id/compose', c.compose);
 router.get('/:id/logs', c.logs);
 router.post('/:id/actions/:action', requirePermission('manageContainers'), c.action);
 router.delete<{ id: string }>('/:id', requirePermission('manageContainers'), c.remove);

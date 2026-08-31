@@ -159,9 +159,10 @@ export default function StackEdit() {
   const { data: settings } = useAppSettings();
   const aiEnabled = settings?.featureFlags.aiAssistant !== false && hasPermission(user, 'useAi');
 
-  // The App Store hands off a template here (pick app → land in the editor with it loaded)
-  // instead of deploying blind, since a template's placeholder password/port/timezone
-  // almost always needs a look before it's actually deployed.
+  // The App Store and a container's "Create stack from container" button both hand
+  // off a compose file here (pick app / container → land in the editor with it
+  // loaded) instead of deploying blind, since placeholder passwords, ports and
+  // bind-mount paths almost always need a look before it's actually deployed.
   const incomingTemplate = isNew ? (location.state as { name?: string; compose?: string } | null) : null;
 
   const [name, setName] = useState(routeName ?? incomingTemplate?.name ?? '');

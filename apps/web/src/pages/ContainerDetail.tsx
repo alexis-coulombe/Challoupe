@@ -16,6 +16,7 @@ import {
   Typography,
 } from 'antd';
 import {
+  AppstoreOutlined,
   ArrowLeftOutlined,
   CaretRightOutlined,
   LoadingOutlined,
@@ -200,6 +201,7 @@ export default function ContainerDetail() {
   const { user } = useAuth();
   const { hostId } = useHost();
   const canManage = hasPermission(user, 'manageContainers');
+  const canManageStacks = hasPermission(user, 'manageStacks');
   const canExec = hasPermission(user, 'exec');
 
   const { data: settings } = useAppSettings();
@@ -222,6 +224,12 @@ export default function ContainerDetail() {
       message.success('Container deleted');
       navigate('/containers');
     },
+    onError: (err) => message.error(err.message),
+  });
+
+  const stackMutation = useMutation({
+    mutationFn: () => containersApi.compose(hostId, id!),
+    onSuccess: ({ name, compose }) => navigate('/stacks/new', { state: { name, compose } }),
     onError: (err) => message.error(err.message),
   });
 
@@ -251,6 +259,16 @@ export default function ContainerDetail() {
         {state && <Tag color={CONTAINER_STATE_COLORS[state] ?? 'default'}>{state}</Tag>}
 
         {name && <FavoriteButton type="container" id={id} label={name} />}
+
+        {canManageStacks && (
+          <Button
+            icon={<AppstoreOutlined />}
+            loading={stackMutation.isPending}
+            onClick={() => stackMutation.mutate()}
+          >
+            Create stack from container
+          </Button>
+        )}
 
         {canManage &&
           (running ? (
